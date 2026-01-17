@@ -58,12 +58,6 @@ def modificar_cita(telefono: str, fecha: str = "", nuevo_servicio: str = "", agr
         db.close()
 
 
-def generar_pago(servicio: str, monto: float, telefono: str = "") -> dict:
-    """Generar link de pago con el proveedor configurado"""
-    from payments import crear_pago
-    return crear_pago(telefono, servicio, monto)
-
-
 def guardar_memoria(telefono: str, historial: str) -> str:
     """Guardar historial de conversación del usuario"""
     db = get_db()
@@ -88,5 +82,4 @@ TOOLS_MAP = {
     "ver_citas": ver_citas,
     "cancelar_cita": cancelar_cita,
     "modificar_cita": modificar_cita,
-    "generar_pago": generar_pago,
 }

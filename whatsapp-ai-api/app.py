@@ -13,8 +13,7 @@ from api.routers import (
     appointments,
     tools,
     stats,
-    conversations,
-    payments
+    conversations
 )
 
 from agent import responder
@@ -57,7 +56,6 @@ app.include_router(inventory.router, prefix=api_prefix)
 app.include_router(appointments.router, prefix=api_prefix)
 app.include_router(tools.router, prefix=api_prefix)
 app.include_router(conversations.router, prefix=api_prefix)
-app.include_router(payments.router, prefix=api_prefix)
 
 # Backwards compatibility - redirect old routes
 @app.get(f"{api_prefix}/availability")
@@ -135,8 +133,7 @@ async def root():
             "inventory": f"{api_prefix}/inventory",
             "appointments": f"{api_prefix}/appointments", 
             "tools": f"{api_prefix}/tools",
-            "conversations": f"{api_prefix}/conversations",
-            "payments": f"{api_prefix}/payments"
+            "conversations": f"{api_prefix}/conversations"
         }
     }
 

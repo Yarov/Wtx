@@ -10,8 +10,7 @@ from database import get_config, set_config, is_tool_enabled, set_tool_enabled, 
 from api.schemas.config import (
     ApiKeysModel, 
     PromptModel, 
-    ImprovePromptModel,
-    PaymentConfigModel
+    ImprovePromptModel
 )
 from auth import get_current_user
 from models import Usuario
@@ -160,29 +159,6 @@ Instrucciones:
         )
         
         return {"improved": response.choices[0].message.content.strip()}
-
-
-@router.get("/payments")
-async def get_payment_config(current_user: Usuario = Depends(get_current_user)):
-    """Get payment configuration"""
-    stripe_key = get_config("stripe_secret_key", "")
-    mp_token = get_config("mercadopago_access_token", "")
-    return {
-        "payment_provider": get_config("payment_provider", "none"),
-        "stripe_secret_key": stripe_key[:12] + "..." if stripe_key else "",
-        "mercadopago_access_token": mp_token[:12] + "..." if mp_token else "",
-        "payment_currency": get_config("payment_currency", "MXN"),
-    }
-
-
-@router.put("/payments")
-async def update_payment_config(config: PaymentConfigModel, current_user: Usuario = Depends(get_current_user)):
-    """Update payment configuration"""
-    data = config.dict()
-    for key, value in data.items():
-        if value and not value.endswith("..."):
-            set_config(key, value)
-    return {"status": "ok"}
 
 
 @router.get("/agent-status")

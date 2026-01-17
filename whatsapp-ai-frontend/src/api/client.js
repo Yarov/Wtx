@@ -85,13 +85,6 @@ export const conversationsApi = {
   deleteConversation: (phone) => api.delete(`/conversations/${phone}`),
 }
 
-export const paymentsApi = {
-  getPayments: () => api.get('/payments'),
-  updateStatus: (id, estado) => api.patch(`/payments/${id}/status`, { estado }),
-  getConfig: () => api.get('/config/payments'),
-  updateConfig: (data) => api.put('/config/payments', data),
-}
-
 export const statsApi = {
   getDashboard: () => api.get('/stats'),
 }
