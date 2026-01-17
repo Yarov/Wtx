@@ -5,13 +5,12 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
-import ApiKeys from './pages/ApiKeys'
+import Settings from './pages/Settings'
 import Agent from './pages/Agent'
 import Inventory from './pages/Inventory'
 import Appointments from './pages/Appointments'
 import Conversations from './pages/Conversations'
 import Schedule from './pages/Schedule'
-import WhatsAppConfig from './pages/WhatsAppConfig'
 import Contactos from './pages/Contactos'
 import Campanas from './pages/Campanas'
 
@@ -25,8 +24,7 @@ function App() {
           
           <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route index element={<Dashboard />} />
-            <Route path="api-keys" element={<ApiKeys />} />
-            <Route path="whatsapp" element={<WhatsAppConfig />} />
+            <Route path="settings" element={<Settings />} />
             <Route path="agent" element={<Agent />} />
             <Route path="inventory" element={<Inventory />} />
             <Route path="appointments" element={<Appointments />} />
