@@ -39,6 +39,42 @@ export const configApi = {
   updateApiKeys: (data) => api.put('/config/api-keys', data),
 }
 
+export const whatsappApi = {
+  getConfig: () => api.get('/config/whatsapp'),
+  updateConfig: (data) => api.put('/config/whatsapp', data),
+  testConnection: () => api.post('/config/whatsapp/test'),
+}
+
+export const contactosApi = {
+  list: (params = {}) => api.get('/contactos', { params }),
+  get: (id) => api.get(`/contactos/${id}`),
+  create: (data) => api.post('/contactos', data),
+  update: (id, data) => api.put(`/contactos/${id}`, data),
+  delete: (id) => api.delete(`/contactos/${id}`),
+  sync: () => api.post('/contactos/sync'),
+  limpiarDuplicados: () => api.post('/contactos/limpiar-duplicados'),
+  verificarActivos: () => api.post('/contactos/verificar-activos'),
+  stats: () => api.get('/contactos/stats'),
+  exportCsv: () => api.get('/contactos/export/csv', { responseType: 'blob' }),
+}
+
+export const campanasApi = {
+  list: (params = {}) => api.get('/campanas', { params }),
+  get: (id) => api.get(`/campanas/${id}`),
+  create: (data) => api.post('/campanas', data),
+  update: (id, data) => api.put(`/campanas/${id}`, data),
+  delete: (id) => api.delete(`/campanas/${id}`),
+  iniciar: (id) => api.post(`/campanas/${id}/iniciar`),
+  pausar: (id) => api.post(`/campanas/${id}/pausar`),
+  reanudar: (id) => api.post(`/campanas/${id}/reanudar`),
+  cancelar: (id) => api.post(`/campanas/${id}/cancelar`),
+  destinatarios: (id, params = {}) => api.get(`/campanas/${id}/destinatarios`, { params }),
+  preview: (id) => api.post(`/campanas/${id}/preview`),
+  enviarPrueba: (data) => api.post('/campanas/enviar-prueba', data),
+  mejorarMensaje: (data) => api.post('/campanas/mejorar-mensaje', data),
+  stats: () => api.get('/campanas/stats'),
+}
+
 export const toolsApi = {
   getTools: () => api.get('/tools'),
   updateTool: (name, data) => api.put(`/tools/${name}`, data),

@@ -174,3 +174,45 @@ async def set_agent_status(data: dict, current_user: Usuario = Depends(get_curre
     enabled = data.get("enabled", True)
     set_config("agent_enabled", str(enabled).lower())
     return {"status": "ok", "enabled": enabled}
+
+
+@router.get("/whatsapp")
+async def get_whatsapp_config(current_user: Usuario = Depends(get_current_user)):
+    """Get WhatsApp configuration"""
+    api_key = get_config("whatsapp_api_key", "")
+    return {
+        "provider": get_config("whatsapp_provider", "waha"),
+        "api_url": get_config("whatsapp_api_url", ""),
+        "api_key": api_key[:8] + "..." if len(api_key) > 8 else api_key,
+        "session": get_config("whatsapp_session", "default"),
+        "auto_sync": get_config("whatsapp_auto_sync", "true").lower() == "true",
+        "sync_interval": int(get_config("whatsapp_sync_interval", "21600")),
+        "last_sync": get_config("whatsapp_last_sync", ""),
+    }
+
+
+@router.put("/whatsapp")
+async def update_whatsapp_config(data: dict, current_user: Usuario = Depends(get_current_user)):
+    """Update WhatsApp configuration"""
+    allowed_keys = ["whatsapp_provider", "whatsapp_api_url", "whatsapp_api_key", 
+                    "whatsapp_session", "whatsapp_auto_sync", "whatsapp_sync_interval"]
+    
+    for key in allowed_keys:
+        # Mapear keys del frontend a keys de config
+        frontend_key = key.replace("whatsapp_", "")
+        if frontend_key in data:
+            value = data[frontend_key]
+            # No guardar API key si viene enmascarada
+            if key == "whatsapp_api_key" and value.endswith("..."):
+                continue
+            set_config(key, str(value))
+    
+    return {"status": "ok"}
+
+
+@router.post("/whatsapp/test")
+async def test_whatsapp_connection(current_user: Usuario = Depends(get_current_user)):
+    """Test WhatsApp connection"""
+    from whatsapp_service import whatsapp_service
+    result = await whatsapp_service.test_connection()
+    return result

@@ -3,7 +3,6 @@ WhatsApp AI Agent - Clean Architecture
 """
 from fastapi import FastAPI, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
-from twilio.twiml.messaging_response import MessagingResponse
 
 # Import routers
 from api.routers import (
@@ -13,7 +12,9 @@ from api.routers import (
     appointments,
     tools,
     stats,
-    conversations
+    conversations,
+    contactos,
+    campanas
 )
 
 from agent import responder
@@ -36,6 +37,14 @@ app = FastAPI(
     description="Clean Architecture WhatsApp AI Agent"
 )
 
+# Startup event para iniciar el campaign worker
+@app.on_event("startup")
+async def startup_event():
+    import asyncio
+    from campaign_engine import campaign_worker
+    asyncio.create_task(campaign_worker())
+    logger.info("🚀 Campaign worker scheduled")
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -56,6 +65,8 @@ app.include_router(inventory.router, prefix=api_prefix)
 app.include_router(appointments.router, prefix=api_prefix)
 app.include_router(tools.router, prefix=api_prefix)
 app.include_router(conversations.router, prefix=api_prefix)
+app.include_router(contactos.router, prefix=api_prefix)
+app.include_router(campanas.router, prefix=api_prefix)
 
 # Backwards compatibility - redirect old routes
 @app.get(f"{api_prefix}/availability")
@@ -138,57 +149,91 @@ async def root():
     }
 
 
-# WhatsApp webhook
+# WhatsApp webhook - Soporta WAHA, Evolution API y Twilio
 @app.post("/whatsapp")
 async def whatsapp_webhook(request: Request):
     """
-    WhatsApp webhook via Twilio
+    WhatsApp webhook unificado para WAHA, Evolution API y Twilio
     """
+    from whatsapp_service import parse_webhook_message, whatsapp_service
+    from database import get_config
+    
     try:
-        form_data = await request.form()
-        data = dict(form_data)
+        # Intentar parsear como JSON (WAHA/Evolution)
+        content_type = request.headers.get("content-type", "")
+        
+        if "application/json" in content_type:
+            data = await request.json()
+        else:
+            # Fallback a form data (Twilio)
+            form_data = await request.form()
+            data = dict(form_data)
         
         # Status callbacks - ignore
         if "MessageStatus" in data:
-            logger.info(f"Status callback: {data.get('MessageStatus')} for {data.get('To')}")
             return Response(content="", media_type="text/plain", status_code=200)
         
-        logger.info(f"Incoming message: {data}")
+        # Parsear mensaje según el formato
+        parsed = parse_webhook_message(data)
         
-        incoming_msg = data.get("Body", "")
-        from_number = data.get("From", "")
+        if not parsed:
+            logger.debug(f"Webhook ignorado (no es mensaje válido): {data.get('event', 'unknown')}")
+            return Response(content='{"status": "ignored"}', media_type="application/json", status_code=200)
         
-        if not incoming_msg or not from_number:
-            logger.warning(f"Incomplete data: Body={incoming_msg}, From={from_number}")
-            twiml = MessagingResponse()
-            return Response(content=str(twiml), media_type="application/xml")
+        from_number = parsed["phone"]
+        incoming_msg = parsed["message"]
+        contact_name = parsed.get("name", "")
         
-        logger.info(f"💬 Message from {from_number}: {incoming_msg}")
+        logger.info(f"💬 Message from {from_number} ({contact_name}): {incoming_msg}")
+        
+        # Guardar/actualizar contacto automáticamente
+        try:
+            from api.routers.contactos import guardar_contacto_mensaje
+            guardar_contacto_mensaje(from_number, contact_name)
+        except Exception as e:
+            logger.warning(f"Error guardando contacto: {e}")
+        
+        # Marcar como respondido en campañas activas
+        try:
+            from campaign_engine import marcar_respondido
+            await marcar_respondido(from_number)
+        except Exception as e:
+            logger.warning(f"Error marcando respondido: {e}")
         
         # Check if agent is enabled
-        from database import get_config
         agent_enabled = get_config("agent_enabled", "true").lower() == "true"
         
         if not agent_enabled:
             logger.info("🔴 Agent is disabled, not responding")
-            twiml = MessagingResponse()
-            return Response(content=str(twiml), media_type="application/xml")
+            return Response(content='{"status": "agent_disabled"}', media_type="application/json", status_code=200)
         
+        # Generar respuesta con IA
         respuesta = responder(incoming_msg, from_number)
         logger.info(f"🤖 Response: {respuesta[:100]}...")
-
-        twiml = MessagingResponse()
-        twiml.message(respuesta)
         
-        return Response(
-            content=str(twiml),
-            media_type="application/xml"
-        )
+        # Enviar respuesta via WAHA/Evolution
+        if whatsapp_service.is_configured():
+            result = await whatsapp_service.send_message(from_number, respuesta)
+            if result["success"]:
+                logger.info(f"✅ Mensaje enviado a {from_number}")
+            else:
+                logger.error(f"❌ Error enviando mensaje: {result.get('error')}")
+            return Response(content='{"status": "ok"}', media_type="application/json", status_code=200)
+        else:
+            # WhatsApp no configurado
+            logger.warning("⚠️ WhatsApp no configurado, no se puede enviar respuesta")
+            return Response(content='{"status": "whatsapp_not_configured"}', media_type="application/json", status_code=200)
+            
     except Exception as e:
         logger.error(f"Webhook error: {str(e)}", exc_info=True)
-        twiml = MessagingResponse()
-        twiml.message("Lo siento, ocurrió un error. Intenta de nuevo.")
-        return Response(content=str(twiml), media_type="application/xml")
+        return Response(content='{"status": "error"}', media_type="application/json", status_code=500)
+
+
+# Webhook alternativo para compatibilidad
+@app.post("/api/webhook/whatsapp")
+async def whatsapp_webhook_api(request: Request):
+    """Alias del webhook en /api/webhook/whatsapp"""
+    return await whatsapp_webhook(request)
 
 
 if __name__ == "__main__":
