@@ -12,7 +12,8 @@ import {
   Bot,
   LogOut,
   User,
-  Power
+  Power,
+  Zap
 } from 'lucide-react'
 
 const mainNavigation = [

@@ -2,7 +2,7 @@ import os
 import json
 from openai import OpenAI
 from dotenv import load_dotenv
-from tools import consultar_inventario, agendar_cita, ver_citas, cancelar_cita, modificar_cita, generar_pago, guardar_memoria, obtener_memoria
+from tools import consultar_inventario, agendar_cita, ver_citas, cancelar_cita, modificar_cita, guardar_memoria, obtener_memoria
 from database import get_config, is_tool_enabled
 
 load_dotenv()
@@ -52,24 +52,6 @@ def get_enabled_tools() -> list:
                 "function": {
                     "name": "ver_citas",
                     "description": "Ver las citas programadas del cliente"
-                }
-            }
-        },
-        {
-            "id": "generar_pago",
-            "definition": {
-                "type": "function",
-                "function": {
-                    "name": "generar_pago",
-                    "description": "Generar link de pago para un servicio",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "servicio": {"type": "string", "description": "Nombre del servicio"},
-                            "monto": {"type": "number", "description": "Monto a pagar"}
-                        },
-                        "required": ["servicio", "monto"]
-                    }
                 }
             }
         },
@@ -129,9 +111,6 @@ def execute_tool(name: str, args: dict, telefono: str):
     elif name == "modificar_cita":
         args["telefono"] = telefono
         return modificar_cita(**args)
-    elif name == "generar_pago":
-        args["telefono"] = telefono
-        return generar_pago(**args)
     else:
         return {"error": "Función no encontrada"}
 
