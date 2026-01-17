@@ -168,3 +168,130 @@ class Usuario(Base):
             "is_admin": self.is_admin,
             "created_at": self.created_at.isoformat() if self.created_at else None
         }
+
+
+class Contacto(Base):
+    __tablename__ = "contactos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    telefono = Column(String(20), unique=True, nullable=False, index=True)
+    nombre = Column(String(100))
+    email = Column(String(100))
+    foto_url = Column(String(500))
+    
+    primer_mensaje = Column(DateTime)
+    ultimo_mensaje = Column(DateTime)
+    total_mensajes = Column(Integer, default=0)
+    
+    estado = Column(String(20), default="activo")  # activo, inactivo, bloqueado
+    tags = Column(Text)  # JSON array
+    notas = Column(Text)
+    
+    origen = Column(String(50))  # whatsapp_sync, importado, manual, mensaje
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        Index('idx_contacto_estado', 'estado'),
+        Index('idx_contacto_ultimo_mensaje', 'ultimo_mensaje'),
+    )
+
+    def to_dict(self):
+        import json
+        return {
+            "id": self.id,
+            "telefono": self.telefono,
+            "nombre": self.nombre,
+            "email": self.email,
+            "foto_url": self.foto_url,
+            "primer_mensaje": self.primer_mensaje.isoformat() if self.primer_mensaje else None,
+            "ultimo_mensaje": self.ultimo_mensaje.isoformat() if self.ultimo_mensaje else None,
+            "total_mensajes": self.total_mensajes,
+            "estado": self.estado,
+            "tags": json.loads(self.tags) if self.tags else [],
+            "notas": self.notas,
+            "origen": self.origen,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class Campana(Base):
+    __tablename__ = "campanas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(100), nullable=False)
+    descripcion = Column(Text)
+    mensaje = Column(Text, nullable=False)
+    
+    tipo = Column(String(20), default="unica")  # unica, automatica
+    estado = Column(String(20), default="borrador")  # borrador, programada, enviando, pausada, completada, cancelada
+    
+    programada_para = Column(DateTime)
+    velocidad = Column(Integer, default=30)  # segundos entre mensajes
+    
+    filtro_tipo = Column(String(20))  # todos, inactivos, tag, manual
+    filtro_valor = Column(Text)  # JSON
+    
+    total_destinatarios = Column(Integer, default=0)
+    enviados = Column(Integer, default=0)
+    fallidos = Column(Integer, default=0)
+    respondidos = Column(Integer, default=0)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    iniciada_at = Column(DateTime)
+    completada_at = Column(DateTime)
+    ultimo_envio = Column(DateTime)
+
+    def to_dict(self):
+        import json
+        return {
+            "id": self.id,
+            "nombre": self.nombre,
+            "descripcion": self.descripcion,
+            "mensaje": self.mensaje,
+            "tipo": self.tipo,
+            "estado": self.estado,
+            "programada_para": self.programada_para.isoformat() if self.programada_para else None,
+            "velocidad": self.velocidad,
+            "filtro_tipo": self.filtro_tipo,
+            "filtro_valor": json.loads(self.filtro_valor) if self.filtro_valor else None,
+            "total_destinatarios": self.total_destinatarios,
+            "enviados": self.enviados,
+            "fallidos": self.fallidos,
+            "respondidos": self.respondidos,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "iniciada_at": self.iniciada_at.isoformat() if self.iniciada_at else None,
+            "completada_at": self.completada_at.isoformat() if self.completada_at else None,
+        }
+
+
+class CampanaDestinatario(Base):
+    __tablename__ = "campana_destinatarios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    campana_id = Column(Integer, index=True)
+    contacto_id = Column(Integer, index=True)
+    
+    estado = Column(String(20), default="pendiente")  # pendiente, enviado, fallido, respondido
+    error = Column(Text)
+    
+    enviado_at = Column(DateTime)
+    respondido_at = Column(DateTime)
+
+    __table_args__ = (
+        Index('idx_campana_dest_campana', 'campana_id'),
+        Index('idx_campana_dest_estado', 'estado'),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "campana_id": self.campana_id,
+            "contacto_id": self.contacto_id,
+            "estado": self.estado,
+            "error": self.error,
+            "enviado_at": self.enviado_at.isoformat() if self.enviado_at else None,
+            "respondido_at": self.respondido_at.isoformat() if self.respondido_at else None,
+        }

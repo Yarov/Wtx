@@ -13,18 +13,22 @@ import {
   LogOut,
   User,
   Power,
-  Zap
+  Zap,
+  MessageCircle
 } from 'lucide-react'
 
 const mainNavigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Agente IA', href: '/agent', icon: Bot },
+  { name: 'Contactos', href: '/contactos', icon: User },
+  { name: 'Campañas', href: '/campanas', icon: Zap },
   { name: 'Inventario', href: '/inventory', icon: Package },
   { name: 'Citas', href: '/appointments', icon: Calendar },
   { name: 'Conversaciones', href: '/conversations', icon: MessagesSquare },
 ]
 
 const configNavigation = [
+  { name: 'WhatsApp', href: '/whatsapp', icon: MessageCircle },
   { name: 'API Keys', href: '/api-keys', icon: Key },
   { name: 'Horarios', href: '/schedule', icon: Clock },
 ]
