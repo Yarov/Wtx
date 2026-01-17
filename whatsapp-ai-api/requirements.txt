@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+twilio
+openai
+python-dotenv
+python-multipart
+stripe
+mercadopago
+sqlalchemy
+psycopg2-binary
+alembic
