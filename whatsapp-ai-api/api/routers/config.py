@@ -59,6 +59,7 @@ async def get_prompt(current_user: Usuario = Depends(get_current_user)):
         "model": get_config("model", "gpt-4o-mini"),
         "temperature": float(get_config("temperature", "0.7")),
         "max_tokens": int(get_config("max_tokens", "500")),
+        "response_delay": int(get_config("response_delay", "3")),
         "business_name": get_config("business_name", ""),
         "business_type": get_config("business_type", ""),
     }

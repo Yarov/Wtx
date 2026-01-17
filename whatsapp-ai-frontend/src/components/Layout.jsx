@@ -22,8 +22,7 @@ import {
 
 const mainNavigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Prompt', href: '/prompt', icon: MessageSquare },
-  { name: 'Tools', href: '/tools', icon: Wrench },
+  { name: 'Agente IA', href: '/agent', icon: Bot },
   { name: 'Inventario', href: '/inventory', icon: Package },
   { name: 'Citas', href: '/appointments', icon: Calendar },
   { name: 'Conversaciones', href: '/conversations', icon: MessagesSquare },
