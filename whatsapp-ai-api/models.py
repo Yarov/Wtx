@@ -21,7 +21,7 @@ def get_db():
 
 class Cita(Base):
     __tablename__ = "citas"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     telefono = Column(String, index=True)
     fecha = Column(String, index=True)
@@ -29,7 +29,7 @@ class Cita(Base):
     servicio = Column(String)
     estado = Column(String, default="pendiente")
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -43,12 +43,12 @@ class Cita(Base):
 
 class Inventario(Base):
     __tablename__ = "inventario"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     producto = Column(String)
     stock = Column(Integer, default=0)
     precio = Column(Float, default=0.0)
-    
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -60,7 +60,7 @@ class Inventario(Base):
 
 class Memoria(Base):
     __tablename__ = "memoria"
-    
+
     telefono = Column(String, primary_key=True, index=True)
     historial = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -69,13 +69,13 @@ class Memoria(Base):
 
 class Disponibilidad(Base):
     __tablename__ = "disponibilidad"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     dia_semana = Column(Integer)  # 0=Lunes, 6=Domingo
     hora_inicio = Column(String)
     hora_fin = Column(String)
     activo = Column(Boolean, default=True)
-    
+
     def to_dict(self):
         dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
         return {
@@ -90,12 +90,12 @@ class Disponibilidad(Base):
 
 class HorarioBloqueado(Base):
     __tablename__ = "horarios_bloqueados"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     fecha = Column(String, index=True)
     hora = Column(String)
     motivo = Column(String)
-    
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -107,7 +107,7 @@ class HorarioBloqueado(Base):
 
 class Pago(Base):
     __tablename__ = "pagos"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     telefono = Column(String, index=True)
     servicio = Column(String)
@@ -118,7 +118,7 @@ class Pago(Base):
     payment_id = Column(String)
     payment_url = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -135,14 +135,36 @@ class Pago(Base):
 
 class Configuracion(Base):
     __tablename__ = "configuracion"
-    
+
     clave = Column(String, primary_key=True)
     valor = Column(Text)
 
 
 class ToolsConfig(Base):
     __tablename__ = "tools_config"
-    
+
     nombre = Column(String, primary_key=True)
     habilitado = Column(Boolean, default=True)
     descripcion = Column(String)
+
+
+class Usuario(Base):
+    __tablename__ = "usuarios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True)
+    username = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
+    is_active = Column(Boolean, default=True)
+    is_admin = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "email": self.email,
+            "username": self.username,
+            "is_active": self.is_active,
+            "is_admin": self.is_admin,
+            "created_at": self.created_at.isoformat() if self.created_at else None
+        }
