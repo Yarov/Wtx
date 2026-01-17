@@ -120,7 +120,6 @@ export default function Tools() {
   const [activeTab, setActiveTab] = useState('flow')
   const [selectedTool, setSelectedTool] = useState(null)
   const [expandedStep, setExpandedStep] = useState('decide')
-
   useEffect(() => {
     loadTools()
   }, [])
@@ -260,10 +259,12 @@ export default function Tools() {
               <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{tool.description}</p>
             </div>
           </div>
-          <Toggle
-            enabled={tool.enabled}
-            onChange={(e) => { e.stopPropagation(); toggleTool(tool.id); }}
-          />
+          <div onClick={(e) => e.stopPropagation()}>
+            <Toggle
+              enabled={tool.enabled}
+              onChange={() => toggleTool(tool.id)}
+            />
+          </div>
         </div>
 
         {/* Expanded details */}
