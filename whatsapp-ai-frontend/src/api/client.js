@@ -59,6 +59,16 @@ export const contactosApi = {
   exportCsv: () => api.get('/contactos/export/csv', { responseType: 'blob' }),
 }
 
+export const businessApi = {
+  getConfig: () => api.get('/business/config'),
+  updateConfig: (data) => api.put('/business/config', data),
+  getModules: () => api.get('/business/modules'),
+  setupChat: (data) => api.post('/business/setup-chat', data),
+  setupApply: (data) => api.post('/business/setup-apply', data),
+  getOnboardingStatus: () => api.get('/business/onboarding-status'),
+  skipOnboarding: () => api.post('/business/skip-onboarding'),
+}
+
 export const jobsApi = {
   list: (params = {}) => api.get('/jobs', { params }),
   get: (id) => api.get(`/jobs/${id}`),

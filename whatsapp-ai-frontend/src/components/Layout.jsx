@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Outlet, NavLink } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { toolsApi } from '../api/client'
+import { toolsApi, businessApi } from '../api/client'
 import { 
   LayoutDashboard, 
   Package, 
@@ -15,28 +15,39 @@ import {
   Settings
 } from 'lucide-react'
 
-const mainNavigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Agente IA', href: '/agent', icon: Bot },
-  { name: 'Contactos', href: '/contactos', icon: User },
-  { name: 'Campañas', href: '/campanas', icon: Zap },
-  { name: 'Inventario', href: '/inventory', icon: Package },
-  { name: 'Citas', href: '/appointments', icon: Calendar },
-  { name: 'Conversaciones', href: '/conversations', icon: MessagesSquare },
+const BASE_NAVIGATION = [
+  { name: 'Dashboard', href: '/', icon: LayoutDashboard, always: true },
+  { name: 'Agente IA', href: '/agent', icon: Bot, always: true },
+  { name: 'Contactos', href: '/contactos', icon: User, always: true },
+  { name: 'Campañas', href: '/campanas', icon: Zap, always: true },
+  { name: 'Inventario', href: '/inventory', icon: Package, module: 'inventory' },
+  { name: 'Citas', href: '/appointments', icon: Calendar, module: 'appointments' },
+  { name: 'Conversaciones', href: '/conversations', icon: MessagesSquare, always: true },
 ]
 
-const configNavigation = [
-  { name: 'Configuración', href: '/settings', icon: Settings },
-  { name: 'Horarios', href: '/schedule', icon: Clock },
+const CONFIG_NAVIGATION = [
+  { name: 'Configuración', href: '/settings', icon: Settings, always: true },
+  { name: 'Horarios', href: '/schedule', icon: Clock, module: 'schedule' },
 ]
 
 export default function Layout() {
   const { user, logout } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
   const [agentEnabled, setAgentEnabled] = useState(true)
   const [agentLoading, setAgentLoading] = useState(false)
+  const [modules, setModules] = useState({ inventory: true, appointments: true, schedule: true })
+  const [modulesLoaded, setModulesLoaded] = useState(false)
 
   useEffect(() => {
     loadAgentStatus()
+    loadModules()
+  }, [location.pathname])
+
+  useEffect(() => {
+    const handleModulesChanged = () => loadModules()
+    window.addEventListener('modules-changed', handleModulesChanged)
+    return () => window.removeEventListener('modules-changed', handleModulesChanged)
   }, [])
 
   const loadAgentStatus = async () => {
@@ -47,6 +58,31 @@ export default function Layout() {
       console.error('Error loading agent status:', error)
     }
   }
+
+  const loadModules = async () => {
+    try {
+      const response = await businessApi.getModules()
+      setModules(response.data.modules)
+      setModulesLoaded(true)
+      
+      // Si no ha completado onboarding, redirigir a setup
+      if (!response.data.onboarding_completed) {
+        navigate('/setup')
+      }
+    } catch (error) {
+      console.error('Error loading modules:', error)
+      setModulesLoaded(true)
+    }
+  }
+
+  // Filtrar navegación según módulos activos
+  const mainNavigation = BASE_NAVIGATION.filter(item => 
+    item.always || (item.module && modules[item.module])
+  )
+  
+  const configNavigation = CONFIG_NAVIGATION.filter(item => 
+    item.always || (item.module && modules[item.module])
+  )
 
   const toggleAgent = async () => {
     setAgentLoading(true)
