@@ -6,8 +6,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import ApiKeys from './pages/ApiKeys'
-import Tools from './pages/Tools'
-import Prompt from './pages/Prompt'
+import Agent from './pages/Agent'
 import Inventory from './pages/Inventory'
 import Appointments from './pages/Appointments'
 import Conversations from './pages/Conversations'
@@ -25,8 +24,7 @@ function App() {
           <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="api-keys" element={<ApiKeys />} />
-            <Route path="tools" element={<Tools />} />
-            <Route path="prompt" element={<Prompt />} />
+            <Route path="agent" element={<Agent />} />
             <Route path="inventory" element={<Inventory />} />
             <Route path="appointments" element={<Appointments />} />
             <Route path="conversations" element={<Conversations />} />

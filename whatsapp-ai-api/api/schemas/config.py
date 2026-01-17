@@ -18,6 +18,7 @@ class PromptModel(BaseModel):
     model: Optional[str] = "gpt-4o-mini"
     temperature: Optional[float] = 0.7
     max_tokens: Optional[int] = 500
+    response_delay: Optional[int] = 3
     business_name: Optional[str] = ""
     business_type: Optional[str] = ""
 
