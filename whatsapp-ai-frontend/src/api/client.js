@@ -23,6 +23,7 @@ export const toolsApi = {
 export const promptApi = {
   getPrompt: () => api.get('/prompt'),
   updatePrompt: (data) => api.put('/prompt', data),
+  improvePrompt: (data) => api.post('/prompt/improve', data),
 }
 
 export const inventoryApi = {
@@ -30,6 +31,10 @@ export const inventoryApi = {
   createProduct: (data) => api.post('/inventory', data),
   updateProduct: (id, data) => api.put(`/inventory/${id}`, data),
   deleteProduct: (id) => api.delete(`/inventory/${id}`),
+  uploadInventory: (formData) => api.post('/inventory/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  confirmImport: (data) => api.post('/inventory/import', data),
 }
 
 export const appointmentsApi = {
