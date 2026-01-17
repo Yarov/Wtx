@@ -90,7 +90,7 @@ def init_default_data():
         # Configuración por defecto
         default_config = [
             ("system_prompt", """Eres un asistente de WhatsApp para una barbería/salón.
-Ofreces servicios, agendas citas, consultas inventario y generas pagos.
+Ofreces servicios, agendas citas y consultas inventario.
 Responde claro, corto y amable.
 Siempre saluda al cliente y ofrece ayuda."""),
             ("model", "gpt-4o-mini"),
@@ -98,10 +98,6 @@ Siempre saluda al cliente y ofrece ayuda."""),
             ("max_tokens", "500"),
             ("business_name", "Mi Negocio"),
             ("business_type", "barbería"),
-            ("payment_provider", "none"),
-            ("stripe_secret_key", ""),
-            ("mercadopago_access_token", ""),
-            ("payment_currency", "MXN"),
         ]
         
         for clave, valor in default_config:
@@ -114,7 +110,6 @@ Siempre saluda al cliente y ofrece ayuda."""),
             ("ver_citas", True, "Ver citas programadas del cliente"),
             ("cancelar_cita", True, "Cancelar citas existentes"),
             ("modificar_cita", True, "Modificar citas o agregar servicios"),
-            ("generar_pago", True, "Generar links de pago"),
         ]
         
         for nombre, habilitado, descripcion in default_tools:
