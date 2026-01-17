@@ -17,7 +17,7 @@ export default function Contactos() {
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState(null)
   const [cleaning, setCleaning] = useState(false)
-  const [verifying, setVerifying] = useState(false)
+  const [verifyJob, setVerifyJob] = useState(null)
   
   // Filtros
   const [buscar, setBuscar] = useState('')
@@ -34,7 +34,18 @@ export default function Contactos() {
   useEffect(() => {
     loadContactos()
     loadStats()
+    checkVerifyJobStatus()
   }, [page, estado])
+
+  // Polling para verificar estado del job
+  useEffect(() => {
+    if (verifyJob && (verifyJob.estado === 'pendiente' || verifyJob.estado === 'procesando')) {
+      const interval = setInterval(() => {
+        checkVerifyJobStatus()
+      }, 2000)
+      return () => clearInterval(interval)
+    }
+  }, [verifyJob])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -101,22 +112,40 @@ export default function Contactos() {
     }
   }
 
+  const checkVerifyJobStatus = async () => {
+    try {
+      const response = await contactosApi.verificarActivosEstado()
+      if (response.data.job) {
+        setVerifyJob(response.data.job)
+        // Si el job terminó, recargar datos
+        if (response.data.job.estado === 'completado') {
+          loadContactos()
+          loadStats()
+        }
+      }
+    } catch (error) {
+      console.error('Error checking job status:', error)
+    }
+  }
+
   const handleVerificarActivos = async () => {
-    if (!confirm('¿Verificar contactos sin nombre? Esto puede tardar varios minutos (verifica 100 contactos por vez).')) return
-    setVerifying(true)
-    setSyncResult(null)
+    if (verifyJob && (verifyJob.estado === 'pendiente' || verifyJob.estado === 'procesando')) {
+      alert('Ya hay una verificación en proceso')
+      return
+    }
+    if (!confirm('¿Verificar todos los contactos activos? Este proceso corre en segundo plano y puede tardar varios minutos.')) return
+    
     try {
       const response = await contactosApi.verificarActivos()
-      setSyncResult({ 
-        message: `Verificación completada: ${response.data.activos} activos, ${response.data.inactivos} inactivos. Pendientes: ${response.data.pendientes}` 
-      })
-      loadContactos()
-      loadStats()
-      setTimeout(() => setSyncResult(null), 10000)
+      if (response.data.job) {
+        setVerifyJob(response.data.job)
+      } else if (response.data.job_id) {
+        checkVerifyJobStatus()
+      }
+      setSyncResult({ message: response.data.message })
+      setTimeout(() => setSyncResult(null), 5000)
     } catch (error) {
-      setSyncResult({ error: error.response?.data?.detail || 'Error verificando contactos' })
-    } finally {
-      setVerifying(false)
+      setSyncResult({ error: error.response?.data?.detail || 'Error iniciando verificación' })
     }
   }
 
@@ -208,7 +237,11 @@ export default function Contactos() {
             <Download className="h-4 w-4 mr-2" />
             Exportar
           </Button>
-          <Button variant="secondary" onClick={handleVerificarActivos} loading={verifying}>
+          <Button 
+            variant="secondary" 
+            onClick={handleVerificarActivos} 
+            loading={verifyJob && (verifyJob.estado === 'pendiente' || verifyJob.estado === 'procesando')}
+          >
             Verificar activos
           </Button>
           <Button variant="secondary" onClick={handleLimpiarDuplicados} loading={cleaning}>
@@ -225,6 +258,46 @@ export default function Contactos() {
           </Button>
         </div>
       </div>
+
+      {/* Job de Verificación en Progreso */}
+      {verifyJob && (verifyJob.estado === 'pendiente' || verifyJob.estado === 'procesando') && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+              <span className="font-medium text-blue-800">Verificando contactos...</span>
+            </div>
+            <span className="text-sm text-blue-600">
+              {verifyJob.procesados} de {verifyJob.total} ({verifyJob.progreso}%)
+            </span>
+          </div>
+          <div className="w-full bg-blue-200 rounded-full h-2">
+            <div 
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${verifyJob.progreso}%` }}
+            />
+          </div>
+          <p className="text-xs text-blue-600 mt-2">
+            ✓ {verifyJob.exitosos} activos · ✗ {verifyJob.fallidos} inactivos
+          </p>
+        </div>
+      )}
+
+      {/* Job Completado */}
+      {verifyJob && verifyJob.estado === 'completado' && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p className="font-medium text-emerald-800">✓ Verificación completada</p>
+            <p className="text-sm text-emerald-600">{verifyJob.mensaje}</p>
+          </div>
+          <button 
+            onClick={() => setVerifyJob(null)}
+            className="text-emerald-600 hover:text-emerald-800"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Sync Result */}
       {syncResult && (

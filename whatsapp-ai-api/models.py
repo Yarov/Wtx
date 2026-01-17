@@ -295,3 +295,36 @@ class CampanaDestinatario(Base):
             "enviado_at": self.enviado_at.isoformat() if self.enviado_at else None,
             "respondido_at": self.respondido_at.isoformat() if self.respondido_at else None,
         }
+
+
+class BackgroundJob(Base):
+    """Jobs que corren en background (verificación de contactos, etc.)"""
+    __tablename__ = "background_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tipo = Column(String, index=True)  # verificar_contactos, sync_contactos, etc.
+    estado = Column(String, default="pendiente")  # pendiente, procesando, completado, error
+    total = Column(Integer, default=0)
+    procesados = Column(Integer, default=0)
+    exitosos = Column(Integer, default=0)
+    fallidos = Column(Integer, default=0)
+    mensaje = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "tipo": self.tipo,
+            "estado": self.estado,
+            "total": self.total,
+            "procesados": self.procesados,
+            "exitosos": self.exitosos,
+            "fallidos": self.fallidos,
+            "mensaje": self.mensaje,
+            "progreso": round((self.procesados / self.total * 100) if self.total > 0 else 0, 1),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+        }
