@@ -13,6 +13,7 @@ import Conversations from './pages/Conversations'
 import Schedule from './pages/Schedule'
 import Contactos from './pages/Contactos'
 import Campanas from './pages/Campanas'
+import Setup from './pages/Setup'
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/setup" element={<ProtectedRoute><Setup /></ProtectedRoute>} />
           
           <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route index element={<Dashboard />} />

@@ -116,6 +116,8 @@ ${sections.tone}
       await toolsApi.toggleTool(id, newEnabled)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+      // Notificar al Layout que recargue los módulos
+      window.dispatchEvent(new Event('modules-changed'))
     } catch (error) {
       console.error('Error toggling tool:', error)
       // Revert on error

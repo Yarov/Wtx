@@ -328,3 +328,38 @@ class BackgroundJob(Base):
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
+
+
+class BusinessConfig(Base):
+    """Configuración del negocio - determina módulos activos y contexto"""
+    __tablename__ = "business_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    business_name = Column(String, default="Mi Negocio")
+    business_type = Column(String, default="general")  # barberia, restaurante, tienda, servicios, otro
+    business_description = Column(Text, default="")
+    
+    # Módulos activos
+    has_inventory = Column(Boolean, default=True)
+    has_appointments = Column(Boolean, default=True)
+    has_schedule = Column(Boolean, default=True)
+    
+    # Estado del onboarding
+    onboarding_completed = Column(Boolean, default=False)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "business_name": self.business_name,
+            "business_type": self.business_type,
+            "business_description": self.business_description,
+            "has_inventory": self.has_inventory,
+            "has_appointments": self.has_appointments,
+            "has_schedule": self.has_schedule,
+            "onboarding_completed": self.onboarding_completed,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
