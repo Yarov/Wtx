@@ -54,8 +54,17 @@ export const contactosApi = {
   sync: () => api.post('/contactos/sync'),
   limpiarDuplicados: () => api.post('/contactos/limpiar-duplicados'),
   verificarActivos: () => api.post('/contactos/verificar-activos'),
+  verificarActivosEstado: () => api.get('/contactos/verificar-activos/estado'),
   stats: () => api.get('/contactos/stats'),
   exportCsv: () => api.get('/contactos/export/csv', { responseType: 'blob' }),
+}
+
+export const jobsApi = {
+  list: (params = {}) => api.get('/jobs', { params }),
+  get: (id) => api.get(`/jobs/${id}`),
+  getActivo: (tipo) => api.get(`/jobs/tipo/${tipo}/activo`),
+  getUltimo: (tipo) => api.get(`/jobs/tipo/${tipo}/ultimo`),
+  cancelar: (id) => api.delete(`/jobs/${id}`),
 }
 
 export const campanasApi = {

@@ -14,7 +14,8 @@ from api.routers import (
     stats,
     conversations,
     contactos,
-    campanas
+    campanas,
+    jobs
 )
 
 from agent import responder
@@ -67,6 +68,7 @@ app.include_router(tools.router, prefix=api_prefix)
 app.include_router(conversations.router, prefix=api_prefix)
 app.include_router(contactos.router, prefix=api_prefix)
 app.include_router(campanas.router, prefix=api_prefix)
+app.include_router(jobs.router, prefix=api_prefix)
 
 # Backwards compatibility - redirect old routes
 @app.get(f"{api_prefix}/availability")

@@ -1,7 +1,7 @@
 """
 Router para gestión de contactos
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
 from datetime import datetime, timedelta
@@ -366,51 +366,82 @@ async def limpiar_duplicados(
 
 
 @router.post("/verificar-activos")
-async def verificar_contactos_activos(
+async def iniciar_verificacion_activos(
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
     """
-    Verificar qué contactos siguen activos en WhatsApp.
-    Los que no existen se marcan como 'inactivo'.
-    NOTA: Este proceso es lento (0.5s por contacto) para no saturar la API.
+    Iniciar verificación de contactos en background.
+    Retorna el ID del job para consultar progreso.
     """
-    from whatsapp_service import whatsapp_service
-    import asyncio
+    from models import BackgroundJob
+    from job_engine import procesar_job
     
-    # Obtener contactos sin nombre (probables inactivos)
-    contactos = db.query(Contacto).filter(
-        Contacto.nombre.is_(None) | (Contacto.nombre == "")
-    ).limit(100).all()  # Limitar a 100 por vez
+    # Verificar si ya hay un job en proceso
+    job_activo = db.query(BackgroundJob).filter(
+        BackgroundJob.tipo == "verificar_contactos",
+        BackgroundJob.estado.in_(["pendiente", "procesando"])
+    ).first()
     
-    if not contactos:
-        return {"status": "ok", "message": "No hay contactos sin nombre para verificar", "verificados": 0}
+    if job_activo:
+        return {
+            "status": "en_proceso",
+            "job_id": job_activo.id,
+            "message": "Ya hay una verificación en proceso",
+            "job": job_activo.to_dict()
+        }
     
-    activos = 0
-    inactivos = 0
+    # Contar contactos a verificar (todos los activos)
+    total = db.query(Contacto).filter(Contacto.estado == "activo").count()
     
-    for contacto in contactos:
-        result = await whatsapp_service.check_number_exists(contacto.telefono)
-        
-        if result.get("exists"):
-            activos += 1
-        else:
-            contacto.estado = "inactivo"
-            inactivos += 1
-        
-        # Pequeña pausa para no saturar
-        await asyncio.sleep(0.3)
+    if total == 0:
+        return {"status": "ok", "message": "No hay contactos para verificar", "total": 0}
     
+    # Crear job
+    job = BackgroundJob(
+        tipo="verificar_contactos",
+        estado="pendiente",
+        total=total,
+        procesados=0,
+        exitosos=0,
+        fallidos=0,
+        mensaje="Iniciando verificación..."
+    )
+    db.add(job)
     db.commit()
+    db.refresh(job)
+    
+    # Iniciar tarea en background usando el motor unificado
+    background_tasks.add_task(procesar_job, job.id)
+    
+    return {
+        "status": "iniciado",
+        "job_id": job.id,
+        "total": total,
+        "message": f"Verificación iniciada para {total} contactos"
+    }
+
+
+@router.get("/verificar-activos/estado")
+async def obtener_estado_verificacion(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """Obtener estado del job de verificación activo o el último completado"""
+    from models import BackgroundJob
+    
+    # Buscar job activo o el último
+    job = db.query(BackgroundJob).filter(
+        BackgroundJob.tipo == "verificar_contactos"
+    ).order_by(BackgroundJob.created_at.desc()).first()
+    
+    if not job:
+        return {"status": "sin_job", "message": "No hay verificaciones"}
     
     return {
         "status": "ok",
-        "verificados": len(contactos),
-        "activos": activos,
-        "inactivos": inactivos,
-        "pendientes": db.query(Contacto).filter(
-            Contacto.nombre.is_(None) | (Contacto.nombre == "")
-        ).count()
+        "job": job.to_dict()
     }
 
 
