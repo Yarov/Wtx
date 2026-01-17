@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 from database import get_config, set_config, get_all_config, is_tool_enabled, set_tool_enabled, get_all_tools_config
-from models import SessionLocal, Cita, Inventario, Memoria, Disponibilidad, HorarioBloqueado, Pago
+from models import SessionLocal, Cita, Inventario, Memoria, Disponibilidad, HorarioBloqueado
 
 router = APIRouter(prefix="/api", tags=["admin"])
 
@@ -49,11 +49,6 @@ class ProductModel(BaseModel):
     precio: float
 
 
-class PaymentConfigModel(BaseModel):
-    payment_provider: Optional[str] = "none"
-    stripe_secret_key: Optional[str] = ""
-    mercadopago_access_token: Optional[str] = ""
-    payment_currency: Optional[str] = "MXN"
 
 
 # Stats
@@ -630,47 +625,3 @@ async def delete_conversation(phone: str):
         db.close()
 
 
-# Payments Config
-@router.get("/config/payments")
-async def get_payment_config():
-    stripe_key = get_config("stripe_secret_key", "")
-    mp_token = get_config("mercadopago_access_token", "")
-    return {
-        "payment_provider": get_config("payment_provider", "none"),
-        "stripe_secret_key": stripe_key[:12] + "..." if stripe_key else "",
-        "mercadopago_access_token": mp_token[:12] + "..." if mp_token else "",
-        "payment_currency": get_config("payment_currency", "MXN"),
-    }
-
-
-@router.put("/config/payments")
-async def update_payment_config(config: PaymentConfigModel):
-    data = config.dict()
-    for key, value in data.items():
-        if value and not value.endswith("..."):
-            set_config(key, value)
-    return {"status": "ok"}
-
-
-# Payments List
-@router.get("/payments")
-async def get_payments():
-    db = SessionLocal()
-    try:
-        pagos = db.query(Pago).order_by(Pago.created_at.desc()).all()
-        return [p.to_dict() for p in pagos]
-    finally:
-        db.close()
-
-
-@router.patch("/payments/{payment_id}/status")
-async def update_payment_status(payment_id: int, data: dict):
-    db = SessionLocal()
-    try:
-        pago = db.query(Pago).filter(Pago.id == payment_id).first()
-        if pago:
-            pago.estado = data.get("estado", "pendiente")
-            db.commit()
-        return {"status": "ok"}
-    finally:
-        db.close()
