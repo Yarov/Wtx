@@ -1,5 +1,5 @@
 import { 
-  Wrench, Package, Calendar, CreditCard, Eye, XCircle, PenLine,
+  Wrench, Package, Calendar, Eye, XCircle, PenLine,
   MessageCircle, Brain, ArrowRight
 } from 'lucide-react'
 import Toggle from '../Toggle'
@@ -39,13 +39,6 @@ const TOOL_META = {
     color: 'amber',
     trigger: 'Cliente quiere cambiar fecha, hora o servicio',
     examples: ['¿Puedo cambiar mi cita?', 'Quiero agregar otro servicio', 'Cambiar a las 5pm']
-  },
-  generar_pago: { 
-    name: 'Generar Pago', 
-    icon: CreditCard, 
-    color: 'emerald',
-    trigger: 'Cliente quiere pagar o necesita link de pago',
-    examples: ['Quiero pagar', '¿Cómo puedo hacer el pago?', 'Envíame el link de pago']
   },
 }
 

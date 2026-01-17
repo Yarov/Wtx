@@ -5,19 +5,14 @@ import { toolsApi } from '../api/client'
 import { 
   LayoutDashboard, 
   Key, 
-  Wrench, 
-  MessageSquare, 
   Package, 
   Calendar,
   Clock,
   MessagesSquare,
-  CreditCard,
   Bot,
-  Settings,
   LogOut,
   User,
-  Power,
-  Zap
+  Power
 } from 'lucide-react'
 
 const mainNavigation = [
@@ -26,7 +21,6 @@ const mainNavigation = [
   { name: 'Inventario', href: '/inventory', icon: Package },
   { name: 'Citas', href: '/appointments', icon: Calendar },
   { name: 'Conversaciones', href: '/conversations', icon: MessagesSquare },
-  { name: 'Pagos', href: '/payments', icon: CreditCard },
 ]
 
 const configNavigation = [

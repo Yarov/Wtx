@@ -10,7 +10,6 @@ import Agent from './pages/Agent'
 import Inventory from './pages/Inventory'
 import Appointments from './pages/Appointments'
 import Conversations from './pages/Conversations'
-import Payments from './pages/Payments'
 import Schedule from './pages/Schedule'
 
 function App() {
@@ -28,7 +27,6 @@ function App() {
             <Route path="inventory" element={<Inventory />} />
             <Route path="appointments" element={<Appointments />} />
             <Route path="conversations" element={<Conversations />} />
-            <Route path="payments" element={<Payments />} />
             <Route path="schedule" element={<Schedule />} />
           </Route>
         </Routes>

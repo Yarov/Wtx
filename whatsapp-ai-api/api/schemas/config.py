@@ -31,8 +31,3 @@ class ImprovePromptModel(BaseModel):
     all_sections: Optional[dict] = None
 
 
-class PaymentConfigModel(BaseModel):
-    payment_provider: Optional[str] = "none"
-    stripe_secret_key: Optional[str] = ""
-    mercadopago_access_token: Optional[str] = ""
-    payment_currency: Optional[str] = "MXN"
