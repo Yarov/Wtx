@@ -22,12 +22,8 @@ router = APIRouter(prefix="/config", tags=["config"])
 async def get_api_keys(current_user: Usuario = Depends(get_current_user)):
     """Get API keys (masked)"""
     openai_key = get_config("openai_api_key", "")
-    twilio_token = get_config("twilio_auth_token", "")
     return {
         "openai_api_key": openai_key[:8] + "..." if openai_key else "",
-        "twilio_account_sid": get_config("twilio_account_sid", ""),
-        "twilio_auth_token": twilio_token[:8] + "..." if twilio_token else "",
-        "twilio_phone_number": get_config("twilio_phone_number", ""),
     }
 
 

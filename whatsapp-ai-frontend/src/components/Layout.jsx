@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext'
 import { toolsApi } from '../api/client'
 import { 
   LayoutDashboard, 
-  Key, 
   Package, 
   Calendar,
   Clock,
@@ -12,9 +11,8 @@ import {
   Bot,
   LogOut,
   User,
-  Power,
   Zap,
-  MessageCircle
+  Settings
 } from 'lucide-react'
 
 const mainNavigation = [
@@ -28,8 +26,7 @@ const mainNavigation = [
 ]
 
 const configNavigation = [
-  { name: 'WhatsApp', href: '/whatsapp', icon: MessageCircle },
-  { name: 'API Keys', href: '/api-keys', icon: Key },
+  { name: 'Configuración', href: '/settings', icon: Settings },
   { name: 'Horarios', href: '/schedule', icon: Clock },
 ]
 

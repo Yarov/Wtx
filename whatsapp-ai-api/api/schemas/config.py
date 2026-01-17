@@ -7,9 +7,6 @@ from typing import Optional
 
 class ApiKeysModel(BaseModel):
     openai_api_key: Optional[str] = ""
-    twilio_account_sid: Optional[str] = ""
-    twilio_auth_token: Optional[str] = ""
-    twilio_phone_number: Optional[str] = ""
 
 
 class PromptModel(BaseModel):
