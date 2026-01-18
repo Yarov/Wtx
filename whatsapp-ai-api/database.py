@@ -2,26 +2,22 @@
 Database module - PostgreSQL con SQLAlchemy
 """
 import os
-import time
-from models import engine, SessionLocal, Base
+import sys
+from models import Base, get_engine, SessionLocal
 from models import Configuracion, ToolsConfig, Inventario, Disponibilidad
 
-# Crear tablas con reintentos para esperar a que PostgreSQL esté listo
-def init_database(max_retries=30, retry_delay=2):
-    for attempt in range(max_retries):
-        try:
-            Base.metadata.create_all(bind=engine)
-            print(f"✅ Database connected successfully")
-            return True
-        except Exception as e:
-            if attempt < max_retries - 1:
-                print(f"⏳ Waiting for database... attempt {attempt + 1}/{max_retries}")
-                time.sleep(retry_delay)
-            else:
-                print(f"❌ Failed to connect to database after {max_retries} attempts: {e}")
-                raise
+_initialized = False
 
-init_database()
+def init_database():
+    """Inicializar base de datos (crear tablas)"""
+    global _initialized
+    if _initialized:
+        return
+    
+    engine = get_engine()
+    Base.metadata.create_all(bind=engine, checkfirst=True)
+    print("✅ Database tables created", file=sys.stderr)
+    _initialized = True
 
 
 def get_session():
@@ -169,5 +165,5 @@ Siempre saluda al cliente y ofrece ayuda."""),
         db.close()
 
 
-# Inicializar datos al importar
-init_default_data()
+# NO inicializar automáticamente - se hace desde app.py
+# init_default_data()

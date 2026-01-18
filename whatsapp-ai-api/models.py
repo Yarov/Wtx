@@ -1,14 +1,65 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, Text, Index
+from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, Text, Index, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 import os
+import time
+import sys
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://whatsapp:whatsapp_secret@localhost:5432/whatsapp_agent")
 
-engine = create_engine(DATABASE_URL, pool_size=10, max_overflow=20, pool_pre_ping=True)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Crear Base primero (no requiere conexión)
 Base = declarative_base()
+
+# Engine y Session se crean lazy
+_engine = None
+_SessionLocal = None
+
+def get_engine():
+    """Obtener engine con reintentos de conexión"""
+    global _engine
+    if _engine is not None:
+        return _engine
+    
+    max_retries = 30
+    retry_delay = 2
+    
+    for attempt in range(max_retries):
+        try:
+            _engine = create_engine(
+                DATABASE_URL, 
+                pool_size=10, 
+                max_overflow=20, 
+                pool_pre_ping=True,
+                pool_recycle=300
+            )
+            # Probar conexión
+            with _engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            print(f"✅ Database connected successfully", file=sys.stderr)
+            return _engine
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"⏳ Waiting for database... attempt {attempt + 1}/{max_retries}", file=sys.stderr)
+                time.sleep(retry_delay)
+            else:
+                print(f"❌ Failed to connect after {max_retries} attempts: {e}", file=sys.stderr)
+                raise
+
+def get_session_local():
+    """Obtener SessionLocal (lazy)"""
+    global _SessionLocal
+    if _SessionLocal is None:
+        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
+    return _SessionLocal
+
+# Propiedades para compatibilidad con código existente
+@property
+def engine():
+    return get_engine()
+
+def SessionLocal():
+    return get_session_local()()
 
 
 def get_db():
