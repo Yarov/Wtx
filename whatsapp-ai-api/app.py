@@ -3,8 +3,22 @@ WhatsApp AI Agent - Clean Architecture
 """
 from fastapi import FastAPI, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
+import logging
 
-# Import routers
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Inicializar base de datos ANTES de importar routers
+logger.info("🔧 Initializing database...")
+from models import Base, get_engine
+from database import init_database, init_default_data
+
+# Conectar y crear tablas
+init_database()
+init_default_data()
+logger.info("✅ Database ready")
+
+# Import routers DESPUÉS de inicializar DB
 from api.routers import (
     auth,
     config,
@@ -20,18 +34,6 @@ from api.routers import (
 )
 
 from agent import responder
-from models import Base, engine
-from database import init_default_data
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Initialize database
-logger.info("🔧 Initializing database...")
-Base.metadata.create_all(bind=engine)
-init_default_data()
-logger.info("✅ Database ready")
 
 app = FastAPI(
     title="WhatsApp AI Agent", 
