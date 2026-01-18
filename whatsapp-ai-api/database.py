@@ -16,7 +16,7 @@ def init_database():
     
     engine = get_engine()
     Base.metadata.create_all(bind=engine, checkfirst=True)
-    print("✅ Database tables created", file=sys.stderr)
+    print("Database tables created", file=sys.stderr)
     _initialized = True
 
 
@@ -156,7 +156,7 @@ Siempre saluda al cliente y ofrece ayuda."""),
             ))
         
         db.commit()
-        print("✅ Datos por defecto inicializados")
+        print("Datos por defecto inicializados")
         
     except Exception as e:
         print(f"Error inicializando datos: {e}")

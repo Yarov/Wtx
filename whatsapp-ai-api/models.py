@@ -36,14 +36,14 @@ def get_engine():
             # Probar conexión
             with _engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
-            print(f"✅ Database connected successfully", file=sys.stderr)
+            print(f"Database connected successfully", file=sys.stderr)
             return _engine
         except Exception as e:
             if attempt < max_retries - 1:
-                print(f"⏳ Waiting for database... attempt {attempt + 1}/{max_retries}", file=sys.stderr)
+                print(f"Waiting for database... attempt {attempt + 1}/{max_retries}", file=sys.stderr)
                 time.sleep(retry_delay)
             else:
-                print(f"❌ Failed to connect after {max_retries} attempts: {e}", file=sys.stderr)
+                print(f"Failed to connect after {max_retries} attempts: {e}", file=sys.stderr)
                 raise
 
 def get_session_local():

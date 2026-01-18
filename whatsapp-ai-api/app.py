@@ -9,14 +9,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Inicializar base de datos ANTES de importar routers
-logger.info("🔧 Initializing database...")
+logger.info("Initializing database...")
 from models import Base, get_engine
 from database import init_database, init_default_data
 
 # Conectar y crear tablas
 init_database()
 init_default_data()
-logger.info("✅ Database ready")
+logger.info("Database ready")
 
 # Import routers DESPUÉS de inicializar DB
 from api.routers import (
@@ -47,7 +47,7 @@ async def startup_event():
     import asyncio
     from campaign_engine import campaign_worker
     asyncio.create_task(campaign_worker())
-    logger.info("🚀 Campaign worker scheduled")
+    logger.info("Campaign worker scheduled")
 
 # CORS middleware
 app.add_middleware(
@@ -142,7 +142,7 @@ async def improve_prompt_compat(data: dict):
 async def root():
     return {
         "status": "ok", 
-        "message": "WhatsApp AI Agent v3.0 - Clean Architecture 🏗️",
+        "message": "WhatsApp AI Agent v3.0 - Clean Architecture",
         "docs": "/docs",
         "endpoints": {
             "stats": f"{api_prefix}/stats",
@@ -190,7 +190,7 @@ async def whatsapp_webhook(request: Request):
         incoming_msg = parsed["message"]
         contact_name = parsed.get("name", "")
         
-        logger.info(f"💬 Message from {from_number} ({contact_name}): {incoming_msg}")
+        logger.info(f"Message from {from_number} ({contact_name}): {incoming_msg}")
         
         # Guardar/actualizar contacto automáticamente
         try:
@@ -212,7 +212,7 @@ async def whatsapp_webhook(request: Request):
             try:
                 from api.routers.contactos import desactivar_modo_humano_por_telefono
                 if desactivar_modo_humano_por_telefono(from_number):
-                    logger.info(f"🔄 Modo humano desactivado para {from_number} por comando")
+                    logger.info(f"Modo humano desactivado para {from_number} por comando")
                     return Response(content='{"status": "human_mode_deactivated"}', media_type="application/json", status_code=200)
             except Exception as e:
                 logger.warning(f"Error procesando comando reactivar: {e}")
@@ -221,7 +221,7 @@ async def whatsapp_webhook(request: Request):
         try:
             from api.routers.contactos import verificar_modo_humano
             if verificar_modo_humano(from_number):
-                logger.info(f"🧑 Contacto {from_number} en modo humano, IA no responde")
+                logger.info(f"Contacto {from_number} en modo humano, IA no responde")
                 return Response(content='{"status": "human_mode_active"}', media_type="application/json", status_code=200)
         except Exception as e:
             logger.warning(f"Error verificando modo humano: {e}")
@@ -230,24 +230,24 @@ async def whatsapp_webhook(request: Request):
         agent_enabled = get_config("agent_enabled", "true").lower() == "true"
         
         if not agent_enabled:
-            logger.info("🔴 Agent is disabled, not responding")
+            logger.info("Agent is disabled, not responding")
             return Response(content='{"status": "agent_disabled"}', media_type="application/json", status_code=200)
         
         # Generar respuesta con IA
         respuesta = responder(incoming_msg, from_number)
-        logger.info(f"🤖 Response: {respuesta[:100]}...")
+        logger.info(f"Response: {respuesta[:100]}...")
         
         # Enviar respuesta via WAHA/Evolution
         if whatsapp_service.is_configured():
             result = await whatsapp_service.send_message(from_number, respuesta)
             if result["success"]:
-                logger.info(f"✅ Mensaje enviado a {from_number}")
+                logger.info(f"Mensaje enviado a {from_number}")
             else:
-                logger.error(f"❌ Error enviando mensaje: {result.get('error')}")
+                logger.error(f"Error enviando mensaje: {result.get('error')}")
             return Response(content='{"status": "ok"}', media_type="application/json", status_code=200)
         else:
             # WhatsApp no configurado
-            logger.warning("⚠️ WhatsApp no configurado, no se puede enviar respuesta")
+            logger.warning("WhatsApp no configurado, no se puede enviar respuesta")
             return Response(content='{"status": "whatsapp_not_configured"}', media_type="application/json", status_code=200)
             
     except Exception as e:

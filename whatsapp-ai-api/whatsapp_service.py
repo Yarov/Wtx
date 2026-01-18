@@ -254,7 +254,7 @@ class WhatsAppService:
             }
             contacts.append(contact)
         
-        logger.info(f"✅ {len(contacts)} contactos normalizados (de {len(items)} raw)")
+        logger.info(f"{len(contacts)} contactos normalizados (de {len(items)} raw)")
         return contacts
 
 

@@ -52,7 +52,7 @@ async def procesar_campana(campana: Campana, db: Session):
             campana.estado = "completada"
             campana.completada_at = datetime.utcnow()
             db.commit()
-            logger.info(f"✅ Campaña '{campana.nombre}' completada")
+            logger.info(f"Campana '{campana.nombre}' completada")
             return
         
         # Obtener contacto
@@ -67,7 +67,7 @@ async def procesar_campana(campana: Campana, db: Session):
         mensaje = reemplazar_variables(campana.mensaje, contacto)
         
         # Enviar mensaje
-        logger.info(f"📤 Enviando a {contacto.telefono}...")
+        logger.info(f"Enviando a {contacto.telefono}...")
         result = await whatsapp_service.send_message(contacto.telefono, mensaje)
         
         # Actualizar estado
@@ -75,12 +75,12 @@ async def procesar_campana(campana: Campana, db: Session):
             destinatario.estado = "enviado"
             destinatario.enviado_at = datetime.utcnow()
             campana.enviados = (campana.enviados or 0) + 1
-            logger.info(f"✅ Enviado a {contacto.telefono}")
+            logger.info(f"Enviado a {contacto.telefono}")
         else:
             destinatario.estado = "fallido"
             destinatario.error = result.get("error", "Error desconocido")
             campana.fallidos = (campana.fallidos or 0) + 1
-            logger.warning(f"❌ Falló envío a {contacto.telefono}: {destinatario.error}")
+            logger.warning(f"Fallo envio a {contacto.telefono}: {destinatario.error}")
         
         campana.ultimo_envio = datetime.utcnow()
         db.commit()
@@ -126,7 +126,7 @@ async def marcar_respondido(telefono: str):
 
 async def campaign_worker():
     """Worker que corre en background procesando campañas"""
-    logger.info("🚀 Campaign worker iniciado")
+    logger.info("Campaign worker iniciado")
     while True:
         try:
             await procesar_campanas()

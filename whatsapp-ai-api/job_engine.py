@@ -178,7 +178,7 @@ async def procesar_job(job_id: int):
         job.started_at = datetime.utcnow()
         db.commit()
         
-        logger.info(f"🚀 Iniciando job {job_id} ({job.tipo})")
+        logger.info(f"Iniciando job {job_id} ({job.tipo})")
         
         await processor(job, db)
         
@@ -186,10 +186,10 @@ async def procesar_job(job_id: int):
         job.completed_at = datetime.utcnow()
         db.commit()
         
-        logger.info(f"✅ Job {job_id} completado: {job.mensaje}")
+        logger.info(f"Job {job_id} completado: {job.mensaje}")
         
     except Exception as e:
-        logger.error(f"❌ Error en job {job_id}: {e}")
+        logger.error(f"Error en job {job_id}: {e}")
         job = db.query(BackgroundJob).filter(BackgroundJob.id == job_id).first()
         if job:
             job.estado = "error"
@@ -219,7 +219,7 @@ async def procesar_jobs_pendientes():
 
 async def job_worker():
     """Worker principal que procesa jobs en background"""
-    logger.info("🚀 Job worker iniciado")
+    logger.info("Job worker iniciado")
     while True:
         try:
             await procesar_jobs_pendientes()

@@ -11,9 +11,9 @@ from models import (
 
 def init_database():
     """Crear todas las tablas"""
-    print("🔧 Creando tablas...")
+    print("Creando tablas...")
     Base.metadata.create_all(bind=engine)
-    print("✅ Tablas creadas")
+    print("Tablas creadas")
 
 
 def seed_data():
@@ -23,10 +23,10 @@ def seed_data():
     try:
         # Verificar si ya hay datos
         if db.query(Configuracion).first():
-            print("ℹ️  Datos ya existen, omitiendo seed")
+            print("Datos ya existen, omitiendo seed")
             return
         
-        print("🌱 Insertando datos por defecto...")
+        print("Insertando datos por defecto...")
         
         # Configuración por defecto
         default_config = [
@@ -87,10 +87,10 @@ Siempre saluda al cliente y ofrece ayuda."""),
             ))
         
         db.commit()
-        print("✅ Datos por defecto insertados")
+        print("Datos por defecto insertados")
         
     except Exception as e:
-        print(f"❌ Error en seed: {e}")
+        print(f"Error en seed: {e}")
         db.rollback()
     finally:
         db.close()
@@ -99,4 +99,4 @@ Siempre saluda al cliente y ofrece ayuda."""),
 if __name__ == "__main__":
     init_database()
     seed_data()
-    print("🚀 Base de datos lista")
+    print("Base de datos lista")

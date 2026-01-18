@@ -127,15 +127,15 @@ class CitasService:
                 fecha_str = fecha
                 hora_str = "10:00"
         except:
-            return "❌ Formato de fecha inválido. Usa: YYYY-MM-DD o YYYY-MM-DDTHH:MM"
+            return "Formato de fecha invalido. Usa: YYYY-MM-DD o YYYY-MM-DDTHH:MM"
         
         # Verificar disponibilidad
         disp = CitasService.verificar_disponibilidad(db, fecha_str, hora_str)
         if not disp["disponible"]:
             horarios = CitasService.obtener_horarios_disponibles(db, fecha_str)
             if horarios:
-                return f"❌ {disp['razon']}. Horarios disponibles: {', '.join(horarios[:5])}"
-            return f"❌ {disp['razon']}"
+                return f"{disp['razon']}. Horarios disponibles: {', '.join(horarios[:5])}"
+            return f"{disp['razon']}"
         
         cita = Cita(
             telefono=telefono,
@@ -147,7 +147,7 @@ class CitasService:
         db.add(cita)
         db.commit()
         
-        return f"✅ Cita agendada: {servicio} el {fecha_str} a las {hora_str}"
+        return f"Cita agendada: {servicio} el {fecha_str} a las {hora_str}"
     
     @staticmethod
     def ver_citas(db: Session, telefono: str) -> list:
@@ -182,12 +182,12 @@ class CitasService:
         cita = query.order_by(Cita.fecha, Cita.hora).first()
         
         if not cita:
-            return "❌ No encontré ninguna cita para cancelar. ¿Puedes indicarme la fecha?"
+            return "No encontre ninguna cita para cancelar. Puedes indicarme la fecha?"
         
         cita.estado = "cancelada"
         db.commit()
         
-        return f"✅ Cita cancelada: {cita.servicio} del {cita.fecha} a las {cita.hora}"
+        return f"Cita cancelada: {cita.servicio} del {cita.fecha} a las {cita.hora}"
     
     @staticmethod
     def modificar(db: Session, telefono: str, fecha: str = "", nuevo_servicio: str = "", 
@@ -214,7 +214,7 @@ class CitasService:
         cita = query.order_by(Cita.fecha, Cita.hora).first()
         
         if not cita:
-            return "❌ No encontré ninguna cita para modificar. ¿Puedes indicarme la fecha?"
+            return "No encontre ninguna cita para modificar. Puedes indicarme la fecha?"
         
         cambios = []
         
@@ -238,8 +238,8 @@ class CitasService:
             if not disp["disponible"]:
                 horarios = CitasService.obtener_horarios_disponibles(db, nueva_fecha_str)
                 if horarios:
-                    return f"❌ {disp['razon']}. Horarios disponibles: {', '.join(horarios[:5])}"
-                return f"❌ {disp['razon']}"
+                    return f"{disp['razon']}. Horarios disponibles: {', '.join(horarios[:5])}"
+                return f"{disp['razon']}"
             
             cita.fecha = nueva_fecha_str
             cita.hora = nueva_hora_str
@@ -255,9 +255,9 @@ class CitasService:
         
         if cambios:
             db.commit()
-            return f"✅ Cita modificada: {', '.join(cambios)}. Tu cita: {cita.servicio} el {cita.fecha} a las {cita.hora}"
+            return f"Cita modificada: {', '.join(cambios)}. Tu cita: {cita.servicio} el {cita.fecha} a las {cita.hora}"
         
-        return "❌ Indica qué quieres modificar: fecha, hora, o servicio"
+        return "Indica que quieres modificar: fecha, hora, o servicio"
 
 
 class InventarioService:
