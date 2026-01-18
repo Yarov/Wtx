@@ -12,7 +12,9 @@ import {
   LogOut,
   User,
   Zap,
-  Settings
+  Settings,
+  Menu,
+  X
 } from 'lucide-react'
 
 const BASE_NAVIGATION = [
@@ -38,10 +40,12 @@ export default function Layout() {
   const [agentLoading, setAgentLoading] = useState(false)
   const [modules, setModules] = useState({ inventory: true, appointments: true, schedule: true })
   const [modulesLoaded, setModulesLoaded] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     loadAgentStatus()
     loadModules()
+    setSidebarOpen(false)
   }, [location.pathname])
 
   useEffect(() => {
@@ -100,14 +104,32 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 w-64 bg-gray-900">
-        <div className="flex h-16 items-center gap-3 px-6 border-b border-gray-800">
-          <Bot className="h-8 w-8 text-emerald-500" />
-          <span className="text-xl font-bold text-white">Wtx</span>
+      <aside className={`fixed inset-y-0 left-0 w-64 bg-gray-900 z-50 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        <div className="flex h-16 items-center justify-between px-6 border-b border-gray-800">
+          <div className="flex items-center gap-3">
+            <Bot className="h-8 w-8 text-emerald-500" />
+            <span className="text-xl font-bold text-white">Wtx</span>
+          </div>
+          <button 
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden p-2 text-gray-400 hover:text-white"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
         
-        <nav className="mt-6 px-3 flex-1">
+        <nav className="mt-6 px-3 flex-1 overflow-y-auto">
           <div className="space-y-1">
             {mainNavigation.map((item) => (
               <NavLink
@@ -162,15 +184,23 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="pl-64">
+      <main className="lg:pl-64">
         {/* Top Header with Agent Control and User */}
-        <header className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-2">
-          <div className="flex items-center justify-between">
+        <header className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 lg:px-6 py-2">
+          <div className="flex items-center justify-between gap-2">
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
+
             {/* Agent Status Toggle */}
             <button
               onClick={toggleAgent}
               disabled={agentLoading}
-              className={`group flex items-center gap-3 px-4 py-2 rounded-xl transition-all ${
+              className={`group flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 rounded-xl transition-all ${
                 agentLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
               } ${
                 agentEnabled 
@@ -178,23 +208,23 @@ export default function Layout() {
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              <div className={`relative flex items-center justify-center w-8 h-8 rounded-lg ${
+              <div className={`relative flex items-center justify-center w-7 h-7 lg:w-8 lg:h-8 rounded-lg ${
                 agentEnabled ? 'bg-white/20' : 'bg-gray-200'
               }`}>
-                <Zap className={`h-5 w-5 ${agentEnabled ? 'text-white' : 'text-gray-500'}`} />
+                <Zap className={`h-4 w-4 lg:h-5 lg:w-5 ${agentEnabled ? 'text-white' : 'text-gray-500'}`} />
                 {agentEnabled && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-white rounded-full animate-pulse" />
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 lg:w-2.5 lg:h-2.5 bg-white rounded-full animate-pulse" />
                 )}
               </div>
-              <div className="text-left">
+              <div className="text-left hidden sm:block">
                 <p className={`text-sm font-semibold ${agentEnabled ? 'text-white' : 'text-gray-700'}`}>
                   {agentEnabled ? 'IA Activa' : 'IA Inactiva'}
                 </p>
                 <p className={`text-xs ${agentEnabled ? 'text-emerald-100' : 'text-gray-500'}`}>
-                  {agentLoading ? 'Cambiando...' : agentEnabled ? 'Respondiendo mensajes' : 'Click para activar'}
+                  {agentLoading ? 'Cambiando...' : agentEnabled ? 'Respondiendo' : 'Click para activar'}
                 </p>
               </div>
-              <div className={`ml-2 w-12 h-6 rounded-full p-0.5 transition-colors ${
+              <div className={`hidden sm:block ml-2 w-12 h-6 rounded-full p-0.5 transition-colors ${
                 agentEnabled ? 'bg-white/30' : 'bg-gray-300'
               }`}>
                 <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${
@@ -204,14 +234,14 @@ export default function Layout() {
             </button>
 
             {/* User Menu */}
-            <div className="flex items-center gap-4">
-              <div className="text-right">
+            <div className="flex items-center gap-2 lg:gap-4">
+              <div className="text-right hidden sm:block">
                 <p className="text-sm font-medium text-gray-900">{user?.username}</p>
                 <p className="text-xs text-gray-500">{user?.email}</p>
               </div>
               <div className="flex items-center gap-2">
                 {user?.is_admin && (
-                  <span className="px-2 py-1 bg-violet-100 text-violet-700 text-xs font-medium rounded-lg">
+                  <span className="hidden sm:inline px-2 py-1 bg-violet-100 text-violet-700 text-xs font-medium rounded-lg">
                     Admin
                   </span>
                 )}
@@ -227,7 +257,7 @@ export default function Layout() {
           </div>
         </header>
 
-        <div className="p-8">
+        <div className="p-4 lg:p-8">
           <Outlet />
         </div>
       </main>
