@@ -1,13 +1,22 @@
 # Docker Compose para producción (Coolify)
-# Coolify puede usar este archivo o desplegar cada servicio por separado
+# Variables de entorno requeridas:
+#   - OPENAI_API_KEY: API key de OpenAI (obligatorio para IA)
+#   - JWT_SECRET: Secret para tokens JWT (genera con: openssl rand -hex 32)
+# Variables opcionales:
+#   - DB_PASSWORD: Password de PostgreSQL (default: auto-generado)
+#   - FRONTEND_DOMAIN: Dominio del frontend (para Traefik)
+#   - API_DOMAIN: Dominio de la API (para Traefik)
+
+x-db-credentials: &db-credentials
+  POSTGRES_USER: whatsapp_agent
+  POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme_in_production}
+  POSTGRES_DB: whatsapp_db
 
 services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-whatsapp}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-whatsapp_agent}
+      <<: *db-credentials
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -19,10 +28,10 @@ services:
       context: ./whatsapp-ai-api
       dockerfile: Dockerfile.prod
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-whatsapp}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-whatsapp_agent}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - JWT_SECRET=${JWT_SECRET}
-      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      DATABASE_URL: postgresql://whatsapp_agent:${DB_PASSWORD:-changeme_in_production}@postgres:5432/whatsapp_db
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      JWT_SECRET: ${JWT_SECRET:-default_jwt_secret_change_in_production}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
     depends_on:
       - postgres
     restart: unless-stopped
@@ -30,7 +39,7 @@ services:
       - app-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=Host(`${API_DOMAIN}`) || (Host(`${FRONTEND_DOMAIN}`) && PathPrefix(`/api`))"
+      - "traefik.http.routers.api.rule=Host(`${API_DOMAIN:-api.localhost}`) || (Host(`${FRONTEND_DOMAIN:-localhost}`) && PathPrefix(`/api`))"
       - "traefik.http.services.api.loadbalancer.server.port=3000"
 
   frontend:
@@ -38,7 +47,7 @@ services:
       context: ./whatsapp-ai-frontend
       dockerfile: Dockerfile.prod
       args:
-        - VITE_API_URL=/api
+        VITE_API_URL: /api
     depends_on:
       - api
     restart: unless-stopped
@@ -46,7 +55,7 @@ services:
       - app-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`${FRONTEND_DOMAIN}`)"
+      - "traefik.http.routers.frontend.rule=Host(`${FRONTEND_DOMAIN:-localhost}`)"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
 
 volumes:
