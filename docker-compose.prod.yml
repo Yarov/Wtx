@@ -1,17 +1,13 @@
 # Docker Compose para producción (Coolify)
-# 
-# Un solo dominio con Traefik:
-#   - /api/* -> API Backend (puerto 3000)
-#   - /* -> Frontend (puerto 80)
 #
-# En Coolify: Asignar dominio SOLO al servicio "frontend"
-# La API se accede internamente via /api
+# En Coolify:
+#   1. Asignar dominio SOLO al servicio "frontend" (puerto 80)
+#   2. NO asignar dominio a "api" ni "postgres"
+#   3. El frontend hace proxy interno de /api -> api:3000
 #
-# Variables requeridas:
+# Variables requeridas en Coolify:
 #   - OPENAI_API_KEY: API key de OpenAI
 #   - JWT_SECRET: Secret para JWT (genera con: openssl rand -hex 32)
-#
-# Variables opcionales:
 #   - DB_PASSWORD: Password de PostgreSQL
 
 services:
@@ -33,12 +29,10 @@ services:
       DATABASE_URL: postgresql://whatsapp_agent:${DB_PASSWORD:-changeme_in_production}@postgres:5432/whatsapp_db
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       JWT_SECRET: ${JWT_SECRET:-default_jwt_secret_change_in_production}
-      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      CORS_ORIGINS: "*"
     depends_on:
       - postgres
     restart: unless-stopped
-    expose:
-      - "3000"
 
   frontend:
     build:
@@ -49,8 +43,6 @@ services:
     depends_on:
       - api
     restart: unless-stopped
-    expose:
-      - "80"
 
 volumes:
   postgres_data:
