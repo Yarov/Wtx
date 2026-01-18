@@ -15,28 +15,15 @@ ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
 
 # Build de producción
-RUN npm run build && ls -la /app/dist
+RUN npm run build
 
-# Imagen final con nginx
-FROM nginx:alpine
+# Imagen final con Caddy
+FROM caddy:alpine
 
-# Copiar build - asegurar que existe
-COPY --from=builder /app/dist/ /usr/share/nginx/html/
+# Copiar build
+COPY --from=builder /app/dist /usr/share/caddy
 
-# Configuración nginx para producción
-COPY nginx.prod.conf /etc/nginx/conf.d/default.conf
-
-# Usuario no-root
-RUN chown -R nginx:nginx /usr/share/nginx/html && \
-    chown -R nginx:nginx /var/cache/nginx && \
-    chown -R nginx:nginx /var/log/nginx && \
-    touch /var/run/nginx.pid && \
-    chown -R nginx:nginx /var/run/nginx.pid
+# Copiar Caddyfile
+COPY Caddyfile /etc/caddy/Caddyfile
 
 EXPOSE 80
-
-# Healthcheck
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost/ || exit 1
-
-CMD ["nginx", "-g", "daemon off;"]
