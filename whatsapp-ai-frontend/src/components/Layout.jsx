@@ -104,7 +104,7 @@ export default function Layout() {
       <aside className="fixed inset-y-0 left-0 w-64 bg-gray-900">
         <div className="flex h-16 items-center gap-3 px-6 border-b border-gray-800">
           <Bot className="h-8 w-8 text-emerald-500" />
-          <span className="text-xl font-bold text-white">WhatsApp AI</span>
+          <span className="text-xl font-bold text-white">Wtx</span>
         </div>
         
         <nav className="mt-6 px-3 flex-1">
@@ -156,7 +156,7 @@ export default function Layout() {
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
           <div className="flex items-center justify-between text-gray-500 text-xs">
             <span>v3.0.0</span>
-            <span>WhatsApp AI Agent</span>
+            <span>Wtx Agent</span>
           </div>
         </div>
       </aside>
