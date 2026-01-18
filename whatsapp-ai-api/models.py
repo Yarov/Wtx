@@ -187,6 +187,11 @@ class Contacto(Base):
     tags = Column(Text)  # JSON array
     notas = Column(Text)
     
+    # Modo Humano - cuando está activo, la IA no responde
+    modo_humano = Column(Boolean, default=False)
+    modo_humano_desde = Column(DateTime, nullable=True)
+    modo_humano_razon = Column(String(200), nullable=True)
+    
     origen = Column(String(50))  # whatsapp_sync, importado, manual, mensaje
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -194,6 +199,7 @@ class Contacto(Base):
     __table_args__ = (
         Index('idx_contacto_estado', 'estado'),
         Index('idx_contacto_ultimo_mensaje', 'ultimo_mensaje'),
+        Index('idx_contacto_modo_humano', 'modo_humano'),
     )
 
     def to_dict(self):
@@ -210,6 +216,9 @@ class Contacto(Base):
             "estado": self.estado,
             "tags": json.loads(self.tags) if self.tags else [],
             "notas": self.notas,
+            "modo_humano": self.modo_humano or False,
+            "modo_humano_desde": self.modo_humano_desde.isoformat() if self.modo_humano_desde else None,
+            "modo_humano_razon": self.modo_humano_razon,
             "origen": self.origen,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

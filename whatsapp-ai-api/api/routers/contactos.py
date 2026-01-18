@@ -529,3 +529,141 @@ def guardar_contacto_mensaje(telefono: str, nombre: str = None, db: Session = No
     finally:
         if should_close:
             db.close()
+
+
+# ==================== MODO HUMANO ====================
+
+@router.get("/modo-humano")
+async def listar_contactos_modo_humano(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """Listar todos los contactos en modo humano"""
+    contactos = db.query(Contacto).filter(Contacto.modo_humano == True).all()
+    return [c.to_dict() for c in contactos]
+
+
+@router.post("/{contacto_id}/modo-humano")
+async def activar_modo_humano(
+    contacto_id: int,
+    data: dict = None,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """Activar modo humano para un contacto"""
+    contacto = db.query(Contacto).filter(Contacto.id == contacto_id).first()
+    if not contacto:
+        raise HTTPException(status_code=404, detail="Contacto no encontrado")
+    
+    razon = data.get("razon", "Activado manualmente") if data else "Activado manualmente"
+    
+    contacto.modo_humano = True
+    contacto.modo_humano_desde = datetime.utcnow()
+    contacto.modo_humano_razon = razon
+    db.commit()
+    
+    return {"status": "ok", "contacto": contacto.to_dict()}
+
+
+@router.delete("/{contacto_id}/modo-humano")
+async def desactivar_modo_humano(
+    contacto_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """Desactivar modo humano (reactivar IA) para un contacto"""
+    contacto = db.query(Contacto).filter(Contacto.id == contacto_id).first()
+    if not contacto:
+        raise HTTPException(status_code=404, detail="Contacto no encontrado")
+    
+    contacto.modo_humano = False
+    contacto.modo_humano_desde = None
+    contacto.modo_humano_razon = None
+    db.commit()
+    
+    return {"status": "ok", "contacto": contacto.to_dict()}
+
+
+def activar_modo_humano_por_telefono(telefono: str, razon: str, db: Session = None):
+    """Función auxiliar para activar modo humano por teléfono (usado por el tool de IA)"""
+    from models import SessionLocal
+    
+    should_close = False
+    if db is None:
+        db = SessionLocal()
+        should_close = True
+    
+    try:
+        telefono_norm = normalizar_telefono(telefono)
+        contacto = buscar_contacto_por_telefono(db, telefono_norm)
+        
+        if contacto:
+            contacto.modo_humano = True
+            contacto.modo_humano_desde = datetime.utcnow()
+            contacto.modo_humano_razon = razon
+            db.commit()
+            return True
+        return False
+    finally:
+        if should_close:
+            db.close()
+
+
+def verificar_modo_humano(telefono: str, db: Session = None) -> bool:
+    """Verificar si un contacto está en modo humano"""
+    from models import SessionLocal
+    from database import get_config
+    
+    should_close = False
+    if db is None:
+        db = SessionLocal()
+        should_close = True
+    
+    try:
+        telefono_norm = normalizar_telefono(telefono)
+        contacto = buscar_contacto_por_telefono(db, telefono_norm)
+        
+        if not contacto or not contacto.modo_humano:
+            return False
+        
+        # Verificar si expiró por tiempo
+        auto_expire_hours = int(get_config("human_mode_expire_hours", "0"))
+        if auto_expire_hours > 0 and contacto.modo_humano_desde:
+            tiempo_limite = contacto.modo_humano_desde + timedelta(hours=auto_expire_hours)
+            if datetime.utcnow() > tiempo_limite:
+                # Expiró, desactivar
+                contacto.modo_humano = False
+                contacto.modo_humano_desde = None
+                contacto.modo_humano_razon = None
+                db.commit()
+                return False
+        
+        return True
+    finally:
+        if should_close:
+            db.close()
+
+
+def desactivar_modo_humano_por_telefono(telefono: str, db: Session = None) -> bool:
+    """Desactivar modo humano por teléfono (usado por comando #reactivar)"""
+    from models import SessionLocal
+    
+    should_close = False
+    if db is None:
+        db = SessionLocal()
+        should_close = True
+    
+    try:
+        telefono_norm = normalizar_telefono(telefono)
+        contacto = buscar_contacto_por_telefono(db, telefono_norm)
+        
+        if contacto and contacto.modo_humano:
+            contacto.modo_humano = False
+            contacto.modo_humano_desde = None
+            contacto.modo_humano_razon = None
+            db.commit()
+            return True
+        return False
+    finally:
+        if should_close:
+            db.close()

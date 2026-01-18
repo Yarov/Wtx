@@ -76,10 +76,29 @@ def obtener_memoria(telefono: str) -> list:
         db.close()
 
 
+def transferir_a_humano(telefono: str, razon: str = "Solicitud de atención humana") -> str:
+    """
+    Transferir la conversación a atención humana.
+    Usar cuando el cliente está frustrado, tiene una queja, solicita hablar con una persona,
+    o la situación requiere intervención humana.
+    """
+    from api.routers.contactos import activar_modo_humano_por_telefono
+    
+    try:
+        resultado = activar_modo_humano_por_telefono(telefono, razon)
+        if resultado:
+            return "Conversación transferida a atención humana. Un asesor atenderá al cliente pronto."
+        else:
+            return "No se pudo transferir la conversación. El contacto no existe."
+    except Exception as e:
+        return f"Error al transferir: {str(e)}"
+
+
 TOOLS_MAP = {
     "consultar_inventario": consultar_inventario,
     "agendar_cita": agendar_cita,
     "ver_citas": ver_citas,
     "cancelar_cita": cancelar_cita,
     "modificar_cita": modificar_cita,
+    "transferir_a_humano": transferir_a_humano,
 }

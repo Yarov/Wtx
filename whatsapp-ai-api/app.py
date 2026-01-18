@@ -204,6 +204,26 @@ async def whatsapp_webhook(request: Request):
         except Exception as e:
             logger.warning(f"Error marcando respondido: {e}")
         
+        # Verificar comando #reactivar (enviado por el negocio)
+        reactivar_command = get_config("human_mode_reactivar_command", "#reactivar")
+        if incoming_msg.strip().lower() == reactivar_command.lower():
+            try:
+                from api.routers.contactos import desactivar_modo_humano_por_telefono
+                if desactivar_modo_humano_por_telefono(from_number):
+                    logger.info(f"🔄 Modo humano desactivado para {from_number} por comando")
+                    return Response(content='{"status": "human_mode_deactivated"}', media_type="application/json", status_code=200)
+            except Exception as e:
+                logger.warning(f"Error procesando comando reactivar: {e}")
+        
+        # Verificar si el contacto está en modo humano
+        try:
+            from api.routers.contactos import verificar_modo_humano
+            if verificar_modo_humano(from_number):
+                logger.info(f"🧑 Contacto {from_number} en modo humano, IA no responde")
+                return Response(content='{"status": "human_mode_active"}', media_type="application/json", status_code=200)
+        except Exception as e:
+            logger.warning(f"Error verificando modo humano: {e}")
+        
         # Check if agent is enabled
         agent_enabled = get_config("agent_enabled", "true").lower() == "true"
         

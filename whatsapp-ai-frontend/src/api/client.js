@@ -37,6 +37,8 @@ export const configApi = {
   updateConfig: (data) => api.put('/config', data),
   getApiKeys: () => api.get('/config/api-keys'),
   updateApiKeys: (data) => api.put('/config/api-keys', data),
+  getHumanModeConfig: () => api.get('/config/human-mode'),
+  updateHumanModeConfig: (data) => api.put('/config/human-mode', data),
 }
 
 export const whatsappApi = {
@@ -52,6 +54,12 @@ export const contactosApi = {
   update: (id, data) => api.put(`/contactos/${id}`, data),
   delete: (id) => api.delete(`/contactos/${id}`),
   sync: () => api.post('/contactos/sync'),
+  verificar: () => api.post('/contactos/verificar'),
+  importar: (data) => api.post('/contactos/importar', data),
+  // Modo Humano
+  listModoHumano: () => api.get('/contactos/modo-humano'),
+  activarModoHumano: (id, razon) => api.post(`/contactos/${id}/modo-humano`, { razon }),
+  desactivarModoHumano: (id) => api.delete(`/contactos/${id}/modo-humano`),
   limpiarDuplicados: () => api.post('/contactos/limpiar-duplicados'),
   verificarActivos: () => api.post('/contactos/verificar-activos'),
   verificarActivosEstado: () => api.get('/contactos/verificar-activos/estado'),
