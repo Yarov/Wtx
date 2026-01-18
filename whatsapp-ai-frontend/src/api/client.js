@@ -34,8 +34,6 @@ api.interceptors.response.use(
 )
 
 export const configApi = {
-  getConfig: () => api.get('/config'),
-  updateConfig: (data) => api.put('/config', data),
   getApiKeys: () => api.get('/config/api-keys'),
   updateApiKeys: (data) => api.put('/config/api-keys', data),
   getHumanModeConfig: () => api.get('/config/human-mode'),
@@ -114,9 +112,9 @@ export const toolsApi = {
 }
 
 export const promptApi = {
-  getPrompt: () => api.get('/prompt'),
-  updatePrompt: (data) => api.put('/prompt', data),
-  improvePrompt: (data) => api.post('/prompt/improve', data),
+  getPrompt: () => api.get('/config/prompt'),
+  updatePrompt: (data) => api.put('/config/prompt', data),
+  improvePrompt: (data) => api.post('/config/prompt/improve', data),
 }
 
 export const inventoryApi = {
@@ -137,12 +135,12 @@ export const appointmentsApi = {
 }
 
 export const availabilityApi = {
-  getAvailability: () => api.get('/availability'),
-  updateAvailability: (id, data) => api.put(`/availability/${id}`, data),
-  getBlockedSlots: () => api.get('/blocked-slots'),
-  addBlockedSlot: (data) => api.post('/blocked-slots', data),
-  deleteBlockedSlot: (id) => api.delete(`/blocked-slots/${id}`),
-  getAvailableSlots: (fecha) => api.get(`/available-slots/${fecha}`),
+  getAvailability: () => api.get('/appointments/availability'),
+  updateAvailability: (id, data) => api.put(`/appointments/availability/${id}`, data),
+  getBlockedSlots: () => api.get('/appointments/blocked-slots'),
+  addBlockedSlot: (data) => api.post('/appointments/blocked-slots', data),
+  deleteBlockedSlot: (id) => api.delete(`/appointments/blocked-slots/${id}`),
+  getAvailableSlots: (fecha) => api.get(`/appointments/available-slots/${fecha}`),
 }
 
 export const conversationsApi = {

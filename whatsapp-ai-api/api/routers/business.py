@@ -186,14 +186,50 @@ async def skip_onboarding(
 ):
     config = get_or_create_business_config(db)
     config.onboarding_completed = True
+    config.has_inventory = True
+    config.has_appointments = True
+    config.has_schedule = True
     config.updated_at = datetime.utcnow()
     
     # Inicializar todos los datos por defecto
     initialized = init_all_default_data(db)
     
+    # SIEMPRE activar todos los tools cuando se salta el onboarding
+    all_tools = [
+        ("consultar_inventario", "Consultar servicios y productos disponibles"),
+        ("agendar_cita", "Agendar citas para clientes"),
+        ("ver_citas", "Ver citas programadas del cliente"),
+        ("cancelar_cita", "Cancelar citas existentes"),
+        ("modificar_cita", "Modificar citas o agregar servicios"),
+    ]
+    for tool_name, descripcion in all_tools:
+        tool = db.query(ToolsConfig).filter(ToolsConfig.nombre == tool_name).first()
+        if tool:
+            tool.habilitado = True
+        else:
+            db.add(ToolsConfig(nombre=tool_name, habilitado=True, descripcion=descripcion))
+    
+    # Asegurar que exista configuración básica
+    default_configs = {
+        "system_prompt": """Eres un asistente de WhatsApp profesional.
+Ofreces servicios, agendas citas y consultas inventario.
+Responde claro, corto y amable.
+Siempre saluda al cliente y ofrece ayuda.""",
+        "model": "gpt-4o-mini",
+        "temperature": "0.7",
+        "max_tokens": "500",
+        "business_name": "Mi Negocio",
+        "business_type": "servicios",
+    }
+    for clave, valor in default_configs.items():
+        existing = db.query(Configuracion).filter(Configuracion.clave == clave).first()
+        if not existing:
+            db.add(Configuracion(clave=clave, valor=valor))
+            initialized.append(f"config:{clave}")
+    
     db.commit()
     
-    return {"status": "ok", "message": "Onboarding saltado", "initialized": initialized}
+    return {"status": "ok", "message": "Onboarding saltado, todo activado", "initialized": initialized}
 
 
 @router.post("/restart-onboarding", summary="Restart onboarding", description="Reset onboarding status to reconfigure the business from scratch.")

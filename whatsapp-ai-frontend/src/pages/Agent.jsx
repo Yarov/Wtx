@@ -50,8 +50,9 @@ export default function Agent() {
 
   const loadData = async () => {
     setLoading(true)
+    
+    // Load prompt config (independent, don't block tools)
     try {
-      // Load prompt config
       const promptRes = await promptApi.getPrompt()
       if (promptRes.data) {
         if (promptRes.data.prompt_sections) {
@@ -66,8 +67,12 @@ export default function Agent() {
           business_type: promptRes.data.business_type || DEFAULT_CONFIG.business_type,
         })
       }
-      
-      // Load tools
+    } catch (error) {
+      console.error('Error loading prompt:', error)
+    }
+    
+    // Load tools (independent)
+    try {
       const toolsRes = await toolsApi.getTools()
       setTools(toolsRes.data.map(t => ({
         id: t.id,
@@ -75,10 +80,10 @@ export default function Agent() {
         description: t.description,
       })))
     } catch (error) {
-      console.error('Error loading data:', error)
-    } finally {
-      setLoading(false)
+      console.error('Error loading tools:', error)
     }
+    
+    setLoading(false)
   }
 
   const buildFullPrompt = () => {
