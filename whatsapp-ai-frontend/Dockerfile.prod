@@ -7,20 +7,21 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --legacy-peer-deps
 
-# Copiar código y construir
+# Copiar código fuente
 COPY . .
 
 # Build args para configurar API URL en build time
 ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
 
-RUN npm run build
+# Build de producción
+RUN npm run build && ls -la /app/dist
 
 # Imagen final con nginx
 FROM nginx:alpine
 
-# Copiar build
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Copiar build - asegurar que existe
+COPY --from=builder /app/dist/ /usr/share/nginx/html/
 
 # Configuración nginx para producción
 COPY nginx.prod.conf /etc/nginx/conf.d/default.conf
