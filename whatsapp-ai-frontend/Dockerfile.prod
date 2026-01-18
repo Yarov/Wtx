@@ -3,6 +3,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Build args para configurar API URL en build time
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=$VITE_API_URL
+
 # Copiar package files
 COPY package.json package-lock.json* ./
 RUN npm install --legacy-peer-deps
@@ -10,12 +14,8 @@ RUN npm install --legacy-peer-deps
 # Copiar código fuente
 COPY . .
 
-# Build args para configurar API URL en build time
-ARG VITE_API_URL=/api
-ENV VITE_API_URL=$VITE_API_URL
-
-# Build de producción
-RUN npm run build
+# Build de producción - VITE_API_URL ya está en ENV
+RUN echo "Building with VITE_API_URL=$VITE_API_URL" && npm run build
 
 # Imagen final con Caddy
 FROM caddy:alpine
