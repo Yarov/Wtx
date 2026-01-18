@@ -8,7 +8,7 @@ const ESTADOS = [
   { value: 'activo', label: 'Activos' },
   { value: 'inactivo', label: 'Inactivos' },
   { value: 'bloqueado', label: 'Bloqueados' },
-  { value: 'modo_humano', label: '🧑 Modo Humano' },
+  { value: 'modo_humano', label: 'Modo Humano' },
 ]
 
 export default function Contactos() {
