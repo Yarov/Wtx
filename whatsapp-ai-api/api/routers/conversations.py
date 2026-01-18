@@ -11,7 +11,7 @@ router = APIRouter(
 )
 
 
-@router.get("/", summary="List all conversations", description="Get a summary of all WhatsApp conversations with last message preview and message count.")
+@router.get("", summary="List all conversations", description="Get a summary of all WhatsApp conversations with last message preview and message count.")
 async def get_conversations(current_user: Usuario = Depends(get_current_user)):
     db = SessionLocal()
     try:

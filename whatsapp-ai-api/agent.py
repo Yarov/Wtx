@@ -115,6 +115,26 @@ def execute_tool(name: str, args: dict, telefono: str):
         return {"error": "Función no encontrada"}
 
 
+def get_tools_availability_info() -> str:
+    """Obtener información sobre qué herramientas están disponibles/deshabilitadas"""
+    tool_names = {
+        "agendar_cita": "agendar citas",
+        "ver_citas": "ver citas",
+        "cancelar_cita": "cancelar citas", 
+        "modificar_cita": "modificar citas",
+        "consultar_inventario": "consultar inventario/servicios"
+    }
+    
+    disabled = []
+    for tool_id, desc in tool_names.items():
+        if not is_tool_enabled(tool_id):
+            disabled.append(desc)
+    
+    if disabled:
+        return f"\n\nIMPORTANTE - Funciones NO disponibles actualmente: {', '.join(disabled)}. Si el cliente solicita alguna de estas acciones, explícale amablemente que ese servicio no está disponible en este momento y ofrece alternativas como contactar directamente por teléfono."
+    return ""
+
+
 def responder(mensaje: str, telefono: str) -> str:
     """Responder usando configuración de la app (prompt, tools, modelo)"""
     from datetime import datetime
@@ -132,7 +152,10 @@ def responder(mensaje: str, telefono: str) -> str:
     ahora = datetime.now()
     fecha_info = f"\n\nFecha y hora actual: {ahora.strftime('%Y-%m-%d %H:%M')} ({ahora.strftime('%A')}). Usa esta fecha como referencia para 'hoy', 'mañana', etc."
     
-    messages = [{"role": "system", "content": system_prompt + fecha_info}]
+    # Agregar info de herramientas deshabilitadas
+    tools_info = get_tools_availability_info()
+    
+    messages = [{"role": "system", "content": system_prompt + fecha_info + tools_info}]
     messages.extend(historial)
     messages.append({"role": "user", "content": mensaje})
 

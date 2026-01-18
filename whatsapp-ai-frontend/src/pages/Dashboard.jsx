@@ -1,30 +1,85 @@
 import { Link } from 'react-router-dom'
-import { Calendar, Users, Package, MessageSquare, Activity, Bot, Settings, Send, Zap } from 'lucide-react'
+import { Calendar, Users, MessageSquare, Bot, TrendingUp, RefreshCw } from 'lucide-react'
 import { useDashboard } from '../hooks'
-import { StatCard, StatusBadge, QuickAction, SectionHeader } from '../components/ui'
+import { ActivityFeed, AlertsPanel } from '../components/dashboard'
 
-const STAT_CARDS_CONFIG = [
-  { key: 'conversations', name: 'Conversaciones', field: 'totalConversations', icon: Users, gradient: 'from-blue-500 to-blue-600', link: '/conversations' },
-  { key: 'appointments', name: 'Citas', field: 'totalAppointments', icon: Calendar, gradient: 'from-emerald-500 to-emerald-600', link: '/appointments' },
-  { key: 'products', name: 'Productos', field: 'totalProducts', icon: Package, gradient: 'from-violet-500 to-violet-600', link: '/inventory' },
-  { key: 'messages', name: 'Mensajes', field: 'totalMessages', icon: MessageSquare, gradient: 'from-amber-500 to-orange-500', link: '/conversations' },
-]
+function InsightsStrip({ insights, loading }) {
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="animate-pulse">
+              <div className="h-7 w-20 bg-gray-200 rounded mb-1"></div>
+              <div className="h-4 w-28 bg-gray-100 rounded"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
-const QUICK_ACTIONS_CONFIG = [
-  { name: 'Configurar Agente', icon: Bot, link: '/agent', color: 'text-blue-600 bg-blue-50 hover:bg-blue-100' },
-  { name: 'Nueva Campaña', icon: Send, link: '/campanas', color: 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' },
-  { name: 'Ver Contactos', icon: Users, link: '/contactos', color: 'text-violet-600 bg-violet-50 hover:bg-violet-100' },
-  { name: 'Configuración', icon: Settings, link: '/settings', color: 'text-gray-600 bg-gray-50 hover:bg-gray-100' },
-]
+  if (insights.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <p className="text-gray-400 text-sm text-center">
+          Los insights aparecerán con más actividad
+        </p>
+      </div>
+    )
+  }
 
-const SYSTEM_STATUS_CONFIG = [
-  { key: 'agent', label: 'Agente IA', icon: Bot },
-  { key: 'whatsapp', label: 'WhatsApp API', icon: MessageSquare },
-  { key: 'database', label: 'Base de datos', icon: Zap },
-]
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        {insights.slice(0, 4).map((insight, idx) => (
+          <div key={idx} className="border-l-2 border-gray-200 pl-4">
+            <p className="text-2xl font-bold text-gray-900">{insight.value}</p>
+            <p className="text-sm text-gray-500">{insight.label}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function StatCard({ name, value, subValue, trend, icon: Icon, gradient, link, loading }) {
+  const content = (
+    <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${gradient} p-5 text-white h-[130px]`}>
+      <div className="flex items-start justify-between h-full">
+        <div className="flex flex-col">
+          <p className="text-sm font-medium text-white/80">{name}</p>
+          {loading ? (
+            <div className="h-8 w-20 bg-white/20 rounded animate-pulse mt-1"></div>
+          ) : (
+            <>
+              <p className="text-3xl font-bold mt-1">{value}</p>
+              <p className="text-sm text-white/70 mt-1 h-5">
+                {subValue || '\u00A0'}
+              </p>
+              <div className="h-5 mt-auto">
+                {trend !== undefined && trend !== 0 && (
+                  <div className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${trend > 0 ? 'bg-white/20' : 'bg-red-500/30'}`}>
+                    <TrendingUp className={`h-3 w-3 ${trend < 0 ? 'rotate-180' : ''}`} />
+                    {trend > 0 ? '+' : ''}{trend}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+        <div className="p-2 bg-white/20 rounded-xl h-fit">
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+    </div>
+  )
+
+  return link ? <Link to={link}>{content}</Link> : content
+}
 
 export default function Dashboard() {
-  const { stats, contactStats, campaignStats, systemStatus, loading } = useDashboard()
+  const { stats, conversations, alerts, insights, systemStatus, loading, refreshing, refresh } = useDashboard()
 
   return (
     <div className="space-y-6">
@@ -32,93 +87,78 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500 mt-1">Resumen de tu asistente de WhatsApp</p>
+          <p className="text-gray-500 mt-1">Centro de control de tu asistente IA</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${systemStatus.agent.status === 'online' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
-            <span className={`h-2 w-2 rounded-full ${systemStatus.agent.status === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`}></span>
-            Agente {systemStatus.agent.status === 'online' ? 'Activo' : 'Inactivo'}
-          </span>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={refresh}
+            disabled={refreshing}
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            title="Actualizar"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-full">
+            <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${systemStatus.agent.status === 'online' ? 'text-emerald-700' : 'text-gray-600'}`}>
+              <span className={`h-2 w-2 rounded-full ${systemStatus.agent.status === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`}></span>
+              Agente
+            </span>
+            <span className="text-gray-300">|</span>
+            <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${systemStatus.whatsapp.status === 'online' ? 'text-emerald-700' : systemStatus.whatsapp.status === 'warning' ? 'text-amber-600' : 'text-gray-600'}`}>
+              <span className={`h-2 w-2 rounded-full ${systemStatus.whatsapp.status === 'online' ? 'bg-emerald-500' : systemStatus.whatsapp.status === 'warning' ? 'bg-amber-500' : 'bg-gray-400'}`}></span>
+              WhatsApp
+            </span>
+          </div>
         </div>
       </div>
+
+      {/* Insights Strip */}
+      <InsightsStrip insights={insights} loading={loading} />
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {STAT_CARDS_CONFIG.map((stat) => (
-          <StatCard
-            key={stat.key}
-            name={stat.name}
-            value={stats[stat.field]}
-            icon={stat.icon}
-            gradient={stat.gradient}
-            link={stat.link}
-            loading={loading}
-          />
-        ))}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          name="Mensajes"
+          value={stats.messages?.total || 0}
+          subValue={`${stats.messages?.today || 0} hoy`}
+          trend={stats.messages?.trend}
+          icon={MessageSquare}
+          gradient="from-blue-500 to-blue-600"
+          link="/conversations"
+          loading={loading}
+        />
+        <StatCard
+          name="Citas"
+          value={stats.appointments?.total || 0}
+          subValue={`${stats.appointments?.today || 0} para hoy`}
+          icon={Calendar}
+          gradient="from-emerald-500 to-emerald-600"
+          link="/appointments"
+          loading={loading}
+        />
+        <StatCard
+          name="Contactos"
+          value={stats.contacts?.total || 0}
+          subValue={`+${stats.contacts?.new_this_week || 0} esta semana`}
+          icon={Users}
+          gradient="from-violet-500 to-violet-600"
+          link="/contactos"
+          loading={loading}
+        />
+        <StatCard
+          name="Tasa Respuesta"
+          value={`${stats.response_rate?.value || 0}%`}
+          trend={stats.response_rate?.trend}
+          icon={Bot}
+          gradient="from-amber-500 to-orange-500"
+          loading={loading}
+        />
       </div>
 
-      {/* Quick Actions & Status */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {QUICK_ACTIONS_CONFIG.map((action) => (
-              <QuickAction key={action.name} {...action} />
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-gray-100 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Estado del Sistema</h2>
-            <Activity className="h-5 w-5 text-gray-400" />
-          </div>
-          <div className="space-y-3">
-            {SYSTEM_STATUS_CONFIG.map((item) => (
-              <div key={item.key} className="flex items-center justify-between p-3 rounded-xl bg-gray-50">
-                <div className="flex items-center gap-3">
-                  <item.icon className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-700">{item.label}</span>
-                </div>
-                <StatusBadge 
-                  status={systemStatus[item.key].status} 
-                  label={systemStatus[item.key].label} 
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom Summary */}
+      {/* Chat & Alerts - Side by side on desktop */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl border border-gray-100 p-6">
-          <SectionHeader title="Contactos" linkText="Ver todos" linkTo="/contactos" />
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <p className="text-2xl font-bold text-gray-900">{contactStats.total}</p>
-              <p className="text-sm text-gray-500">Total contactos</p>
-            </div>
-            <div className="p-4 bg-emerald-50 rounded-xl">
-              <p className="text-2xl font-bold text-emerald-600">{contactStats.activos}</p>
-              <p className="text-sm text-gray-500">Activos</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-gray-100 p-6">
-          <SectionHeader title="Campañas" linkText="Ver todas" linkTo="/campanas" />
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <p className="text-2xl font-bold text-gray-900">{campaignStats.total}</p>
-              <p className="text-sm text-gray-500">Total campañas</p>
-            </div>
-            <div className="p-4 bg-blue-50 rounded-xl">
-              <p className="text-2xl font-bold text-blue-600">{campaignStats.enviando}</p>
-              <p className="text-sm text-gray-500">En envío</p>
-            </div>
-          </div>
-        </div>
+        <ActivityFeed conversations={conversations} loading={loading} />
+        <AlertsPanel alerts={alerts} loading={loading} />
       </div>
     </div>
   )

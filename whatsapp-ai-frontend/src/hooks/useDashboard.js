@@ -1,49 +1,63 @@
 import { useState, useEffect, useCallback } from 'react'
-import { statsApi, toolsApi, whatsappApi, contactosApi, campanasApi } from '../api/client'
+import { dashboardApi, toolsApi, whatsappApi } from '../api/client'
 
 const initialStats = {
-  totalConversations: 0,
-  totalAppointments: 0,
-  totalProducts: 0,
-  totalMessages: 0,
+  messages: { total: 0, today: 0, yesterday: 0, trend: 0 },
+  appointments: { total: 0, today: 0 },
+  contacts: { total: 0, new_this_week: 0 },
+  products: { total: 0 },
+  response_rate: { value: 0, trend: 0 },
 }
 
 const initialSystemStatus = {
   agent: { status: 'loading', label: 'Cargando...' },
   whatsapp: { status: 'loading', label: 'Cargando...' },
-  database: { status: 'online', label: 'Operativa' },
 }
 
 export default function useDashboard() {
   const [stats, setStats] = useState(initialStats)
-  const [contactStats, setContactStats] = useState({ total: 0, activos: 0 })
-  const [campaignStats, setCampaignStats] = useState({ total: 0, enviando: 0 })
+  const [conversations, setConversations] = useState([])
+  const [alerts, setAlerts] = useState([])
+  const [insights, setInsights] = useState([])
   const [systemStatus, setSystemStatus] = useState(initialSystemStatus)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState(null)
+  const [initialLoadDone, setInitialLoadDone] = useState(false)
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  const loadData = useCallback(async (isManualRefresh = false) => {
+    // Only show loading on initial load, not on refreshes
+    if (!initialLoadDone) {
+      setLoading(true)
+    }
+    if (isManualRefresh) {
+      setRefreshing(true)
+    }
     setError(null)
 
     try {
-      const [statsRes, agentRes, contactRes, campaignRes] = await Promise.allSettled([
-        statsApi.getDashboard(),
+      const [statsRes, activityRes, alertsRes, insightsRes, agentRes] = await Promise.allSettled([
+        dashboardApi.getStats(),
+        dashboardApi.getActivity(15),
+        dashboardApi.getAlerts(),
+        dashboardApi.getInsights(),
         toolsApi.getAgentStatus(),
-        contactosApi.stats(),
-        campanasApi.stats(),
       ])
 
       if (statsRes.status === 'fulfilled') {
         setStats(statsRes.value.data)
       }
 
-      if (contactRes.status === 'fulfilled') {
-        setContactStats(contactRes.value.data)
+      if (activityRes.status === 'fulfilled') {
+        setConversations(activityRes.value.data.conversations || [])
       }
 
-      if (campaignRes.status === 'fulfilled') {
-        setCampaignStats(campaignRes.value.data)
+      if (alertsRes.status === 'fulfilled') {
+        setAlerts(alertsRes.value.data.alerts || [])
+      }
+
+      if (insightsRes.status === 'fulfilled') {
+        setInsights(insightsRes.value.data.insights || [])
       }
 
       // Agent status
@@ -75,20 +89,27 @@ export default function useDashboard() {
       setError(err)
     } finally {
       setLoading(false)
+      setRefreshing(false)
+      setInitialLoadDone(true)
     }
-  }, [])
+  }, [initialLoadDone])
 
   useEffect(() => {
     loadData()
+    // Auto-refresh every 30 seconds (silent updates)
+    const interval = setInterval(() => loadData(false), 30000)
+    return () => clearInterval(interval)
   }, [loadData])
 
   return {
     stats,
-    contactStats,
-    campaignStats,
+    conversations,
+    alerts,
+    insights,
     systemStatus,
     loading,
+    refreshing,
     error,
-    refresh: loadData,
+    refresh: () => loadData(true),
   }
 }
