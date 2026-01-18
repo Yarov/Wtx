@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-
-const API_URL = 'http://localhost:3000/api'
+import { API_BASE_URL } from '../config'
 
 const AuthContext = createContext(null)
 
@@ -23,7 +22,7 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem('token')
     if (token) {
       // Verify token and get user info
-      fetch(`${API_URL}/auth/me`, {
+      fetch(`${API_BASE_URL}/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -47,7 +46,7 @@ export const AuthProvider = ({ children }) => {
   }, [])
 
   const login = async (username, password) => {
-    const res = await fetch(`${API_URL}/auth/login`, {
+    const res = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
@@ -62,7 +61,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('token', data.access_token)
 
     // Get user info
-    const userRes = await fetch(`${API_URL}/auth/me`, {
+    const userRes = await fetch(`${API_BASE_URL}/auth/me`, {
       headers: {
         'Authorization': `Bearer ${data.access_token}`
       }
@@ -74,7 +73,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   const register = async (email, username, password) => {
-    const res = await fetch(`${API_URL}/auth/register`, {
+    const res = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, username, password })
