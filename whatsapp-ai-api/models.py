@@ -156,34 +156,6 @@ class HorarioBloqueado(Base):
         }
 
 
-class Pago(Base):
-    __tablename__ = "pagos"
-
-    id = Column(Integer, primary_key=True, index=True)
-    telefono = Column(String, index=True)
-    servicio = Column(String)
-    monto = Column(Float)
-    moneda = Column(String, default="MXN")
-    estado = Column(String, default="pendiente")
-    proveedor = Column(String)
-    payment_id = Column(String)
-    payment_url = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "telefono": self.telefono,
-            "servicio": self.servicio,
-            "monto": self.monto,
-            "moneda": self.moneda,
-            "estado": self.estado,
-            "proveedor": self.proveedor,
-            "payment_url": self.payment_url,
-            "created_at": self.created_at.isoformat() if self.created_at else None
-        }
-
-
 class Configuracion(Base):
     __tablename__ = "configuracion"
 

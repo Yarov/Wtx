@@ -381,7 +381,7 @@ def parse_webhook_message(data: dict) -> dict | None:
                 "name": name
             }
     
-    # Formato Twilio (legacy, por compatibilidad)
+    # Formato alternativo (form data)
     if "Body" in data and "From" in data:
         return {
             "phone": data.get("From", "").replace("whatsapp:", ""),

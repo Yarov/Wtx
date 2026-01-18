@@ -155,11 +155,11 @@ async def root():
     }
 
 
-# WhatsApp webhook - Soporta WAHA, Evolution API y Twilio
+# WhatsApp webhook - Soporta WAHA y Evolution API
 @app.post("/whatsapp")
 async def whatsapp_webhook(request: Request):
     """
-    WhatsApp webhook unificado para WAHA, Evolution API y Twilio
+    WhatsApp webhook unificado para WAHA y Evolution API
     """
     from whatsapp_service import parse_webhook_message, whatsapp_service
     from database import get_config
@@ -171,7 +171,7 @@ async def whatsapp_webhook(request: Request):
         if "application/json" in content_type:
             data = await request.json()
         else:
-            # Fallback a form data (Twilio)
+            # Fallback a form data
             form_data = await request.form()
             data = dict(form_data)
         

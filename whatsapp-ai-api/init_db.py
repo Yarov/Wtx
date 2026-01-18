@@ -5,7 +5,7 @@ Crea todas las tablas y datos por defecto.
 from models import Base, engine, SessionLocal
 from models import (
     Cita, Inventario, Memoria, Disponibilidad, 
-    HorarioBloqueado, Pago, Configuracion, ToolsConfig
+    HorarioBloqueado, Configuracion, ToolsConfig
 )
 
 

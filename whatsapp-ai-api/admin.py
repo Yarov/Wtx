@@ -16,9 +16,9 @@ DIAS_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", 
 # Pydantic Models
 class ApiKeysModel(BaseModel):
     openai_api_key: Optional[str] = ""
-    twilio_account_sid: Optional[str] = ""
-    twilio_auth_token: Optional[str] = ""
-    twilio_phone_number: Optional[str] = ""
+    whatsapp_api_url: Optional[str] = ""
+    whatsapp_api_key: Optional[str] = ""
+    whatsapp_session: Optional[str] = ""
 
 
 class PromptModel(BaseModel):
@@ -84,12 +84,12 @@ async def get_stats():
 @router.get("/config/api-keys")
 async def get_api_keys():
     openai_key = get_config("openai_api_key", "")
-    twilio_token = get_config("twilio_auth_token", "")
+    whatsapp_key = get_config("whatsapp_api_key", "")
     return {
         "openai_api_key": openai_key[:8] + "..." if openai_key else "",
-        "twilio_account_sid": get_config("twilio_account_sid", ""),
-        "twilio_auth_token": twilio_token[:8] + "..." if twilio_token else "",
-        "twilio_phone_number": get_config("twilio_phone_number", ""),
+        "whatsapp_api_url": get_config("whatsapp_api_url", ""),
+        "whatsapp_api_key": whatsapp_key[:8] + "..." if whatsapp_key else "",
+        "whatsapp_session": get_config("whatsapp_session", ""),
     }
 
 
