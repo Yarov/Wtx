@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
-from models import get_db, BusinessConfig
+from models import get_db, BusinessConfig, ToolsConfig
 from api.routers.auth import get_current_user
 from models import Usuario
 from database import get_config, set_config
@@ -124,6 +124,20 @@ async def skip_onboarding(
     config = get_or_create_business_config(db)
     config.onboarding_completed = True
     config.updated_at = datetime.utcnow()
+    
+    # Inicializar herramientas por defecto si no existen
+    existing_tools = db.query(ToolsConfig).count()
+    if existing_tools == 0:
+        default_tools = [
+            ("consultar_inventario", True, "Consultar servicios y productos disponibles"),
+            ("agendar_cita", True, "Agendar citas para clientes"),
+            ("ver_citas", True, "Ver citas programadas del cliente"),
+            ("cancelar_cita", True, "Cancelar citas existentes"),
+            ("modificar_cita", True, "Modificar citas o agregar servicios"),
+        ]
+        for nombre, habilitado, descripcion in default_tools:
+            db.add(ToolsConfig(nombre=nombre, habilitado=habilitado, descripcion=descripcion))
+    
     db.commit()
     
     return {"status": "ok", "message": "Onboarding saltado"}
