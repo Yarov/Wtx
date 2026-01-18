@@ -1,5 +1,5 @@
 import { 
-  Wrench, Package, Calendar, Eye, XCircle, PenLine,
+  Wrench, Package, Calendar, Eye, XCircle, PenLine, UserRound,
   MessageCircle, Brain, ArrowRight
 } from 'lucide-react'
 import Toggle from '../Toggle'
@@ -39,6 +39,13 @@ const TOOL_META = {
     color: 'amber',
     trigger: 'Cliente quiere cambiar fecha, hora o servicio',
     examples: ['¿Puedo cambiar mi cita?', 'Quiero agregar otro servicio', 'Cambiar a las 5pm']
+  },
+  transferir_a_humano: { 
+    name: 'Transferir a Humano', 
+    icon: UserRound, 
+    color: 'emerald',
+    trigger: 'Cliente frustrado, queja, solicita hablar con persona',
+    examples: ['Quiero hablar con alguien', 'Estoy muy molesto', 'Esto es inaceptable']
   },
 }
 

@@ -212,3 +212,37 @@ async def test_whatsapp_connection(current_user: Usuario = Depends(get_current_u
     from whatsapp_service import whatsapp_service
     result = await whatsapp_service.test_connection()
     return result
+
+
+# ==================== MODO HUMANO CONFIG ====================
+
+@router.get("/human-mode")
+async def get_human_mode_config(current_user: Usuario = Depends(get_current_user)):
+    """Get human mode configuration"""
+    triggers_str = get_config("human_mode_triggers", '["frustration","complaint","human_request"]')
+    try:
+        triggers = json.loads(triggers_str)
+    except:
+        triggers = ["frustration", "complaint", "human_request"]
+    
+    return {
+        "expire_hours": int(get_config("human_mode_expire_hours", "0")),
+        "reactivar_command": get_config("human_mode_reactivar_command", "#reactivar"),
+        "triggers": triggers,
+        "custom_triggers": get_config("human_mode_custom_triggers", ""),
+    }
+
+
+@router.put("/human-mode")
+async def update_human_mode_config(data: dict, current_user: Usuario = Depends(get_current_user)):
+    """Update human mode configuration"""
+    if "expire_hours" in data:
+        set_config("human_mode_expire_hours", str(data["expire_hours"]))
+    if "reactivar_command" in data:
+        set_config("human_mode_reactivar_command", data["reactivar_command"])
+    if "triggers" in data:
+        set_config("human_mode_triggers", json.dumps(data["triggers"]))
+    if "custom_triggers" in data:
+        set_config("human_mode_custom_triggers", data["custom_triggers"])
+    
+    return {"status": "ok"}

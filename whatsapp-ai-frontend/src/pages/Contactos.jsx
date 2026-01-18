@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, RefreshCw, Download, Plus, User, Loader2, Check, X, MoreVertical, Trash2 } from 'lucide-react'
+import { Search, RefreshCw, Download, Plus, User, Loader2, Check, X, MoreVertical, Trash2, UserRound } from 'lucide-react'
 import Button from '../components/Button'
 import { contactosApi } from '../api/client'
 
@@ -8,6 +8,7 @@ const ESTADOS = [
   { value: 'activo', label: 'Activos' },
   { value: 'inactivo', label: 'Inactivos' },
   { value: 'bloqueado', label: 'Bloqueados' },
+  { value: 'modo_humano', label: '🧑 Modo Humano' },
 ]
 
 export default function Contactos() {
@@ -58,9 +59,16 @@ export default function Contactos() {
   const loadContactos = async () => {
     setLoading(true)
     try {
-      const response = await contactosApi.list({ page, limit: 20, estado, buscar })
-      setContactos(response.data.contactos)
-      setTotalPages(response.data.pages)
+      // Si el filtro es modo_humano, usar endpoint especial
+      if (estado === 'modo_humano') {
+        const response = await contactosApi.listModoHumano()
+        setContactos(response.data)
+        setTotalPages(1)
+      } else {
+        const response = await contactosApi.list({ page, limit: 20, estado, buscar })
+        setContactos(response.data.contactos)
+        setTotalPages(response.data.pages)
+      }
     } catch (error) {
       console.error('Error loading contacts:', error)
     } finally {
@@ -405,13 +413,21 @@ export default function Contactos() {
                     {contact.total_mensajes || 0}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      contact.estado === 'activo' ? 'bg-emerald-100 text-emerald-700' :
-                      contact.estado === 'inactivo' ? 'bg-amber-100 text-amber-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      {contact.estado}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        contact.estado === 'activo' ? 'bg-emerald-100 text-emerald-700' :
+                        contact.estado === 'inactivo' ? 'bg-amber-100 text-amber-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {contact.estado}
+                      </span>
+                      {contact.modo_humano && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                          <UserRound className="h-3 w-3" />
+                          Humano
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
@@ -510,6 +526,47 @@ export default function Contactos() {
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
               </div>
+
+              {/* Modo Humano */}
+              {editingContact && (
+                <div className="border-t border-gray-200 pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Modo Humano</p>
+                      <p className="text-xs text-gray-500">
+                        {editingContact.modo_humano 
+                          ? `Activo desde ${new Date(editingContact.modo_humano_desde).toLocaleString()}` 
+                          : 'La IA responde automáticamente'}
+                      </p>
+                      {editingContact.modo_humano && editingContact.modo_humano_razon && (
+                        <p className="text-xs text-orange-600 mt-1">Razón: {editingContact.modo_humano_razon}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          if (editingContact.modo_humano) {
+                            await contactosApi.desactivarModoHumano(editingContact.id)
+                          } else {
+                            await contactosApi.activarModoHumano(editingContact.id, 'Activado manualmente')
+                          }
+                          loadContactos()
+                          setEditingContact({ ...editingContact, modo_humano: !editingContact.modo_humano })
+                        } catch (err) {
+                          console.error('Error toggling modo humano:', err)
+                        }
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        editingContact.modo_humano
+                          ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                          : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                      }`}
+                    >
+                      {editingContact.modo_humano ? 'Reactivar IA' : 'Activar Modo Humano'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-3 mt-6">

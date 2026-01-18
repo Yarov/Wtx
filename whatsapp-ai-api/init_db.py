@@ -51,6 +51,7 @@ Siempre saluda al cliente y ofrece ayuda."""),
             ("ver_citas", True, "Ver citas programadas del cliente"),
             ("cancelar_cita", True, "Cancelar citas existentes"),
             ("modificar_cita", True, "Modificar citas o agregar servicios"),
+            ("transferir_a_humano", True, "Transferir conversación a atención humana"),
         ]
         
         for nombre, habilitado, descripcion in default_tools:
