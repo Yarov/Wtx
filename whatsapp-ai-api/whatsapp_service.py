@@ -330,6 +330,10 @@ def parse_webhook_message(data: dict) -> dict | None:
         name = payload.get("pushName", payload.get("notifyName", ""))
         
         if phone and message:
+            # Ignorar grupos
+            if "@g.us" in phone:
+                return None
+            
             # Limpiar teléfono
             phone_clean = phone.replace("@c.us", "").replace("@s.whatsapp.net", "")
             return {

@@ -477,6 +477,10 @@ def guardar_contacto_mensaje(telefono: str, nombre: str = None, db: Session = No
     Guardar o actualizar contacto cuando llega un mensaje.
     Llamar desde el webhook.
     """
+    # Ignorar grupos (defensa adicional)
+    if "@g.us" in telefono or not telefono:
+        return None
+    
     if db is None:
         from models import SessionLocal
         db = SessionLocal()
