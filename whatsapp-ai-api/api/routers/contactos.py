@@ -12,6 +12,7 @@ import io
 
 from models import get_db, Contacto
 from api.routers.auth import get_current_user
+from auth import get_current_admin_user
 from models import Usuario
 
 router = APIRouter(
@@ -146,6 +147,35 @@ async def stats_contactos(
         "inactivos": inactivos,
         "bloqueados": bloqueados,
         "sin_actividad_30d": sin_actividad_30d
+    }
+
+
+@router.delete("/all", summary="Delete all contacts", description="Permanently delete ALL contacts. Requires admin privileges and explicit confirmation. Use with caution - this action cannot be undone.")
+async def eliminar_todos_contactos(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_admin_user)
+):
+    # Require explicit confirmation
+    if not data.get("confirm"):
+        raise HTTPException(
+            status_code=400, 
+            detail="Debes confirmar la acción enviando confirm: true"
+        )
+    
+    # Count before delete
+    total = db.query(Contacto).count()
+    
+    if total == 0:
+        return {"message": "No hay contactos para eliminar", "deleted": 0}
+    
+    # Delete all contacts
+    db.query(Contacto).delete()
+    db.commit()
+    
+    return {
+        "message": f"Se eliminaron {total} contactos exitosamente",
+        "deleted": total
     }
 
 

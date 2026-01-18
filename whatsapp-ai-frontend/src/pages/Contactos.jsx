@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Search, RefreshCw, Download, Plus, User, Loader2, Check, X, MoreVertical, Trash2, UserRound } from 'lucide-react'
+import { Search, RefreshCw, Download, Plus, User, Loader2, Check, X, MoreVertical, Trash2, UserRound, AlertTriangle } from 'lucide-react'
 import Button from '../components/Button'
 import { contactosApi } from '../api/client'
+import { ConfirmDialog } from '../components/ui'
+import { useAuth } from '../contexts/AuthContext'
 
 const ESTADOS = [
   { value: '', label: 'Todos' },
@@ -12,6 +14,7 @@ const ESTADOS = [
 ]
 
 export default function Contactos() {
+  const { user } = useAuth()
   const [contactos, setContactos] = useState([])
   const [stats, setStats] = useState({ total: 0, activos: 0, inactivos: 0 })
   const [loading, setLoading] = useState(true)
@@ -31,6 +34,10 @@ export default function Contactos() {
   const [editingContact, setEditingContact] = useState(null)
   const [formData, setFormData] = useState({ telefono: '', nombre: '', email: '', notas: '' })
   const [saving, setSaving] = useState(false)
+  
+  // Delete all confirm dialog
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false)
+  const [deletingAll, setDeletingAll] = useState(false)
 
   useEffect(() => {
     loadContactos()
@@ -218,6 +225,22 @@ export default function Contactos() {
     }
   }
 
+  const handleDeleteAll = async () => {
+    setDeletingAll(true)
+    try {
+      const response = await contactosApi.deleteAll()
+      setSyncResult({ message: response.data.message })
+      setShowDeleteAllConfirm(false)
+      loadContactos()
+      loadStats()
+      setTimeout(() => setSyncResult(null), 5000)
+    } catch (error) {
+      setSyncResult({ error: error.response?.data?.detail || 'Error eliminando contactos' })
+    } finally {
+      setDeletingAll(false)
+    }
+  }
+
   const formatDate = (dateStr) => {
     if (!dateStr) return 'Nunca'
     const date = new Date(dateStr)
@@ -260,6 +283,16 @@ export default function Contactos() {
             <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
             Sincronizar
           </Button>
+          {user?.is_admin && (
+            <Button 
+              variant="secondary" 
+              onClick={() => setShowDeleteAllConfirm(true)}
+              className="text-red-600 hover:bg-red-50"
+            >
+              <AlertTriangle className="h-4 w-4 mr-2" />
+              Eliminar todos
+            </Button>
+          )}
           <Button onClick={openCreateModal}>
             <Plus className="h-4 w-4 mr-2" />
             Agregar
@@ -588,6 +621,19 @@ export default function Contactos() {
           </div>
         </div>
       )}
+
+      {/* Confirm Delete All Dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteAllConfirm}
+        onClose={() => setShowDeleteAllConfirm(false)}
+        onConfirm={handleDeleteAll}
+        title="¿Eliminar TODOS los contactos?"
+        message="Esta acción eliminará permanentemente todos los contactos. No se puede deshacer. Perderás todo el historial de mensajes, notas y etiquetas. Después podrás sincronizar desde cero."
+        confirmText="Sí, eliminar todos"
+        cancelText="Cancelar"
+        variant="danger"
+        loading={deletingAll}
+      />
     </div>
   )
 }
