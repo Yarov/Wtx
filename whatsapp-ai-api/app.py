@@ -1,7 +1,7 @@
 """
-WhatsApp AI Agent - Clean Architecture
+Wtx API - WhatsApp AI Agent
 """
-from fastapi import FastAPI, Response, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
@@ -10,15 +10,13 @@ logger = logging.getLogger(__name__)
 
 # Inicializar base de datos ANTES de importar routers
 logger.info("Initializing database...")
-from models import Base, get_engine
 from database import init_database, init_default_data
 
-# Conectar y crear tablas
 init_database()
 init_default_data()
 logger.info("Database ready")
 
-# Import routers DESPUÉS de inicializar DB
+# Import routers
 from api.routers import (
     auth,
     config,
@@ -30,15 +28,14 @@ from api.routers import (
     contactos,
     campanas,
     jobs,
-    business
+    business,
+    webhook
 )
 
-from agent import responder
-
 app = FastAPI(
-    title="WhatsApp AI Agent", 
+    title="Wtx API", 
     version="3.0.0", 
-    description="Clean Architecture WhatsApp AI Agent"
+    description="WhatsApp AI Agent API"
 )
 
 # Startup event para iniciar el campaign worker
@@ -73,193 +70,17 @@ app.include_router(contactos.router, prefix=api_prefix)
 app.include_router(campanas.router, prefix=api_prefix)
 app.include_router(jobs.router, prefix=api_prefix)
 app.include_router(business.router, prefix=api_prefix)
+app.include_router(webhook.router)
 
-# Backwards compatibility - redirect old routes
-@app.get(f"{api_prefix}/availability")
-async def get_availability_compat():
-    """Backwards compatibility for /api/availability"""
-    from api.routers.appointments import get_availability
-    return await get_availability()
-
-@app.put(f"{api_prefix}/availability/{{dia_id}}")
-async def update_availability_compat(dia_id: int, data: dict):
-    """Backwards compatibility for /api/availability/{dia_id}"""
-    from api.routers.appointments import update_availability
-    from api.schemas.appointments import AvailabilityModel
-    model = AvailabilityModel(**data)
-    return await update_availability(dia_id, model)
-
-@app.get(f"{api_prefix}/blocked-slots")
-async def get_blocked_slots_compat():
-    """Backwards compatibility for /api/blocked-slots"""
-    from api.routers.appointments import get_blocked_slots
-    return await get_blocked_slots()
-
-@app.post(f"{api_prefix}/blocked-slots")
-async def add_blocked_slot_compat(data: dict):
-    """Backwards compatibility for /api/blocked-slots"""
-    from api.routers.appointments import add_blocked_slot
-    from api.schemas.appointments import BlockedSlotModel
-    model = BlockedSlotModel(**data)
-    return await add_blocked_slot(model)
-
-@app.delete(f"{api_prefix}/blocked-slots/{{slot_id}}")
-async def delete_blocked_slot_compat(slot_id: int):
-    """Backwards compatibility for /api/blocked-slots/{slot_id}"""
-    from api.routers.appointments import delete_blocked_slot
-    return await delete_blocked_slot(slot_id)
-
-@app.get(f"{api_prefix}/available-slots/{{fecha}}")
-async def get_available_slots_compat(fecha: str):
-    """Backwards compatibility for /api/available-slots/{fecha}"""
-    from api.routers.appointments import get_available_slots
-    return await get_available_slots(fecha)
-
-@app.get(f"{api_prefix}/prompt")
-async def get_prompt_compat():
-    """Backwards compatibility for /api/prompt"""
-    from api.routers.config import get_prompt
-    return await get_prompt()
-
-@app.put(f"{api_prefix}/prompt")
-async def update_prompt_compat(prompt: dict):
-    """Backwards compatibility for /api/prompt"""
-    from api.routers.config import update_prompt
-    from api.schemas.config import PromptModel
-    model = PromptModel(**prompt)
-    return await update_prompt(model)
-
-@app.post(f"{api_prefix}/prompt/improve")
-async def improve_prompt_compat(data: dict):
-    """Backwards compatibility for /api/prompt/improve"""
-    from api.routers.config import improve_prompt
-    from api.schemas.config import ImprovePromptModel
-    model = ImprovePromptModel(**data)
-    return await improve_prompt(model)
 
 # Root endpoint
 @app.get("/")
 async def root():
     return {
         "status": "ok", 
-        "message": "WhatsApp AI Agent v3.0 - Clean Architecture",
-        "docs": "/docs",
-        "endpoints": {
-            "stats": f"{api_prefix}/stats",
-            "config": f"{api_prefix}/config",
-            "inventory": f"{api_prefix}/inventory",
-            "appointments": f"{api_prefix}/appointments", 
-            "tools": f"{api_prefix}/tools",
-            "conversations": f"{api_prefix}/conversations"
-        }
+        "message": "Wtx API v3.0",
+        "docs": "/docs"
     }
-
-
-# WhatsApp webhook - Soporta WAHA y Evolution API
-@app.post("/whatsapp")
-async def whatsapp_webhook(request: Request):
-    """
-    WhatsApp webhook unificado para WAHA y Evolution API
-    """
-    from whatsapp_service import parse_webhook_message, whatsapp_service
-    from database import get_config
-    
-    try:
-        # Intentar parsear como JSON (WAHA/Evolution)
-        content_type = request.headers.get("content-type", "")
-        
-        if "application/json" in content_type:
-            data = await request.json()
-        else:
-            # Fallback a form data
-            form_data = await request.form()
-            data = dict(form_data)
-        
-        # Status callbacks - ignore
-        if "MessageStatus" in data:
-            return Response(content="", media_type="text/plain", status_code=200)
-        
-        # Parsear mensaje según el formato
-        parsed = parse_webhook_message(data)
-        
-        if not parsed:
-            logger.debug(f"Webhook ignorado (no es mensaje válido): {data.get('event', 'unknown')}")
-            return Response(content='{"status": "ignored"}', media_type="application/json", status_code=200)
-        
-        from_number = parsed["phone"]
-        incoming_msg = parsed["message"]
-        contact_name = parsed.get("name", "")
-        
-        logger.info(f"Message from {from_number} ({contact_name}): {incoming_msg}")
-        
-        # Guardar/actualizar contacto automáticamente
-        try:
-            from api.routers.contactos import guardar_contacto_mensaje
-            guardar_contacto_mensaje(from_number, contact_name)
-        except Exception as e:
-            logger.warning(f"Error guardando contacto: {e}")
-        
-        # Marcar como respondido en campañas activas
-        try:
-            from campaign_engine import marcar_respondido
-            await marcar_respondido(from_number)
-        except Exception as e:
-            logger.warning(f"Error marcando respondido: {e}")
-        
-        # Verificar comando #reactivar (enviado por el negocio)
-        reactivar_command = get_config("human_mode_reactivar_command", "#reactivar")
-        if incoming_msg.strip().lower() == reactivar_command.lower():
-            try:
-                from api.routers.contactos import desactivar_modo_humano_por_telefono
-                if desactivar_modo_humano_por_telefono(from_number):
-                    logger.info(f"Modo humano desactivado para {from_number} por comando")
-                    return Response(content='{"status": "human_mode_deactivated"}', media_type="application/json", status_code=200)
-            except Exception as e:
-                logger.warning(f"Error procesando comando reactivar: {e}")
-        
-        # Verificar si el contacto está en modo humano
-        try:
-            from api.routers.contactos import verificar_modo_humano
-            if verificar_modo_humano(from_number):
-                logger.info(f"Contacto {from_number} en modo humano, IA no responde")
-                return Response(content='{"status": "human_mode_active"}', media_type="application/json", status_code=200)
-        except Exception as e:
-            logger.warning(f"Error verificando modo humano: {e}")
-        
-        # Check if agent is enabled
-        agent_enabled = get_config("agent_enabled", "true").lower() == "true"
-        
-        if not agent_enabled:
-            logger.info("Agent is disabled, not responding")
-            return Response(content='{"status": "agent_disabled"}', media_type="application/json", status_code=200)
-        
-        # Generar respuesta con IA
-        respuesta = responder(incoming_msg, from_number)
-        logger.info(f"Response: {respuesta[:100]}...")
-        
-        # Enviar respuesta via WAHA/Evolution
-        if whatsapp_service.is_configured():
-            result = await whatsapp_service.send_message(from_number, respuesta)
-            if result["success"]:
-                logger.info(f"Mensaje enviado a {from_number}")
-            else:
-                logger.error(f"Error enviando mensaje: {result.get('error')}")
-            return Response(content='{"status": "ok"}', media_type="application/json", status_code=200)
-        else:
-            # WhatsApp no configurado
-            logger.warning("WhatsApp no configurado, no se puede enviar respuesta")
-            return Response(content='{"status": "whatsapp_not_configured"}', media_type="application/json", status_code=200)
-            
-    except Exception as e:
-        logger.error(f"Webhook error: {str(e)}", exc_info=True)
-        return Response(content='{"status": "error"}', media_type="application/json", status_code=500)
-
-
-# Webhook alternativo para compatibilidad
-@app.post("/api/webhook/whatsapp")
-async def whatsapp_webhook_api(request: Request):
-    """Alias del webhook en /api/webhook/whatsapp"""
-    return await whatsapp_webhook(request)
 
 
 if __name__ == "__main__":
