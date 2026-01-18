@@ -156,7 +156,7 @@ export default function Register() {
         </div>
 
         <p className="text-center text-sm text-gray-500 mt-6">
-          WhatsApp AI Agent v3.0
+          Wtx Agent v3.0
         </p>
       </div>
     </div>

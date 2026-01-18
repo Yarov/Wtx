@@ -81,13 +81,12 @@ async def get_active_modules(
     
     config = get_or_create_business_config(db)
     
-    # Verificar también si los tools están habilitados
+    # Los módulos están activos si los tools correspondientes están habilitados
     inventory_tool = db.query(ToolsConfig).filter(ToolsConfig.nombre == "consultar_inventario").first()
     appointment_tools = db.query(ToolsConfig).filter(ToolsConfig.nombre.in_(["agendar_cita", "ver_citas"])).all()
     
-    # El módulo está activo si está en BusinessConfig O si el tool está habilitado
-    has_inventory = config.has_inventory or (inventory_tool and inventory_tool.habilitado)
-    has_appointments = config.has_appointments or any(t.habilitado for t in appointment_tools)
+    has_inventory = inventory_tool.habilitado if inventory_tool else False
+    has_appointments = any(t.habilitado for t in appointment_tools)
     
     return {
         "modules": {
