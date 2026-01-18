@@ -76,6 +76,7 @@ export const businessApi = {
   setupApply: (data) => api.post('/business/setup-apply', data),
   getOnboardingStatus: () => api.get('/business/onboarding-status'),
   skipOnboarding: () => api.post('/business/skip-onboarding'),
+  restartOnboarding: () => api.post('/business/restart-onboarding'),
 }
 
 export const jobsApi = {

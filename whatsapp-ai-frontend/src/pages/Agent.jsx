@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { MessageSquare, Wrench, Settings, Brain, Zap, Loader2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { MessageSquare, Wrench, Settings, Brain, Zap, Loader2, RotateCcw } from 'lucide-react'
 import Button from '../components/Button'
 import { PersonalityTab, ToolsTab, ModelTab } from '../components/agent'
-import { toolsApi, promptApi } from '../api/client'
+import { toolsApi, promptApi, businessApi } from '../api/client'
 
 const DEFAULT_SECTIONS = {
   role: 'Eres un asistente virtual profesional especializado en atención al cliente.',
@@ -22,6 +23,7 @@ const DEFAULT_CONFIG = {
 }
 
 export default function Agent() {
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('personality')
   const [sections, setSections] = useState(DEFAULT_SECTIONS)
   const [config, setConfig] = useState(DEFAULT_CONFIG)
@@ -29,6 +31,17 @@ export default function Agent() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  const handleRestartOnboarding = async () => {
+    if (window.confirm('¿Estás seguro de que quieres reiniciar el asistente de configuración?')) {
+      try {
+        await businessApi.restartOnboarding()
+        navigate('/setup')
+      } catch (error) {
+        console.error('Error restarting onboarding:', error)
+      }
+    }
+  }
 
   useEffect(() => {
     loadData()
@@ -171,6 +184,13 @@ ${sections.tone}
           <h1 className="text-2xl font-bold text-gray-900">Configuración del Agente</h1>
           <p className="text-gray-500 text-sm">Define la personalidad, capacidades y comportamiento de tu IA</p>
         </div>
+        <button
+          onClick={handleRestartOnboarding}
+          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
+        >
+          <RotateCcw className="h-4 w-4" />
+          Reiniciar asistente
+        </button>
       </div>
 
       {/* Sticky Save Bar */}

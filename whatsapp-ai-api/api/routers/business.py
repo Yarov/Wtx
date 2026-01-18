@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
-from models import get_db, BusinessConfig, ToolsConfig
+from models import get_db, BusinessConfig, ToolsConfig, Configuracion, Inventario, Disponibilidad
 from api.routers.auth import get_current_user
 from models import Usuario
 from database import get_config, set_config
@@ -115,6 +115,74 @@ async def get_onboarding_status(
     return {"onboarding_completed": config.onboarding_completed}
 
 
+def init_all_default_data(db: Session):
+    """Inicializar todos los datos por defecto si no existen"""
+    initialized = []
+    
+    # Configuración por defecto
+    if db.query(Configuracion).count() == 0:
+        default_config = [
+            ("system_prompt", """Eres un asistente de WhatsApp profesional.
+Ofreces servicios, agendas citas y consultas inventario.
+Responde claro, corto y amable.
+Siempre saluda al cliente y ofrece ayuda."""),
+            ("model", "gpt-4o-mini"),
+            ("temperature", "0.7"),
+            ("max_tokens", "500"),
+            ("business_name", "Mi Negocio"),
+            ("business_type", "servicios"),
+        ]
+        for clave, valor in default_config:
+            db.add(Configuracion(clave=clave, valor=valor))
+        initialized.append("configuracion")
+    
+    # Herramientas por defecto
+    if db.query(ToolsConfig).count() == 0:
+        default_tools = [
+            ("consultar_inventario", True, "Consultar servicios y productos disponibles"),
+            ("agendar_cita", True, "Agendar citas para clientes"),
+            ("ver_citas", True, "Ver citas programadas del cliente"),
+            ("cancelar_cita", True, "Cancelar citas existentes"),
+            ("modificar_cita", True, "Modificar citas o agregar servicios"),
+        ]
+        for nombre, habilitado, descripcion in default_tools:
+            db.add(ToolsConfig(nombre=nombre, habilitado=habilitado, descripcion=descripcion))
+        initialized.append("tools")
+    
+    # Inventario por defecto
+    if db.query(Inventario).count() == 0:
+        default_inventory = [
+            ("Servicio básico", 99, 100.0),
+            ("Servicio premium", 99, 200.0),
+            ("Producto ejemplo", 50, 150.0),
+        ]
+        for producto, stock, precio in default_inventory:
+            db.add(Inventario(producto=producto, stock=stock, precio=precio))
+        initialized.append("inventario")
+    
+    # Disponibilidad por defecto (Lun-Vie 9-18, Sab 9-14, Dom cerrado)
+    if db.query(Disponibilidad).count() == 0:
+        dias_config = [
+            (0, "09:00", "18:00", True),   # Lunes
+            (1, "09:00", "18:00", True),   # Martes
+            (2, "09:00", "18:00", True),   # Miércoles
+            (3, "09:00", "18:00", True),   # Jueves
+            (4, "09:00", "18:00", True),   # Viernes
+            (5, "09:00", "14:00", True),   # Sábado
+            (6, "00:00", "00:00", False),  # Domingo
+        ]
+        for dia_semana, hora_inicio, hora_fin, activo in dias_config:
+            db.add(Disponibilidad(
+                dia_semana=dia_semana,
+                hora_inicio=hora_inicio,
+                hora_fin=hora_fin,
+                activo=activo
+            ))
+        initialized.append("disponibilidad")
+    
+    return initialized
+
+
 @router.post("/skip-onboarding")
 async def skip_onboarding(
     db: Session = Depends(get_db),
@@ -125,22 +193,26 @@ async def skip_onboarding(
     config.onboarding_completed = True
     config.updated_at = datetime.utcnow()
     
-    # Inicializar herramientas por defecto si no existen
-    existing_tools = db.query(ToolsConfig).count()
-    if existing_tools == 0:
-        default_tools = [
-            ("consultar_inventario", True, "Consultar servicios y productos disponibles"),
-            ("agendar_cita", True, "Agendar citas para clientes"),
-            ("ver_citas", True, "Ver citas programadas del cliente"),
-            ("cancelar_cita", True, "Cancelar citas existentes"),
-            ("modificar_cita", True, "Modificar citas o agregar servicios"),
-        ]
-        for nombre, habilitado, descripcion in default_tools:
-            db.add(ToolsConfig(nombre=nombre, habilitado=habilitado, descripcion=descripcion))
+    # Inicializar todos los datos por defecto
+    initialized = init_all_default_data(db)
     
     db.commit()
     
-    return {"status": "ok", "message": "Onboarding saltado"}
+    return {"status": "ok", "message": "Onboarding saltado", "initialized": initialized}
+
+
+@router.post("/restart-onboarding")
+async def restart_onboarding(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """Reiniciar el onboarding para volver a configurar"""
+    config = get_or_create_business_config(db)
+    config.onboarding_completed = False
+    config.updated_at = datetime.utcnow()
+    db.commit()
+    
+    return {"status": "ok", "message": "Onboarding reiniciado"}
 
 
 class ChatMessage(BaseModel):

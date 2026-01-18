@@ -14,7 +14,7 @@ class ToolToggle(BaseModel):
     enabled: bool
 
 
-@router.get("/")
+@router.get("")
 async def get_tools(current_user: Usuario = Depends(get_current_user)):
     """Get all tools configuration"""
     tools = get_all_tools_config()
