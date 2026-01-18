@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Play, Pause, X, Eye, Loader2, Send, Clock, CheckCircle, XCircle, Users, Wand2, Search, User } from 'lucide-react'
 import Button from '../components/Button'
 import { campanasApi, contactosApi } from '../api/client'
+import { ConfirmDialog } from '../components/ui'
 
 const ESTADOS_BADGE = {
   borrador: { color: 'bg-gray-100 text-gray-700', label: 'Borrador' },
@@ -42,6 +43,12 @@ export default function Campanas() {
   })
   const [saving, setSaving] = useState(false)
   const [preview, setPreview] = useState('')
+  
+  // Confirm dialogs
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showIniciarConfirm, setShowIniciarConfirm] = useState(false)
+  const [showCancelarConfirm, setShowCancelarConfirm] = useState(false)
+  const [campanaToAction, setCampanaToAction] = useState(null)
   
   // Modal de prueba
   const [showTestModal, setShowTestModal] = useState(false)
@@ -147,8 +154,25 @@ export default function Campanas() {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar esta campaña?')) return
+  const openDeleteConfirm = (id) => {
+    setCampanaToAction(id)
+    setShowDeleteConfirm(true)
+  }
+
+  const openIniciarConfirm = (id) => {
+    setCampanaToAction(id)
+    setShowIniciarConfirm(true)
+  }
+
+  const openCancelarConfirm = (id) => {
+    setCampanaToAction(id)
+    setShowCancelarConfirm(true)
+  }
+
+  const handleDelete = async () => {
+    const id = campanaToAction
+    setShowDeleteConfirm(false)
+    setCampanaToAction(null)
     try {
       await campanasApi.delete(id)
       loadCampanas()
@@ -158,8 +182,10 @@ export default function Campanas() {
     }
   }
 
-  const handleIniciar = async (id) => {
-    if (!confirm('¿Iniciar envío de esta campaña?')) return
+  const handleIniciar = async () => {
+    const id = campanaToAction
+    setShowIniciarConfirm(false)
+    setCampanaToAction(null)
     try {
       await campanasApi.iniciar(id)
       loadCampanas()
@@ -186,8 +212,10 @@ export default function Campanas() {
     }
   }
 
-  const handleCancelar = async (id) => {
-    if (!confirm('¿Cancelar esta campaña?')) return
+  const handleCancelar = async () => {
+    const id = campanaToAction
+    setShowCancelarConfirm(false)
+    setCampanaToAction(null)
     try {
       await campanasApi.cancelar(id)
       loadCampanas()
@@ -393,7 +421,7 @@ export default function Campanas() {
                       >
                         <Eye className="h-4 w-4" />
                       </button>
-                      <Button size="sm" onClick={() => handleIniciar(campana.id)}>
+                      <Button size="sm" onClick={() => openIniciarConfirm(campana.id)}>
                         <Play className="h-4 w-4 mr-1" />
                         Iniciar
                       </Button>
@@ -405,25 +433,25 @@ export default function Campanas() {
                         <Pause className="h-4 w-4 mr-1" />
                         Pausar
                       </Button>
-                      <Button size="sm" variant="danger" onClick={() => handleCancelar(campana.id)}>
+                      <Button size="sm" variant="danger" onClick={() => openCancelarConfirm(campana.id)}>
                         <X className="h-4 w-4" />
                       </Button>
                     </>
                   )}
                   {campana.estado === 'pausada' && (
                     <>
-                      <Button size="sm" onClick={() => handleReanudar(campana.id)}>
+                      <Button size="sm" variant="secondary" onClick={() => handleReanudar(campana.id)}>
                         <Play className="h-4 w-4 mr-1" />
                         Reanudar
                       </Button>
-                      <Button size="sm" variant="danger" onClick={() => handleCancelar(campana.id)}>
+                      <Button size="sm" variant="danger" onClick={() => openCancelarConfirm(campana.id)}>
                         <X className="h-4 w-4" />
                       </Button>
                     </>
                   )}
                   {(campana.estado === 'completada' || campana.estado === 'cancelada') && (
                     <button
-                      onClick={() => handleDelete(campana.id)}
+                      onClick={() => openDeleteConfirm(campana.id)}
                       className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
                     >
                       <X className="h-4 w-4" />
@@ -815,6 +843,38 @@ export default function Campanas() {
           </div>
         </div>
       )}
+
+      {/* Confirm Dialogs */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => { setShowDeleteConfirm(false); setCampanaToAction(null) }}
+        onConfirm={handleDelete}
+        title="¿Eliminar esta campaña?"
+        message="Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+      />
+      <ConfirmDialog
+        isOpen={showIniciarConfirm}
+        onClose={() => { setShowIniciarConfirm(false); setCampanaToAction(null) }}
+        onConfirm={handleIniciar}
+        title="¿Iniciar envío de esta campaña?"
+        message="Los mensajes comenzarán a enviarse según la velocidad configurada."
+        confirmText="Iniciar"
+        cancelText="Cancelar"
+        variant="info"
+      />
+      <ConfirmDialog
+        isOpen={showCancelarConfirm}
+        onClose={() => { setShowCancelarConfirm(false); setCampanaToAction(null) }}
+        onConfirm={handleCancelar}
+        title="¿Cancelar esta campaña?"
+        message="Se detendrá el envío y no se podrá reanudar."
+        confirmText="Cancelar campaña"
+        cancelText="Volver"
+        variant="danger"
+      />
     </div>
   )
 }

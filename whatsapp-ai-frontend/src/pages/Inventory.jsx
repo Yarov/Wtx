@@ -8,6 +8,7 @@ import Card from '../components/Card'
 import Button from '../components/Button'
 import { Input } from '../components/Input'
 import { inventoryApi } from '../api/client'
+import { ConfirmDialog } from '../components/ui'
 
 export default function Inventory() {
   const [products, setProducts] = useState([])
@@ -23,6 +24,8 @@ export default function Inventory() {
   const [sortBy, setSortBy] = useState('producto')
   const [sortOrder, setSortOrder] = useState('asc')
   const fileInputRef = useRef(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [productToDelete, setProductToDelete] = useState(null)
 
   useEffect(() => {
     loadProducts()
@@ -86,8 +89,15 @@ export default function Inventory() {
     setActiveTab('list')
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar este producto?')) return
+  const openDeleteConfirm = (id) => {
+    setProductToDelete(id)
+    setShowDeleteConfirm(true)
+  }
+
+  const handleDelete = async () => {
+    const id = productToDelete
+    setShowDeleteConfirm(false)
+    setProductToDelete(null)
     setProducts(products.filter(p => p.id !== id))
     try {
       await inventoryApi.deleteProduct(id)
@@ -402,7 +412,7 @@ export default function Inventory() {
                             <Pencil className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(product.id)}
+                            onClick={() => openDeleteConfirm(product.id)}
                             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -560,6 +570,16 @@ export default function Inventory() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => { setShowDeleteConfirm(false); setProductToDelete(null) }}
+        onConfirm={handleDelete}
+        title="¿Eliminar este producto?"
+        message="Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+      />
     </div>
   )
 }

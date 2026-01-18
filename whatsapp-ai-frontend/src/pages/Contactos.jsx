@@ -35,9 +35,13 @@ export default function Contactos() {
   const [formData, setFormData] = useState({ telefono: '', nombre: '', email: '', notas: '' })
   const [saving, setSaving] = useState(false)
   
-  // Delete all confirm dialog
+  // Confirm dialogs
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false)
   const [deletingAll, setDeletingAll] = useState(false)
+  const [showCleanConfirm, setShowCleanConfirm] = useState(false)
+  const [showVerifyConfirm, setShowVerifyConfirm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [contactToDelete, setContactToDelete] = useState(null)
 
   useEffect(() => {
     loadContactos()
@@ -109,7 +113,7 @@ export default function Contactos() {
   }
 
   const handleLimpiarDuplicados = async () => {
-    if (!confirm('¿Fusionar contactos duplicados? Esto combinará contactos con el mismo número de teléfono.')) return
+    setShowCleanConfirm(false)
     setCleaning(true)
     setSyncResult(null)
     try {
@@ -145,10 +149,9 @@ export default function Contactos() {
 
   const handleVerificarActivos = async () => {
     if (verifyJob && (verifyJob.estado === 'pendiente' || verifyJob.estado === 'procesando')) {
-      alert('Ya hay una verificación en proceso')
       return
     }
-    if (!confirm('¿Verificar todos los contactos activos? Este proceso corre en segundo plano y puede tardar varios minutos.')) return
+    setShowVerifyConfirm(false)
     
     try {
       const response = await contactosApi.verificarActivos()
@@ -215,7 +218,8 @@ export default function Contactos() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar este contacto?')) return
+    setShowDeleteConfirm(false)
+    setContactToDelete(null)
     try {
       await contactosApi.delete(id)
       loadContactos()
@@ -223,6 +227,11 @@ export default function Contactos() {
     } catch (error) {
       console.error('Error deleting:', error)
     }
+  }
+
+  const openDeleteConfirm = (id) => {
+    setContactToDelete(id)
+    setShowDeleteConfirm(true)
   }
 
   const handleDeleteAll = async () => {
@@ -270,12 +279,12 @@ export default function Contactos() {
           </Button>
           <Button 
             variant="secondary" 
-            onClick={handleVerificarActivos} 
+            onClick={() => setShowVerifyConfirm(true)} 
             loading={verifyJob && (verifyJob.estado === 'pendiente' || verifyJob.estado === 'procesando')}
           >
             Verificar activos
           </Button>
-          <Button variant="secondary" onClick={handleLimpiarDuplicados} loading={cleaning}>
+          <Button variant="secondary" onClick={() => setShowCleanConfirm(true)} loading={cleaning}>
             <Trash2 className="h-4 w-4 mr-2" />
             Limpiar duplicados
           </Button>
@@ -605,7 +614,7 @@ export default function Contactos() {
             <div className="flex items-center justify-end gap-3 mt-6">
               {editingContact && (
                 <button
-                  onClick={() => { handleDelete(editingContact.id); setShowModal(false) }}
+                  onClick={() => { openDeleteConfirm(editingContact.id); setShowModal(false) }}
                   className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm"
                 >
                   Eliminar
@@ -622,7 +631,7 @@ export default function Contactos() {
         </div>
       )}
 
-      {/* Confirm Delete All Dialog */}
+      {/* Confirm Dialogs */}
       <ConfirmDialog
         isOpen={showDeleteAllConfirm}
         onClose={() => setShowDeleteAllConfirm(false)}
@@ -633,6 +642,37 @@ export default function Contactos() {
         cancelText="Cancelar"
         variant="danger"
         loading={deletingAll}
+      />
+      <ConfirmDialog
+        isOpen={showCleanConfirm}
+        onClose={() => setShowCleanConfirm(false)}
+        onConfirm={handleLimpiarDuplicados}
+        title="¿Fusionar contactos duplicados?"
+        message="Esto combinará contactos con el mismo número de teléfono y eliminará los duplicados."
+        confirmText="Fusionar"
+        cancelText="Cancelar"
+        variant="warning"
+        loading={cleaning}
+      />
+      <ConfirmDialog
+        isOpen={showVerifyConfirm}
+        onClose={() => setShowVerifyConfirm(false)}
+        onConfirm={handleVerificarActivos}
+        title="¿Verificar contactos activos?"
+        message="Este proceso corre en segundo plano y puede tardar varios minutos dependiendo de la cantidad de contactos."
+        confirmText="Verificar"
+        cancelText="Cancelar"
+        variant="info"
+      />
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => { setShowDeleteConfirm(false); setContactToDelete(null) }}
+        onConfirm={() => handleDelete(contactToDelete)}
+        title="¿Eliminar este contacto?"
+        message="Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
       />
     </div>
   )

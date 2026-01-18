@@ -3,6 +3,7 @@ import { Calendar, Trash2, Phone, Clock, CheckCircle, XCircle, AlertCircle } fro
 import Card from '../components/Card'
 import Button from '../components/Button'
 import { appointmentsApi } from '../api/client'
+import { ConfirmDialog } from '../components/ui'
 
 const STATUS_CONFIG = {
   confirmada: { bg: 'bg-emerald-100', text: 'text-emerald-800', label: 'Confirmada' },
@@ -14,6 +15,8 @@ const STATUS_CONFIG = {
 export default function Appointments() {
   const [appointments, setAppointments] = useState([])
   const [filter, setFilter] = useState('all')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [appointmentToDelete, setAppointmentToDelete] = useState(null)
 
   useEffect(() => {
     loadAppointments()
@@ -28,8 +31,15 @@ export default function Appointments() {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar esta cita?')) return
+  const openDeleteConfirm = (id) => {
+    setAppointmentToDelete(id)
+    setShowDeleteConfirm(true)
+  }
+
+  const handleDelete = async () => {
+    const id = appointmentToDelete
+    setShowDeleteConfirm(false)
+    setAppointmentToDelete(null)
     setAppointments(appointments.filter(a => a.id !== id))
     try {
       await appointmentsApi.deleteAppointment(id)
@@ -135,7 +145,7 @@ export default function Appointments() {
                   </select>
                   
                   <button
-                    onClick={() => handleDelete(appointment.id)}
+                    onClick={() => openDeleteConfirm(appointment.id)}
                     className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   >
                     <Trash2 className="h-5 w-5" />
@@ -168,6 +178,17 @@ export default function Appointments() {
           <p className="text-3xl font-bold text-purple-600 mt-2">{appointments.length}</p>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => { setShowDeleteConfirm(false); setAppointmentToDelete(null) }}
+        onConfirm={handleDelete}
+        title="¿Eliminar esta cita?"
+        message="Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+      />
     </div>
   )
 }

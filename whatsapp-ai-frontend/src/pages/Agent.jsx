@@ -4,6 +4,7 @@ import { MessageSquare, Wrench, Settings, Brain, Zap, Loader2, RotateCcw } from 
 import Button from '../components/Button'
 import { PersonalityTab, ToolsTab, ModelTab } from '../components/agent'
 import { toolsApi, promptApi, businessApi } from '../api/client'
+import { ConfirmDialog } from '../components/ui'
 
 const DEFAULT_SECTIONS = {
   role: 'Eres un asistente virtual profesional especializado en atención al cliente.',
@@ -31,15 +32,15 @@ export default function Agent() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [showRestartConfirm, setShowRestartConfirm] = useState(false)
 
   const handleRestartOnboarding = async () => {
-    if (window.confirm('¿Estás seguro de que quieres reiniciar el asistente de configuración?')) {
-      try {
-        await businessApi.restartOnboarding()
-        navigate('/setup')
-      } catch (error) {
-        console.error('Error restarting onboarding:', error)
-      }
+    setShowRestartConfirm(false)
+    try {
+      await businessApi.restartOnboarding()
+      navigate('/setup')
+    } catch (error) {
+      console.error('Error restarting onboarding:', error)
     }
   }
 
@@ -185,7 +186,7 @@ ${sections.tone}
           <p className="text-gray-500 text-sm">Define la personalidad, capacidades y comportamiento de tu IA</p>
         </div>
         <button
-          onClick={handleRestartOnboarding}
+          onClick={() => setShowRestartConfirm(true)}
           className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
         >
           <RotateCcw className="h-4 w-4" />
@@ -307,6 +308,17 @@ ${sections.tone}
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={showRestartConfirm}
+        onClose={() => setShowRestartConfirm(false)}
+        onConfirm={handleRestartOnboarding}
+        title="¿Reiniciar configuración?"
+        message="Esto te llevará al asistente de configuración inicial. Tu configuración actual se mantendrá hasta que la modifiques."
+        confirmText="Reiniciar"
+        cancelText="Cancelar"
+        variant="warning"
+      />
     </div>
   )
 }

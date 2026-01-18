@@ -3,12 +3,15 @@ import { MessagesSquare, User, Trash2, ChevronRight, Search } from 'lucide-react
 import Card from '../components/Card'
 import { Input } from '../components/Input'
 import { conversationsApi } from '../api/client'
+import { ConfirmDialog } from '../components/ui'
 
 export default function Conversations() {
   const [conversations, setConversations] = useState([])
   const [selected, setSelected] = useState(null)
   const [search, setSearch] = useState('')
   const [messages, setMessages] = useState([])
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [phoneToDelete, setPhoneToDelete] = useState(null)
 
   useEffect(() => {
     loadConversations()
@@ -34,9 +37,16 @@ export default function Conversations() {
     }
   }
 
-  const handleDelete = async (phone, e) => {
+  const openDeleteConfirm = (phone, e) => {
     e.stopPropagation()
-    if (!confirm('¿Eliminar esta conversación?')) return
+    setPhoneToDelete(phone)
+    setShowDeleteConfirm(true)
+  }
+
+  const handleDelete = async () => {
+    const phone = phoneToDelete
+    setShowDeleteConfirm(false)
+    setPhoneToDelete(null)
     setConversations(conversations.filter(c => c.telefono !== phone))
     if (selected === phone) {
       setSelected(null)
@@ -103,7 +113,7 @@ export default function Conversations() {
                       </div>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={(e) => handleDelete(conv.telefono, e)}
+                          onClick={(e) => openDeleteConfirm(conv.telefono, e)}
                           className="p-1 text-gray-400 hover:text-red-600 rounded"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -154,6 +164,17 @@ export default function Conversations() {
           </Card>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => { setShowDeleteConfirm(false); setPhoneToDelete(null) }}
+        onConfirm={handleDelete}
+        title="¿Eliminar esta conversación?"
+        message="Se eliminará todo el historial de mensajes con este contacto."
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+      />
     </div>
   )
 }
