@@ -1,5 +1,5 @@
 """
-Router para gestión de contactos
+Contacts Router - CRM contact management, sync and human mode control
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
@@ -14,7 +14,11 @@ from models import get_db, Contacto
 from api.routers.auth import get_current_user
 from models import Usuario
 
-router = APIRouter(prefix="/contactos", tags=["contactos"])
+router = APIRouter(
+    prefix="/contactos", 
+    tags=["Contacts"],
+    responses={401: {"description": "Not authenticated"}}
+)
 
 
 def normalizar_telefono(telefono: str) -> str:
@@ -61,7 +65,7 @@ def buscar_contacto_por_telefono(db: Session, telefono: str):
     return contacto
 
 
-@router.get("")
+@router.get("", summary="List contacts", description="Retrieve contacts with optional filters by status, search term, tag or inactivity days. Supports pagination.")
 async def listar_contactos(
     estado: Optional[str] = None,
     buscar: Optional[str] = None,
@@ -72,7 +76,6 @@ async def listar_contactos(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Listar contactos con filtros y paginación"""
     query = db.query(Contacto)
     
     # Filtro por estado
@@ -118,12 +121,11 @@ async def listar_contactos(
     }
 
 
-@router.get("/stats")
+@router.get("/stats", summary="Get contact statistics", description="Get contact metrics: total, active, inactive, blocked and 30-day inactive count.")
 async def stats_contactos(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Estadísticas de contactos"""
     total = db.query(Contacto).count()
     activos = db.query(Contacto).filter(Contacto.estado == "activo").count()
     inactivos = db.query(Contacto).filter(Contacto.estado == "inactivo").count()
@@ -147,26 +149,24 @@ async def stats_contactos(
     }
 
 
-@router.get("/{contacto_id}")
+@router.get("/{contacto_id}", summary="Get contact by ID", description="Retrieve detailed information for a specific contact.")
 async def obtener_contacto(
     contacto_id: int,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Obtener un contacto por ID"""
     contacto = db.query(Contacto).filter(Contacto.id == contacto_id).first()
     if not contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")
     return contacto.to_dict()
 
 
-@router.post("")
+@router.post("", summary="Create contact", description="Manually create a new contact with phone, name, email, tags and notes.")
 async def crear_contacto(
     data: dict,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Crear un contacto manualmente"""
     telefono = data.get("telefono", "").strip()
     if not telefono:
         raise HTTPException(status_code=400, detail="Teléfono es requerido")
@@ -193,14 +193,13 @@ async def crear_contacto(
     return contacto.to_dict()
 
 
-@router.put("/{contacto_id}")
+@router.put("/{contacto_id}", summary="Update contact", description="Update contact details like name, email, status, tags or notes.")
 async def actualizar_contacto(
     contacto_id: int,
     data: dict,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Actualizar un contacto"""
     contacto = db.query(Contacto).filter(Contacto.id == contacto_id).first()
     if not contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")
@@ -222,13 +221,12 @@ async def actualizar_contacto(
     return contacto.to_dict()
 
 
-@router.delete("/{contacto_id}")
+@router.delete("/{contacto_id}", summary="Delete contact", description="Permanently remove a contact from the database.")
 async def eliminar_contacto(
     contacto_id: int,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Eliminar un contacto"""
     contacto = db.query(Contacto).filter(Contacto.id == contacto_id).first()
     if not contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")
@@ -239,12 +237,11 @@ async def eliminar_contacto(
     return {"status": "ok"}
 
 
-@router.post("/sync")
+@router.post("/sync", summary="Sync contacts from WhatsApp", description="Import and sync contacts from WAHA or Evolution API. Creates new contacts and updates existing ones.")
 async def sincronizar_contactos(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Sincronizar contactos desde WAHA/Evolution"""
     from whatsapp_service import whatsapp_service
     from database import set_config
     
@@ -302,12 +299,11 @@ async def sincronizar_contactos(
     }
 
 
-@router.post("/limpiar-duplicados")
+@router.post("/limpiar-duplicados", summary="Merge duplicates", description="Find and merge duplicate contacts by normalized phone number.")
 async def limpiar_duplicados(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Fusionar contactos duplicados por teléfono normalizado"""
     contactos = db.query(Contacto).all()
     
     # Agrupar por teléfono normalizado
@@ -365,16 +361,12 @@ async def limpiar_duplicados(
     }
 
 
-@router.post("/verificar-activos")
+@router.post("/verificar-activos", summary="Start contact verification", description="Start a background job to verify which contacts are still active on WhatsApp.")
 async def iniciar_verificacion_activos(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """
-    Iniciar verificación de contactos en background.
-    Retorna el ID del job para consultar progreso.
-    """
     from models import BackgroundJob
     from job_engine import procesar_job
     
@@ -423,12 +415,11 @@ async def iniciar_verificacion_activos(
     }
 
 
-@router.get("/verificar-activos/estado")
+@router.get("/verificar-activos/estado", summary="Get verification status", description="Check the status of the active or last completed contact verification job.")
 async def obtener_estado_verificacion(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Obtener estado del job de verificación activo o el último completado"""
     from models import BackgroundJob
     
     # Buscar job activo o el último
@@ -445,12 +436,11 @@ async def obtener_estado_verificacion(
     }
 
 
-@router.get("/export/csv")
+@router.get("/export/csv", summary="Export contacts to CSV", description="Download all contacts as a CSV file.")
 async def exportar_contactos(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Exportar contactos a CSV"""
     from fastapi.responses import StreamingResponse
     
     contactos = db.query(Contacto).all()
@@ -533,24 +523,22 @@ def guardar_contacto_mensaje(telefono: str, nombre: str = None, db: Session = No
 
 # ==================== MODO HUMANO ====================
 
-@router.get("/modo-humano")
+@router.get("/modo-humano", summary="List human mode contacts", description="Get all contacts currently in human takeover mode where AI is paused.")
 async def listar_contactos_modo_humano(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Listar todos los contactos en modo humano"""
     contactos = db.query(Contacto).filter(Contacto.modo_humano == True).all()
     return [c.to_dict() for c in contactos]
 
 
-@router.post("/{contacto_id}/modo-humano")
+@router.post("/{contacto_id}/modo-humano", summary="Enable human mode", description="Pause AI responses for a contact so a human can take over the conversation.")
 async def activar_modo_humano(
     contacto_id: int,
     data: dict = None,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Activar modo humano para un contacto"""
     contacto = db.query(Contacto).filter(Contacto.id == contacto_id).first()
     if not contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")
@@ -565,13 +553,12 @@ async def activar_modo_humano(
     return {"status": "ok", "contacto": contacto.to_dict()}
 
 
-@router.delete("/{contacto_id}/modo-humano")
+@router.delete("/{contacto_id}/modo-humano", summary="Disable human mode", description="Re-enable AI responses for a contact after human takeover.")
 async def desactivar_modo_humano(
     contacto_id: int,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Desactivar modo humano (reactivar IA) para un contacto"""
     contacto = db.query(Contacto).filter(Contacto.id == contacto_id).first()
     if not contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")

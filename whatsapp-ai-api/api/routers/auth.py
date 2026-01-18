@@ -1,5 +1,5 @@
 """
-Authentication router
+Authentication Router - User registration, login and management
 """
 from fastapi import APIRouter, HTTPException, Depends, status
 from models import SessionLocal, Usuario
@@ -12,12 +12,20 @@ from auth import (
     get_current_admin_user
 )
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(
+    prefix="/auth", 
+    tags=["Authentication"],
+    responses={401: {"description": "Not authenticated"}}
+)
 
 
-@router.post("/register", response_model=UserResponse)
+@router.post(
+    "/register", 
+    response_model=UserResponse,
+    summary="Register new user",
+    description="Create a new user account. The first registered user automatically becomes an admin."
+)
 async def register(user_data: UserCreate):
-    """Register new user (first user becomes admin)"""
     db = SessionLocal()
     try:
         # Check if user exists
@@ -53,9 +61,13 @@ async def register(user_data: UserCreate):
         db.close()
 
 
-@router.post("/login", response_model=Token)
+@router.post(
+    "/login", 
+    response_model=Token,
+    summary="User login",
+    description="Authenticate with username and password to receive a JWT access token valid for 7 days."
+)
 async def login(credentials: UserLogin):
-    """Login and get access token"""
     db = SessionLocal()
     try:
         user = db.query(Usuario).filter(Usuario.username == credentials.username).first()
@@ -83,18 +95,25 @@ async def login(credentials: UserLogin):
         db.close()
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get(
+    "/me", 
+    response_model=UserResponse,
+    summary="Get current user",
+    description="Returns the profile information of the currently authenticated user."
+)
 async def get_me(current_user: Usuario = Depends(get_current_user)):
-    """Get current user info"""
     return current_user.to_dict()
 
 
-@router.post("/change-password")
+@router.post(
+    "/change-password",
+    summary="Change password",
+    description="Change the password for the currently authenticated user. Requires current password verification."
+)
 async def change_password(
     password_data: PasswordChange,
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Change user password"""
     db = SessionLocal()
     try:
         user = db.query(Usuario).filter(Usuario.id == current_user.id).first()
@@ -113,9 +132,13 @@ async def change_password(
         db.close()
 
 
-@router.get("/users", response_model=list[UserResponse])
+@router.get(
+    "/users", 
+    response_model=list[UserResponse],
+    summary="List all users",
+    description="Returns a list of all registered users. Requires admin privileges."
+)
 async def list_users(current_user: Usuario = Depends(get_current_admin_user)):
-    """List all users (admin only)"""
     db = SessionLocal()
     try:
         users = db.query(Usuario).all()
@@ -124,12 +147,15 @@ async def list_users(current_user: Usuario = Depends(get_current_admin_user)):
         db.close()
 
 
-@router.delete("/users/{user_id}")
+@router.delete(
+    "/users/{user_id}",
+    summary="Delete user",
+    description="Permanently delete a user account. Requires admin privileges. Cannot delete your own account."
+)
 async def delete_user(
     user_id: int,
     current_user: Usuario = Depends(get_current_admin_user)
 ):
-    """Delete user (admin only)"""
     if user_id == current_user.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

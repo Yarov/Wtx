@@ -1,15 +1,19 @@
 """
-Stats router
+Stats Router - Dashboard metrics and analytics
 """
 import json
 from fastapi import APIRouter, Depends
 from models import SessionLocal, Cita, Inventario, Memoria, Usuario
 from auth import get_current_user
 
-router = APIRouter(prefix="/stats", tags=["stats"])
+router = APIRouter(
+    prefix="/stats", 
+    tags=["Statistics"],
+    responses={401: {"description": "Not authenticated"}}
+)
 
 
-@router.get("/")
+@router.get("/", summary="Get dashboard stats", description="Retrieve key metrics including total conversations, appointments, products and messages.")
 async def get_stats(current_user: Usuario = Depends(get_current_user)):
     """Get system statistics"""
     db = SessionLocal()

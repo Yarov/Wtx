@@ -1,17 +1,20 @@
 """
-Appointments router
+Appointments Router - Scheduling, availability and calendar management
 """
 from fastapi import APIRouter, Depends
 from models import SessionLocal, Cita, Disponibilidad, HorarioBloqueado, Usuario
 from api.schemas.appointments import AppointmentUpdateModel, AvailabilityModel, BlockedSlotModel
 from auth import get_current_user
 
-router = APIRouter(prefix="/appointments", tags=["appointments"])
+router = APIRouter(
+    prefix="/appointments", 
+    tags=["Appointments"],
+    responses={401: {"description": "Not authenticated"}}
+)
 
 
-@router.get("/")
+@router.get("/", summary="List all appointments", description="Retrieve all scheduled appointments sorted by date descending.")
 async def get_appointments(current_user: Usuario = Depends(get_current_user)):
-    """Get all appointments"""
     db = SessionLocal()
     try:
         citas = db.query(Cita).order_by(Cita.fecha.desc(), Cita.hora.desc()).all()
@@ -20,9 +23,8 @@ async def get_appointments(current_user: Usuario = Depends(get_current_user)):
         db.close()
 
 
-@router.patch("/{appointment_id}/status")
+@router.patch("/{appointment_id}/status", summary="Update appointment status", description="Change the status of an appointment (e.g., pending, confirmed, completed, cancelled).")
 async def update_appointment_status(appointment_id: int, data: AppointmentUpdateModel, current_user: Usuario = Depends(get_current_user)):
-    """Update appointment status"""
     db = SessionLocal()
     try:
         cita = db.query(Cita).filter(Cita.id == appointment_id).first()
@@ -35,9 +37,8 @@ async def update_appointment_status(appointment_id: int, data: AppointmentUpdate
         db.close()
 
 
-@router.delete("/{appointment_id}")
+@router.delete("/{appointment_id}", summary="Delete appointment", description="Permanently remove an appointment from the calendar.")
 async def delete_appointment(appointment_id: int, current_user: Usuario = Depends(get_current_user)):
-    """Delete appointment"""
     db = SessionLocal()
     try:
         db.query(Cita).filter(Cita.id == appointment_id).delete()
@@ -47,9 +48,8 @@ async def delete_appointment(appointment_id: int, current_user: Usuario = Depend
         db.close()
 
 
-@router.get("/availability")
+@router.get("/availability", summary="Get weekly availability", description="Retrieve the business hours configuration for each day of the week.")
 async def get_availability(current_user: Usuario = Depends(get_current_user)):
-    """Get weekly availability"""
     db = SessionLocal()
     try:
         disponibilidad = db.query(Disponibilidad).order_by(Disponibilidad.dia_semana).all()
@@ -58,9 +58,8 @@ async def get_availability(current_user: Usuario = Depends(get_current_user)):
         db.close()
 
 
-@router.put("/availability/{dia_id}")
+@router.put("/availability/{dia_id}", summary="Update day availability", description="Modify business hours for a specific day of the week.")
 async def update_availability(dia_id: int, data: AvailabilityModel, current_user: Usuario = Depends(get_current_user)):
-    """Update availability for a day"""
     db = SessionLocal()
     try:
         disp = db.query(Disponibilidad).filter(Disponibilidad.id == dia_id).first()
@@ -77,9 +76,8 @@ async def update_availability(dia_id: int, data: AvailabilityModel, current_user
         db.close()
 
 
-@router.get("/blocked-slots")
+@router.get("/blocked-slots", summary="List blocked slots", description="Get all time slots that have been blocked and are unavailable for booking.")
 async def get_blocked_slots(current_user: Usuario = Depends(get_current_user)):
-    """Get all blocked slots"""
     db = SessionLocal()
     try:
         slots = db.query(HorarioBloqueado).order_by(HorarioBloqueado.fecha, HorarioBloqueado.hora).all()
@@ -88,9 +86,8 @@ async def get_blocked_slots(current_user: Usuario = Depends(get_current_user)):
         db.close()
 
 
-@router.post("/blocked-slots")
+@router.post("/blocked-slots", summary="Block time slot", description="Mark a specific date and time as unavailable for appointments.")
 async def add_blocked_slot(data: BlockedSlotModel, current_user: Usuario = Depends(get_current_user)):
-    """Add blocked slot"""
     db = SessionLocal()
     try:
         slot = HorarioBloqueado(
@@ -106,9 +103,8 @@ async def add_blocked_slot(data: BlockedSlotModel, current_user: Usuario = Depen
         db.close()
 
 
-@router.delete("/blocked-slots/{slot_id}")
+@router.delete("/blocked-slots/{slot_id}", summary="Unblock time slot", description="Remove a blocked slot to make it available for booking again.")
 async def delete_blocked_slot(slot_id: int, current_user: Usuario = Depends(get_current_user)):
-    """Delete blocked slot"""
     db = SessionLocal()
     try:
         db.query(HorarioBloqueado).filter(HorarioBloqueado.id == slot_id).delete()
@@ -118,9 +114,8 @@ async def delete_blocked_slot(slot_id: int, current_user: Usuario = Depends(get_
         db.close()
 
 
-@router.get("/available-slots/{fecha}")
+@router.get("/available-slots/{fecha}", summary="Get available slots", description="List all available time slots for a specific date, considering business hours and existing bookings.")
 async def get_available_slots(fecha: str, current_user: Usuario = Depends(get_current_user)):
-    """Get available slots for date"""
     from services import CitasService, get_db
     db = get_db()
     try:

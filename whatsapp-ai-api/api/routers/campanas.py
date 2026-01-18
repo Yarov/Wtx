@@ -1,5 +1,5 @@
 """
-Router para gestión de campañas de mensajes
+ZCampaigns Router - Bulk messaging campaigns management
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -12,10 +12,14 @@ from models import get_db, Campana, CampanaDestinatario, Contacto
 from api.routers.auth import get_current_user
 from models import Usuario
 
-router = APIRouter(prefix="/campanas", tags=["campanas"])
+router = APIRouter(
+    prefix="/campanas", 
+    tags=["Campaigns"],
+    responses={401: {"description": "Not authenticated"}}
+)
 
 
-@router.get("")
+@router.get("", summary="List campaigns", description="Retrieve all messaging campaigns with optional status filter and pagination.")
 async def listar_campanas(
     estado: Optional[str] = None,
     page: int = Query(1, ge=1),
@@ -23,7 +27,6 @@ async def listar_campanas(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Listar campañas con filtros y paginación"""
     query = db.query(Campana)
     
     if estado:
@@ -42,12 +45,11 @@ async def listar_campanas(
     }
 
 
-@router.get("/stats")
+@router.get("/stats", summary="Get campaign statistics", description="Get campaign metrics: total, drafts, sending and completed counts.")
 async def stats_campanas(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Estadísticas de campañas"""
     total = db.query(Campana).count()
     borradores = db.query(Campana).filter(Campana.estado == "borrador").count()
     enviando = db.query(Campana).filter(Campana.estado == "enviando").count()
@@ -61,26 +63,24 @@ async def stats_campanas(
     }
 
 
-@router.get("/{campana_id}")
+@router.get("/{campana_id}", summary="Get campaign by ID", description="Retrieve detailed information for a specific campaign.")
 async def obtener_campana(
     campana_id: int,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Obtener una campaña por ID"""
     campana = db.query(Campana).filter(Campana.id == campana_id).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")
     return campana.to_dict()
 
 
-@router.post("")
+@router.post("", summary="Create campaign", description="Create a new bulk messaging campaign with name, message template and recipient filters.")
 async def crear_campana(
     data: dict,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Crear una nueva campaña"""
     nombre = data.get("nombre", "").strip()
     mensaje = data.get("mensaje", "").strip()
     
@@ -115,14 +115,13 @@ async def crear_campana(
     return campana.to_dict()
 
 
-@router.put("/{campana_id}")
+@router.put("/{campana_id}", summary="Update campaign", description="Modify campaign details. Only allowed for draft, scheduled or paused campaigns.")
 async def actualizar_campana(
     campana_id: int,
     data: dict,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Actualizar una campaña"""
     campana = db.query(Campana).filter(Campana.id == campana_id).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")
@@ -152,13 +151,12 @@ async def actualizar_campana(
     return campana.to_dict()
 
 
-@router.delete("/{campana_id}")
+@router.delete("/{campana_id}", summary="Delete campaign", description="Permanently delete a campaign and all its recipients.")
 async def eliminar_campana(
     campana_id: int,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Eliminar una campaña"""
     campana = db.query(Campana).filter(Campana.id == campana_id).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")
@@ -171,13 +169,12 @@ async def eliminar_campana(
     return {"status": "ok"}
 
 
-@router.post("/{campana_id}/iniciar")
+@router.post("/{campana_id}/iniciar", summary="Start campaign", description="Begin sending messages to all recipients in the campaign.")
 async def iniciar_campana(
     campana_id: int,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Iniciar envío de una campaña"""
     campana = db.query(Campana).filter(Campana.id == campana_id).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")
@@ -198,13 +195,12 @@ async def iniciar_campana(
     return {"status": "ok", "message": "Campaña iniciada"}
 
 
-@router.post("/{campana_id}/pausar")
+@router.post("/{campana_id}/pausar", summary="Pause campaign", description="Temporarily stop sending messages. Can be resumed later.")
 async def pausar_campana(
     campana_id: int,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Pausar una campaña en progreso"""
     campana = db.query(Campana).filter(Campana.id == campana_id).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")
@@ -218,13 +214,12 @@ async def pausar_campana(
     return {"status": "ok", "message": "Campaña pausada"}
 
 
-@router.post("/{campana_id}/reanudar")
+@router.post("/{campana_id}/reanudar", summary="Resume campaign", description="Continue sending messages from where it was paused.")
 async def reanudar_campana(
     campana_id: int,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Reanudar una campaña pausada"""
     campana = db.query(Campana).filter(Campana.id == campana_id).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")
@@ -238,13 +233,12 @@ async def reanudar_campana(
     return {"status": "ok", "message": "Campaña reanudada"}
 
 
-@router.post("/{campana_id}/cancelar")
+@router.post("/{campana_id}/cancelar", summary="Cancel campaign", description="Stop the campaign permanently. Cannot be resumed.")
 async def cancelar_campana(
     campana_id: int,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Cancelar una campaña"""
     campana = db.query(Campana).filter(Campana.id == campana_id).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")
@@ -258,7 +252,7 @@ async def cancelar_campana(
     return {"status": "ok", "message": "Campaña cancelada"}
 
 
-@router.get("/{campana_id}/destinatarios")
+@router.get("/{campana_id}/destinatarios", summary="List recipients", description="Get all recipients for a campaign with their delivery status.")
 async def listar_destinatarios(
     campana_id: int,
     estado: Optional[str] = None,
@@ -267,7 +261,6 @@ async def listar_destinatarios(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Listar destinatarios de una campaña"""
     query = db.query(CampanaDestinatario).filter(CampanaDestinatario.campana_id == campana_id)
     
     if estado:
@@ -297,13 +290,12 @@ async def listar_destinatarios(
     }
 
 
-@router.post("/{campana_id}/preview")
+@router.post("/{campana_id}/preview", summary="Preview message", description="See how the message will look with variables replaced using sample data.")
 async def preview_mensaje(
     campana_id: int,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    """Vista previa del mensaje con variables reemplazadas"""
     campana = db.query(Campana).filter(Campana.id == campana_id).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")

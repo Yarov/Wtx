@@ -1,5 +1,5 @@
 """
-Configuration router - API Keys, Prompt, Tools, Payments
+Configuration Router - API Keys, Prompt settings, WhatsApp config and Human Mode
 """
 import json
 import os
@@ -15,21 +15,23 @@ from api.schemas.config import (
 from auth import get_current_user
 from models import Usuario
 
-router = APIRouter(prefix="/config", tags=["config"])
+router = APIRouter(
+    prefix="/config", 
+    tags=["Configuration"],
+    responses={401: {"description": "Not authenticated"}}
+)
 
 
-@router.get("/api-keys")
+@router.get("/api-keys", summary="Get API keys", description="Retrieve configured API keys with values masked for security.")
 async def get_api_keys(current_user: Usuario = Depends(get_current_user)):
-    """Get API keys (masked)"""
     openai_key = get_config("openai_api_key", "")
     return {
         "openai_api_key": openai_key[:8] + "..." if openai_key else "",
     }
 
 
-@router.put("/api-keys")
+@router.put("/api-keys", summary="Update API keys", description="Update API keys for external services like OpenAI.")
 async def update_api_keys(keys: ApiKeysModel, current_user: Usuario = Depends(get_current_user)):
-    """Update API keys"""
     data = keys.dict(exclude_unset=True)
     for key, value in data.items():
         if value and not value.endswith("..."):
@@ -37,9 +39,8 @@ async def update_api_keys(keys: ApiKeysModel, current_user: Usuario = Depends(ge
     return {"status": "ok"}
 
 
-@router.get("/prompt")
+@router.get("/prompt", summary="Get AI prompt config", description="Retrieve the AI agent's system prompt, model settings and business information.")
 async def get_prompt(current_user: Usuario = Depends(get_current_user)):
-    """Get prompt configuration"""
     prompt_sections_str = get_config("prompt_sections", "")
     prompt_sections = None
     if prompt_sections_str:
@@ -60,9 +61,8 @@ async def get_prompt(current_user: Usuario = Depends(get_current_user)):
     }
 
 
-@router.put("/prompt")
+@router.put("/prompt", summary="Update AI prompt config", description="Update the AI agent's system prompt, model, temperature and other settings.")
 async def update_prompt(prompt: PromptModel, current_user: Usuario = Depends(get_current_user)):
-    """Update prompt configuration"""
     data = prompt.dict()
     for key, value in data.items():
         if value is not None:
@@ -73,9 +73,8 @@ async def update_prompt(prompt: PromptModel, current_user: Usuario = Depends(get
     return {"status": "ok"}
 
 
-@router.post("/prompt/improve")
+@router.post("/prompt/improve", summary="AI-powered prompt improvement", description="Use GPT to automatically improve and optimize prompt sections for better agent responses.")
 async def improve_prompt(data: ImprovePromptModel, current_user: Usuario = Depends(get_current_user)):
-    """Use AI to improve prompt sections"""
     api_key = get_config("openai_api_key", "") or os.getenv("OPENAI_API_KEY", "")
     if not api_key:
         raise HTTPException(status_code=400, detail="No OpenAI API key configured")
@@ -157,24 +156,21 @@ Instrucciones:
         return {"improved": response.choices[0].message.content.strip()}
 
 
-@router.get("/agent-status")
+@router.get("/agent-status", summary="Get agent status", description="Check if the AI agent is currently enabled and responding to messages.")
 async def get_agent_status(current_user: Usuario = Depends(get_current_user)):
-    """Get agent enabled status"""
     enabled = get_config("agent_enabled", "true")
     return {"enabled": enabled.lower() == "true"}
 
 
-@router.put("/agent-status")
+@router.put("/agent-status", summary="Toggle agent status", description="Enable or disable the AI agent. When disabled, incoming messages won't receive automated responses.")
 async def set_agent_status(data: dict, current_user: Usuario = Depends(get_current_user)):
-    """Set agent enabled status"""
     enabled = data.get("enabled", True)
     set_config("agent_enabled", str(enabled).lower())
     return {"status": "ok", "enabled": enabled}
 
 
-@router.get("/whatsapp")
+@router.get("/whatsapp", summary="Get WhatsApp config", description="Retrieve WhatsApp API configuration including provider, URL, session and sync settings.")
 async def get_whatsapp_config(current_user: Usuario = Depends(get_current_user)):
-    """Get WhatsApp configuration"""
     api_key = get_config("whatsapp_api_key", "")
     return {
         "provider": get_config("whatsapp_provider", "waha"),
@@ -187,9 +183,8 @@ async def get_whatsapp_config(current_user: Usuario = Depends(get_current_user))
     }
 
 
-@router.put("/whatsapp")
+@router.put("/whatsapp", summary="Update WhatsApp config", description="Update WhatsApp API settings for WAHA or Evolution API integration.")
 async def update_whatsapp_config(data: dict, current_user: Usuario = Depends(get_current_user)):
-    """Update WhatsApp configuration"""
     allowed_keys = ["whatsapp_provider", "whatsapp_api_url", "whatsapp_api_key", 
                     "whatsapp_session", "whatsapp_auto_sync", "whatsapp_sync_interval"]
     
@@ -206,9 +201,8 @@ async def update_whatsapp_config(data: dict, current_user: Usuario = Depends(get
     return {"status": "ok"}
 
 
-@router.post("/whatsapp/test")
+@router.post("/whatsapp/test", summary="Test WhatsApp connection", description="Verify the WhatsApp API connection is working correctly.")
 async def test_whatsapp_connection(current_user: Usuario = Depends(get_current_user)):
-    """Test WhatsApp connection"""
     from whatsapp_service import whatsapp_service
     result = await whatsapp_service.test_connection()
     return result
@@ -216,9 +210,8 @@ async def test_whatsapp_connection(current_user: Usuario = Depends(get_current_u
 
 # ==================== MODO HUMANO CONFIG ====================
 
-@router.get("/human-mode")
+@router.get("/human-mode", summary="Get human mode config", description="Retrieve settings for human takeover mode including triggers and expiration.")
 async def get_human_mode_config(current_user: Usuario = Depends(get_current_user)):
-    """Get human mode configuration"""
     triggers_str = get_config("human_mode_triggers", '["frustration","complaint","human_request"]')
     try:
         triggers = json.loads(triggers_str)
@@ -233,9 +226,8 @@ async def get_human_mode_config(current_user: Usuario = Depends(get_current_user
     }
 
 
-@router.put("/human-mode")
+@router.put("/human-mode", summary="Update human mode config", description="Configure when AI should pause and let a human take over the conversation.")
 async def update_human_mode_config(data: dict, current_user: Usuario = Depends(get_current_user)):
-    """Update human mode configuration"""
     if "expire_hours" in data:
         set_config("human_mode_expire_hours", str(data["expire_hours"]))
     if "reactivar_command" in data:

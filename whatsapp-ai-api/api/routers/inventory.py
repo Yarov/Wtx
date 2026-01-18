@@ -1,5 +1,5 @@
 """
-Inventory router
+Inventory Router - Product and service catalog management
 """
 import os
 import csv
@@ -15,12 +15,15 @@ from database import get_config
 from api.schemas.inventory import ProductModel, ImportProductsModel
 from auth import get_current_user
 
-router = APIRouter(prefix="/inventory", tags=["inventory"])
+router = APIRouter(
+    prefix="/inventory", 
+    tags=["Inventory"],
+    responses={401: {"description": "Not authenticated"}}
+)
 
 
-@router.get("/")
+@router.get("/", summary="List all products", description="Retrieve the complete catalog of products and services with stock levels and prices.")
 async def get_inventory(current_user: Usuario = Depends(get_current_user)):
-    """Get all products"""
     db = SessionLocal()
     try:
         products = db.query(Inventario).all()
@@ -29,9 +32,8 @@ async def get_inventory(current_user: Usuario = Depends(get_current_user)):
         db.close()
 
 
-@router.post("/")
+@router.post("/", summary="Create product", description="Add a new product or service to the inventory catalog.")
 async def create_product(product: ProductModel, current_user: Usuario = Depends(get_current_user)):
-    """Create new product"""
     db = SessionLocal()
     try:
         new_product = Inventario(
@@ -47,9 +49,8 @@ async def create_product(product: ProductModel, current_user: Usuario = Depends(
         db.close()
 
 
-@router.put("/{product_id}")
+@router.put("/{product_id}", summary="Update product", description="Modify an existing product's name, stock or price.")
 async def update_product(product_id: int, product: ProductModel, current_user: Usuario = Depends(get_current_user)):
-    """Update product"""
     db = SessionLocal()
     try:
         p = db.query(Inventario).filter(Inventario.id == product_id).first()
@@ -63,9 +64,8 @@ async def update_product(product_id: int, product: ProductModel, current_user: U
         db.close()
 
 
-@router.delete("/{product_id}")
+@router.delete("/{product_id}", summary="Delete product", description="Remove a product from the inventory catalog.")
 async def delete_product(product_id: int, current_user: Usuario = Depends(get_current_user)):
-    """Delete product"""
     db = SessionLocal()
     try:
         db.query(Inventario).filter(Inventario.id == product_id).delete()
@@ -75,9 +75,8 @@ async def delete_product(product_id: int, current_user: Usuario = Depends(get_cu
         db.close()
 
 
-@router.post("/upload")
+@router.post("/upload", summary="Upload inventory file", description="Upload a CSV or Excel file to preview products before importing. Supports automatic column mapping with AI.")
 async def upload_inventory(file: UploadFile = File(...), current_user: Usuario = Depends(get_current_user)):
-    """Process CSV or Excel file"""
     content = await file.read()
     filename = file.filename.lower() if file.filename else ""
     
@@ -206,9 +205,8 @@ RESPOND ONLY THE JSON, NO ADDITIONAL TEXT."""
     return {"preview": products, "mapping": final_mapping, "headers": headers}
 
 
-@router.post("/import")
+@router.post("/import", summary="Bulk import products", description="Import multiple products at once from a previously uploaded and previewed file.")
 async def import_inventory(data: ImportProductsModel, current_user: Usuario = Depends(get_current_user)):
-    """Import products in bulk"""
     db = SessionLocal()
     try:
         imported = 0

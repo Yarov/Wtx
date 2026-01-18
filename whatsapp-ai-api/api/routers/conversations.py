@@ -1,17 +1,18 @@
-"""
-Conversations router
-"""
+"""Conversations Router - Chat history and memory management"""
 import json
 from fastapi import APIRouter, Depends
 from models import SessionLocal, Memoria, Usuario
 from auth import get_current_user
 
-router = APIRouter(prefix="/conversations", tags=["conversations"])
+router = APIRouter(
+    prefix="/conversations", 
+    tags=["Conversations"],
+    responses={401: {"description": "Not authenticated"}}
+)
 
 
-@router.get("/")
+@router.get("/", summary="List all conversations", description="Get a summary of all WhatsApp conversations with last message preview and message count.")
 async def get_conversations(current_user: Usuario = Depends(get_current_user)):
-    """Get all conversations"""
     db = SessionLocal()
     try:
         memorias = db.query(Memoria).order_by(Memoria.updated_at.desc()).all()
@@ -30,9 +31,8 @@ async def get_conversations(current_user: Usuario = Depends(get_current_user)):
         db.close()
 
 
-@router.get("/{phone}")
+@router.get("/{phone}", summary="Get conversation history", description="Retrieve the complete message history for a specific phone number.")
 async def get_conversation(phone: str, current_user: Usuario = Depends(get_current_user)):
-    """Get conversation history for phone"""
     db = SessionLocal()
     try:
         memoria = db.query(Memoria).filter(Memoria.telefono == phone).first()
@@ -43,9 +43,8 @@ async def get_conversation(phone: str, current_user: Usuario = Depends(get_curre
         db.close()
 
 
-@router.delete("/{phone}")
+@router.delete("/{phone}", summary="Delete conversation", description="Permanently delete all chat history and memory for a phone number.")
 async def delete_conversation(phone: str, current_user: Usuario = Depends(get_current_user)):
-    """Delete conversation for phone"""
     db = SessionLocal()
     try:
         db.query(Memoria).filter(Memoria.telefono == phone).delete()

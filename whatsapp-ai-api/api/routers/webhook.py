@@ -1,5 +1,5 @@
 """
-WhatsApp Webhook Router - Maneja mensajes entrantes de WAHA y Evolution API
+Webhook Router - Incoming WhatsApp message handling for WAHA and Evolution API
 """
 import logging
 from fastapi import APIRouter, Request, Response
@@ -16,14 +16,11 @@ from campaign_engine import marcar_respondido
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["webhook"])
+router = APIRouter(tags=["Webhook"])
 
 
-@router.post("/whatsapp")
+@router.post("/whatsapp", summary="WhatsApp webhook", description="Receive incoming messages from WAHA or Evolution API. Processes messages, generates AI responses and sends replies.")
 async def whatsapp_webhook(request: Request):
-    """
-    WhatsApp webhook unificado para WAHA y Evolution API
-    """
     try:
         # Parsear request segun content-type
         content_type = request.headers.get("content-type", "")
@@ -109,7 +106,6 @@ async def whatsapp_webhook(request: Request):
         return Response(content='{"status": "error"}', media_type="application/json", status_code=500)
 
 
-@router.post("/api/webhook/whatsapp")
+@router.post("/api/webhook/whatsapp", summary="WhatsApp webhook (alias)", description="Alternative webhook URL for backwards compatibility.")
 async def whatsapp_webhook_alias(request: Request):
-    """Alias del webhook en /api/webhook/whatsapp"""
     return await whatsapp_webhook(request)
