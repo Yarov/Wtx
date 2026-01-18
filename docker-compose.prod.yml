@@ -1,11 +1,16 @@
 # Docker Compose para producción (Coolify)
-# Variables de entorno requeridas:
-#   - OPENAI_API_KEY: API key de OpenAI (obligatorio para IA)
-#   - JWT_SECRET: Secret para tokens JWT (genera con: openssl rand -hex 32)
+# 
+# Un solo dominio: APP_DOMAIN (ej: app.wtx.mx)
+#   - / -> Frontend
+#   - /api -> API Backend
+#
+# Variables requeridas:
+#   - OPENAI_API_KEY: API key de OpenAI
+#   - JWT_SECRET: Secret para JWT (genera con: openssl rand -hex 32)
+#   - APP_DOMAIN: Dominio de la aplicación (ej: app.wtx.mx)
+#
 # Variables opcionales:
-#   - DB_PASSWORD: Password de PostgreSQL (default: auto-generado)
-#   - FRONTEND_DOMAIN: Dominio del frontend (para Traefik)
-#   - API_DOMAIN: Dominio de la API (para Traefik)
+#   - DB_PASSWORD: Password de PostgreSQL
 
 x-db-credentials: &db-credentials
   POSTGRES_USER: whatsapp_agent
@@ -39,7 +44,10 @@ services:
       - app-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=Host(`${API_DOMAIN:-api.localhost}`) || (Host(`${FRONTEND_DOMAIN:-localhost}`) && PathPrefix(`/api`))"
+      - "traefik.http.routers.api.rule=Host(`${APP_DOMAIN:-localhost}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.api.priority=100"
+      - "traefik.http.middlewares.api-strip.stripprefix.prefixes=/api"
+      - "traefik.http.routers.api.middlewares=api-strip"
       - "traefik.http.services.api.loadbalancer.server.port=3000"
 
   frontend:
@@ -47,7 +55,7 @@ services:
       context: ./whatsapp-ai-frontend
       dockerfile: Dockerfile.prod
       args:
-        VITE_API_URL: ${API_URL:-/api}
+        VITE_API_URL: /api
     depends_on:
       - api
     restart: unless-stopped
@@ -55,7 +63,8 @@ services:
       - app-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`${FRONTEND_DOMAIN:-localhost}`)"
+      - "traefik.http.routers.frontend.rule=Host(`${APP_DOMAIN:-localhost}`)"
+      - "traefik.http.routers.frontend.priority=1"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
 
 volumes:
