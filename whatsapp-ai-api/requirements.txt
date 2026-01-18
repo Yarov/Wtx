@@ -9,7 +9,7 @@ psycopg2-binary
 alembic
 openpyxl
 passlib[bcrypt]
-bcrypt==4.0.1
+bcrypt==5.0.0
 python-jose[cryptography]
 email-validator
 phonenumbers
