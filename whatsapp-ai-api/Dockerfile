@@ -15,7 +15,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 RUN mkdir -p /app/data
+RUN chmod +x entrypoint.sh
 
 EXPOSE 3000
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "3000"]
+CMD ["./entrypoint.sh"]
