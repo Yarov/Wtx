@@ -1,22 +1,22 @@
 import os
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
+from sqlalchemy import engine_from_config, create_engine
 from sqlalchemy import pool
 
 from alembic import context
-
-# Importar modelos para autogenerate
-from models import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
-# Usar DATABASE_URL de variable de entorno
+# Usar DATABASE_URL de variable de entorno ANTES de importar models
 database_url = os.getenv("DATABASE_URL")
 if database_url:
     config.set_main_option("sqlalchemy.url", database_url)
+
+# Importar modelos para autogenerate (después de configurar URL)
+from models import Base
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
