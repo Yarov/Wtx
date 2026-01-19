@@ -77,6 +77,8 @@ services:
       WHATSAPP_API_URL: ${WHATSAPP_API_URL:-}
       WHATSAPP_API_KEY: ${WHATSAPP_API_KEY:-}
       WHATSAPP_SESSION: ${WHATSAPP_SESSION:-default}
+    healthcheck:
+      disable: true
     depends_on:
       postgres:
         condition: service_healthy
