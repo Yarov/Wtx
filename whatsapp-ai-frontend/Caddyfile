@@ -3,7 +3,7 @@
     encode gzip
 
     handle /api/* {
-        reverse_proxy api:3000
+        reverse_proxy {$SERVICE_NAME_API:api}:3000
     }
 
     handle {
