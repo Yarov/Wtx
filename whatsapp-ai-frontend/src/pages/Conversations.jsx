@@ -82,7 +82,7 @@ export default function Conversations() {
                   placeholder="Buscar..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
@@ -93,7 +93,7 @@ export default function Conversations() {
                     onClick={() => loadMessages(conv.telefono)}
                     className={`p-3 cursor-pointer transition-colors ${
                       selected === conv.telefono
-                        ? 'bg-emerald-50'
+                        ? 'bg-indigo-50'
                         : 'hover:bg-gray-50'
                     }`}
                   >
@@ -146,7 +146,7 @@ export default function Conversations() {
                     <div
                       className={`max-w-[80%] px-4 py-2 rounded-2xl ${
                         msg.role === 'user'
-                          ? 'bg-emerald-600 text-white rounded-br-md'
+                          ? 'bg-indigo-600 text-white rounded-br-md'
                           : 'bg-gray-100 text-gray-900 rounded-bl-md'
                       }`}
                     >

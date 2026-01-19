@@ -335,14 +335,14 @@ export default function Contactos() {
 
       {/* Job Completado */}
       {verifyJob && verifyJob.estado === 'completado' && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between">
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex items-center justify-between">
           <div>
-            <p className="font-medium text-emerald-800">✓ Verificación completada</p>
-            <p className="text-sm text-emerald-600">{verifyJob.mensaje}</p>
+            <p className="font-medium text-indigo-800">✓ Verificación completada</p>
+            <p className="text-sm text-indigo-600">{verifyJob.mensaje}</p>
           </div>
           <button 
             onClick={() => setVerifyJob(null)}
-            className="text-emerald-600 hover:text-emerald-800"
+            className="text-indigo-600 hover:text-indigo-800"
           >
             <X className="h-4 w-4" />
           </button>
@@ -351,7 +351,7 @@ export default function Contactos() {
 
       {/* Sync Result */}
       {syncResult && (
-        <div className={`p-4 rounded-lg ${syncResult.error ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
+        <div className={`p-4 rounded-lg ${syncResult.error ? 'bg-red-50 text-red-700' : 'bg-indigo-50 text-indigo-700'}`}>
           {syncResult.error ? (
             <p>{syncResult.error}</p>
           ) : syncResult.message ? (
@@ -371,7 +371,7 @@ export default function Contactos() {
           <p className="text-sm text-gray-500">Total</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-2xl font-bold text-emerald-600">{stats.activos}</p>
+          <p className="text-2xl font-bold text-indigo-600">{stats.activos}</p>
           <p className="text-sm text-gray-500">Activos</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -457,7 +457,7 @@ export default function Contactos() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        contact.estado === 'activo' ? 'bg-emerald-100 text-emerald-700' :
+                        contact.estado === 'activo' ? 'bg-indigo-100 text-indigo-700' :
                         contact.estado === 'inactivo' ? 'bg-amber-100 text-amber-700' :
                         'bg-red-100 text-red-700'
                       }`}>
@@ -600,7 +600,7 @@ export default function Contactos() {
                       }}
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                         editingContact.modo_humano
-                          ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                          ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
                           : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
                       }`}
                     >

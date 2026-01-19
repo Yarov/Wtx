@@ -8,7 +8,7 @@ export default function SectionHeader({ title, icon: Icon, linkText, linkTo }) {
       </div>
       <div className="flex items-center gap-2">
         {linkTo && linkText && (
-          <Link to={linkTo} className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
+          <Link to={linkTo} className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
             {linkText} →
           </Link>
         )}

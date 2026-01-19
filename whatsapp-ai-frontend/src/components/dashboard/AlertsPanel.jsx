@@ -19,8 +19,8 @@ const ALERT_CONFIG = {
   },
   high_value: { 
     icon: TrendingUp, 
-    color: 'text-emerald-600 bg-emerald-50 border-emerald-200',
-    iconColor: 'text-emerald-500'
+    color: 'text-indigo-600 bg-indigo-50 border-indigo-200',
+    iconColor: 'text-indigo-500'
   },
 }
 
@@ -83,7 +83,7 @@ export default function AlertsPanel({ alerts = [], loading = false }) {
 
       {!hasAlerts ? (
         <div className="text-center py-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 mb-3">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-indigo-50 mb-3">
             <span className="text-2xl">✓</span>
           </div>
           <p className="text-gray-500 text-sm">Todo en orden, sin alertas</p>

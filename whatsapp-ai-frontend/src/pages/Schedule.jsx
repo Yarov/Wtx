@@ -179,7 +179,7 @@ export default function Schedule() {
           <p className="text-gray-500 text-sm">Configura disponibilidad y bloqueos</p>
         </div>
         {saved && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-full text-sm animate-pulse">
+          <div className="flex items-center gap-2 px-4 py-2 bg-indigo-100 text-indigo-700 rounded-full text-sm animate-pulse">
             <CheckCircle className="h-4 w-4" />
             Guardado
           </div>
@@ -239,7 +239,7 @@ export default function Schedule() {
                   onClick={() => handleToggleDay(dia)}
                   className={`w-full mb-3 p-2 rounded-lg text-xs font-medium transition-all ${
                     dia.activo 
-                      ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' 
+                      ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' 
                       : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
                   }`}
                 >
@@ -320,7 +320,7 @@ export default function Schedule() {
                       relative aspect-square flex flex-col items-center justify-center rounded-xl transition-all text-sm
                       ${!day ? 'invisible' : ''}
                       ${isPast ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-gray-100'}
-                      ${isSelected ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 scale-105' : ''}
+                      ${isSelected ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-105' : ''}
                       ${blockedCount > 0 && !isSelected ? 'bg-red-50 text-red-600 font-medium' : ''}
                     `}
                   >
@@ -383,7 +383,7 @@ export default function Schedule() {
                     <div className="flex gap-1">
                       <button
                         onClick={selectAllHours}
-                        className="text-xs px-2 py-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                        className="text-xs px-2 py-1 text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
                       >
                         Todas
                       </button>
@@ -409,7 +409,7 @@ export default function Schedule() {
                             ${isBlocked 
                               ? 'bg-gray-100 text-gray-300 cursor-not-allowed line-through' 
                               : isSelected
-                                ? 'bg-emerald-500 text-white shadow-sm'
+                                ? 'bg-indigo-600 text-white shadow-sm'
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }
                           `}
@@ -427,7 +427,7 @@ export default function Schedule() {
                   placeholder="Motivo (opcional)"
                   value={blockMotivo}
                   onChange={(e) => setBlockMotivo(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
 
                 {/* Botón */}

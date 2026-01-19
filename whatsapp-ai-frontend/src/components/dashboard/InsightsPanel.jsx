@@ -12,7 +12,7 @@ const INSIGHT_ICONS = {
 const INSIGHT_COLORS = {
   peak_hours: 'text-violet-600 bg-violet-50',
   top_question: 'text-blue-600 bg-blue-50',
-  engagement: 'text-emerald-600 bg-emerald-50',
+  engagement: 'text-indigo-600 bg-indigo-50',
   appointments_trend: 'text-amber-600 bg-amber-50',
   avg_messages: 'text-pink-600 bg-pink-50',
   response_rate: 'text-cyan-600 bg-cyan-50',

@@ -203,7 +203,7 @@ export default function Inventory() {
         </div>
         <div className="flex items-center gap-3">
           {saved && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-sm">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-full text-sm">
               <CheckCircle className="h-4 w-4" />
               Guardado
             </div>
@@ -222,7 +222,7 @@ export default function Inventory() {
         </div>
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <p className="text-sm text-gray-500">Valor total</p>
-          <p className="text-2xl font-bold text-emerald-600">${totalValue.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-indigo-600">${totalValue.toLocaleString()}</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <p className="text-sm text-gray-500">Stock bajo</p>
@@ -330,7 +330,7 @@ export default function Inventory() {
                   placeholder="Buscar producto..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
               <p className="text-sm text-gray-500">
@@ -392,7 +392,7 @@ export default function Inventory() {
                       <td className="py-3 px-4 text-center">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium ${
                           product.stock > 5 
-                            ? 'bg-emerald-100 text-emerald-700' 
+                            ? 'bg-indigo-100 text-indigo-700' 
                             : product.stock > 0 
                               ? 'bg-amber-100 text-amber-700'
                               : 'bg-red-100 text-red-700'
@@ -440,12 +440,12 @@ export default function Inventory() {
           <div className="space-y-4">
             <div className="bg-white rounded-2xl border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl">
+                <div className="p-2.5 bg-gradient-to-br from-indigo-600 to-sky-500 rounded-xl">
                   <Upload className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Importar Inventario</h3>
-                  <p className="text-sm text-gray-500">Sube un archivo CSV o Excel</p>
+                  <h2 className="text-lg font-semibold text-gray-900">Importar inventario</h2>
+                  <p className="text-sm text-gray-500">Sube un CSV con tus productos</p>
                 </div>
               </div>
 
@@ -460,21 +460,21 @@ export default function Inventory() {
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="w-full border-2 border-dashed border-gray-300 rounded-xl p-8 hover:border-emerald-400 hover:bg-emerald-50/50 transition-all group"
+                className="w-full border-2 border-dashed border-gray-300 rounded-xl p-8 hover:border-indigo-400 hover:bg-indigo-50/50 transition-all group"
               >
                 {uploading ? (
                   <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="h-10 w-10 text-emerald-500 animate-spin" />
+                    <Loader2 className="h-10 w-10 text-indigo-500 animate-spin" />
                     <p className="text-sm text-gray-600">Procesando archivo...</p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-3">
-                    <div className="p-3 bg-gray-100 rounded-xl group-hover:bg-emerald-100 transition-colors">
-                      <Upload className="h-8 w-8 text-gray-400 group-hover:text-emerald-500" />
+                    <div className="p-3 bg-gray-100 rounded-xl group-hover:bg-indigo-100 transition-colors">
+                      <Upload className="h-8 w-8 text-gray-400 group-hover:text-indigo-500" />
                     </div>
                     <div className="text-center">
                       <p className="font-medium text-gray-700">Arrastra o selecciona un archivo</p>
-                      <p className="text-sm text-gray-500 mt-1">Formatos: CSV o Excel (.xlsx, .xls)</p>
+                      <p className="text-sm text-gray-500 mt-1">CSV, Excel o PDF</p>
                     </div>
                   </div>
                 )}
@@ -482,7 +482,7 @@ export default function Inventory() {
 
               {uploadResult && (
                 <div className={`mt-4 p-4 rounded-xl flex items-start gap-3 ${
-                  uploadResult.success ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+                  uploadResult.success ? 'bg-indigo-50 text-indigo-700' : 'bg-red-50 text-red-700'
                 }`}>
                   {uploadResult.success ? (
                     <CheckCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />

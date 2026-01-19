@@ -152,7 +152,7 @@ export default function Setup() {
               >
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
                   i < configStep 
-                    ? 'bg-emerald-500' 
+                    ? 'bg-indigo-600' 
                     : i === configStep 
                       ? 'bg-violet-500 animate-pulse' 
                       : 'bg-slate-700'
@@ -312,8 +312,8 @@ export default function Setup() {
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center">
-                      <Check className="h-4 w-4 text-emerald-600" />
+                    <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center">
+                      <Check className="h-4 w-4 text-indigo-600" />
                     </div>
                     <span className="font-medium text-slate-900">Configuración lista</span>
                   </div>

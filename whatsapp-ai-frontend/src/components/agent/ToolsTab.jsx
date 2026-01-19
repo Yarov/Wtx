@@ -44,7 +44,7 @@ const TOOL_META = {
   transferir_a_humano: { 
     name: 'Transferir a Humano', 
     icon: UserRound, 
-    color: 'emerald',
+    color: 'indigo',
     trigger: 'Cliente frustrado, queja, solicita hablar con persona',
     examples: ['Quiero hablar con alguien', 'Estoy muy molesto', 'Esto es inaceptable']
   },
@@ -56,7 +56,7 @@ const colorClasses = {
   sky: { bg: 'bg-sky-100', text: 'text-sky-600', border: 'border-sky-200', light: 'bg-sky-50', gradient: 'from-sky-500 to-cyan-600' },
   red: { bg: 'bg-red-100', text: 'text-red-600', border: 'border-red-200', light: 'bg-red-50', gradient: 'from-red-500 to-rose-600' },
   amber: { bg: 'bg-amber-100', text: 'text-amber-600', border: 'border-amber-200', light: 'bg-amber-50', gradient: 'from-amber-500 to-orange-600' },
-  emerald: { bg: 'bg-emerald-100', text: 'text-emerald-600', border: 'border-emerald-200', light: 'bg-emerald-50', gradient: 'from-emerald-500 to-teal-600' },
+  indigo: { bg: 'bg-indigo-100', text: 'text-indigo-600', border: 'border-indigo-200', light: 'bg-indigo-50', gradient: 'from-indigo-600 to-sky-500' },
 }
 
 // Clean Animated Flow Component
@@ -71,15 +71,15 @@ function AnimatedFlow() {
   }, [])
 
   const steps = [
-    { icon: MessageCircle, label: 'Mensaje recibido', sublabel: 'Cliente envía consulta', color: 'emerald' },
+    { icon: MessageCircle, label: 'Mensaje recibido', sublabel: 'Cliente envía consulta', color: 'indigo' },
     { icon: Brain, label: 'IA analiza', sublabel: 'Detecta intención', color: 'violet' },
     { icon: Zap, label: 'Selecciona tool', sublabel: 'Elige herramienta', color: 'amber' },
     { icon: Wrench, label: 'Ejecuta', sublabel: 'Procesa solicitud', color: 'blue' },
-    { icon: CheckCircle2, label: 'Responde', sublabel: 'Envía respuesta', color: 'emerald' },
+    { icon: CheckCircle2, label: 'Responde', sublabel: 'Envía respuesta', color: 'indigo' },
   ]
 
   const colorMap = {
-    emerald: { bg: 'bg-emerald-500', ring: 'ring-emerald-100', text: 'text-emerald-600', light: 'bg-emerald-50', glow: 'shadow-emerald-500/25' },
+    indigo: { bg: 'bg-indigo-600', ring: 'ring-indigo-100', text: 'text-indigo-600', light: 'bg-indigo-50', glow: 'shadow-indigo-500/25' },
     violet: { bg: 'bg-violet-500', ring: 'ring-violet-100', text: 'text-violet-600', light: 'bg-violet-50', glow: 'shadow-violet-500/25' },
     amber: { bg: 'bg-amber-500', ring: 'ring-amber-100', text: 'text-amber-600', light: 'bg-amber-50', glow: 'shadow-amber-500/25' },
     blue: { bg: 'bg-blue-500', ring: 'ring-blue-100', text: 'text-blue-600', light: 'bg-blue-50', glow: 'shadow-blue-500/25' },
@@ -165,9 +165,9 @@ function AnimatedFlow() {
                   <div 
                     className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out ${
                       isPast 
-                        ? 'w-full bg-gradient-to-r from-emerald-400 to-violet-400' 
+                        ? 'w-full bg-gradient-to-r from-indigo-400 to-violet-400' 
                         : isActive 
-                          ? 'w-1/2 bg-gradient-to-r from-emerald-400 to-violet-400'
+                          ? 'w-1/2 bg-gradient-to-r from-indigo-400 to-violet-400'
                           : 'w-0'
                     }`}
                   />

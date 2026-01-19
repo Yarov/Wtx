@@ -99,13 +99,13 @@ export default function Dashboard() {
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-full">
-            <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${systemStatus.agent.status === 'online' ? 'text-emerald-700' : 'text-gray-600'}`}>
-              <span className={`h-2 w-2 rounded-full ${systemStatus.agent.status === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`}></span>
+            <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${systemStatus.agent.status === 'online' ? 'text-indigo-700' : 'text-gray-600'}`}>
+              <span className={`h-2 w-2 rounded-full ${systemStatus.agent.status === 'online' ? 'bg-indigo-500 animate-pulse' : 'bg-gray-400'}`}></span>
               Agente
             </span>
             <span className="text-gray-300">|</span>
-            <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${systemStatus.whatsapp.status === 'online' ? 'text-emerald-700' : systemStatus.whatsapp.status === 'warning' ? 'text-amber-600' : 'text-gray-600'}`}>
-              <span className={`h-2 w-2 rounded-full ${systemStatus.whatsapp.status === 'online' ? 'bg-emerald-500' : systemStatus.whatsapp.status === 'warning' ? 'bg-amber-500' : 'bg-gray-400'}`}></span>
+            <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${systemStatus.whatsapp.status === 'online' ? 'text-indigo-700' : systemStatus.whatsapp.status === 'warning' ? 'text-amber-600' : 'text-gray-600'}`}>
+              <span className={`h-2 w-2 rounded-full ${systemStatus.whatsapp.status === 'online' ? 'bg-indigo-500' : systemStatus.whatsapp.status === 'warning' ? 'bg-amber-500' : 'bg-gray-400'}`}></span>
               WhatsApp
             </span>
           </div>
@@ -132,7 +132,7 @@ export default function Dashboard() {
           value={stats.appointments?.total || 0}
           subValue={`${stats.appointments?.today || 0} para hoy`}
           icon={Calendar}
-          gradient="from-emerald-500 to-emerald-600"
+          gradient="from-indigo-600 to-indigo-700"
           link="/appointments"
           loading={loading}
         />

@@ -12,7 +12,7 @@ export function Input({ label, type = 'text', placeholder, value, onChange, help
         placeholder={placeholder}
         value={value}
         onChange={onChange}
-        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
         {...props}
       />
       {helperText && (
@@ -36,7 +36,7 @@ export function SecretInput({ label, placeholder, value, onChange, helperText, .
           placeholder={placeholder}
           value={value}
           onChange={onChange}
-          className="w-full px-4 py-2.5 pr-12 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors font-mono"
+          className="w-full px-4 py-2.5 pr-12 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors font-mono"
           {...props}
         />
         <button
@@ -65,7 +65,7 @@ export function Textarea({ label, placeholder, value, onChange, rows = 4, helper
         value={value}
         onChange={onChange}
         rows={rows}
-        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors resize-none"
+        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors resize-none"
         {...props}
       />
       {helperText && (

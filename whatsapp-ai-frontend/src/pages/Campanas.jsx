@@ -10,7 +10,7 @@ const ESTADOS_BADGE = {
   programada: { color: 'bg-blue-100 text-blue-700', label: 'Programada' },
   enviando: { color: 'bg-amber-100 text-amber-700', label: 'Enviando' },
   pausada: { color: 'bg-orange-100 text-orange-700', label: 'Pausada' },
-  completada: { color: 'bg-emerald-100 text-emerald-700', label: 'Completada' },
+  completada: { color: 'bg-indigo-100 text-indigo-700', label: 'Completada' },
   cancelada: { color: 'bg-red-100 text-red-700', label: 'Cancelada' },
 }
 
@@ -420,7 +420,7 @@ export default function Campanas() {
           <p className="text-sm text-gray-500">En progreso</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-2xl font-bold text-emerald-600">{stats.completadas}</p>
+          <p className="text-2xl font-bold text-indigo-600">{stats.completadas}</p>
           <p className="text-sm text-gray-500">Completadas</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -528,7 +528,7 @@ export default function Campanas() {
               {campana.estado === 'completada' && (
                 <div className="mt-4 grid grid-cols-3 gap-4">
                   <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="h-4 w-4 text-emerald-500" />
+                    <CheckCircle className="h-4 w-4 text-indigo-500" />
                     <span>{campana.enviados} enviados</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
@@ -713,7 +713,7 @@ export default function Campanas() {
                           excluir_campana_dias: e.target.checked ? 7 : null 
                         } 
                       })}
-                      className="rounded text-emerald-600"
+                      className="rounded text-indigo-600"
                     />
                     <label htmlFor="excluir-campana-check" className="text-sm text-gray-700">
                       Excluir si recibió campaña en últimos
@@ -747,7 +747,7 @@ export default function Campanas() {
                           limite: e.target.checked ? 100 : null 
                         } 
                       })}
-                      className="rounded text-emerald-600"
+                      className="rounded text-indigo-600"
                     />
                     <label htmlFor="limite-check" className="text-sm text-gray-700">
                       Limitar a máximo
@@ -842,8 +842,8 @@ export default function Campanas() {
                 </button>
                 
                 {preview && (
-                  <div className="mt-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
-                    <p className="text-sm text-emerald-800 whitespace-pre-wrap">{preview}</p>
+                  <div className="mt-2 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                    <p className="text-sm text-indigo-800 whitespace-pre-wrap">{preview}</p>
                   </div>
                 )}
               </div>
@@ -989,7 +989,7 @@ export default function Campanas() {
                             <p className="text-xs text-gray-500">{contact.telefono}</p>
                           </div>
                           {selectedContacts.find(c => c.id === contact.id) && (
-                            <CheckCircle className="h-4 w-4 text-emerald-500 ml-auto" />
+                            <CheckCircle className="h-4 w-4 text-indigo-500 ml-auto" />
                           )}
                         </button>
                       ))}
@@ -1004,12 +1004,12 @@ export default function Campanas() {
 
               {/* Resultado */}
               {testResult && (
-                <div className={`p-4 rounded-lg ${testResult.error ? 'bg-red-50' : 'bg-emerald-50'}`}>
+                <div className={`p-4 rounded-lg ${testResult.error ? 'bg-red-50' : 'bg-indigo-50'}`}>
                   {testResult.error ? (
                     <p className="text-red-700 text-sm">{testResult.error}</p>
                   ) : (
                     <div>
-                      <p className="text-emerald-700 font-medium">
+                      <p className="text-indigo-700 font-medium">
                         ✓ {testResult.exitosos} de {testResult.total} enviados
                       </p>
                       {testResult.resultados && (
@@ -1017,11 +1017,11 @@ export default function Campanas() {
                           {testResult.resultados.map((r, i) => (
                             <div key={i} className="text-sm flex items-center gap-2">
                               {r.enviado ? (
-                                <CheckCircle className="h-4 w-4 text-emerald-600" />
+                                <CheckCircle className="h-4 w-4 text-indigo-600" />
                               ) : (
                                 <XCircle className="h-4 w-4 text-red-600" />
                               )}
-                              <span className={r.enviado ? 'text-emerald-700' : 'text-red-700'}>
+                              <span className={r.enviado ? 'text-indigo-700' : 'text-red-700'}>
                                 {r.telefono} {r.nombre && `(${r.nombre})`}
                               </span>
                               {r.error && <span className="text-red-500 text-xs">- {r.error}</span>}

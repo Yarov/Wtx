@@ -144,7 +144,7 @@ export default function Settings() {
           </p>
           <div className="flex items-center gap-3">
             {saved && (
-              <span className="text-sm text-emerald-600 font-medium">
+              <span className="text-sm text-indigo-600 font-medium">
                 ✓ Guardado correctamente
               </span>
             )}
@@ -162,8 +162,8 @@ export default function Settings() {
           className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
-              <MessageCircle className="h-5 w-5 text-emerald-600" />
+            <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+              <MessageCircle className="h-5 w-5 text-indigo-600" />
             </div>
             <div className="text-left">
               <h2 className="font-semibold text-gray-900">WhatsApp</h2>
@@ -172,7 +172,7 @@ export default function Settings() {
           </div>
           <div className="flex items-center gap-3">
             {whatsappConfig.api_url && (
-              <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full">
+              <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">
                 Configurado
               </span>
             )}
@@ -196,7 +196,7 @@ export default function Settings() {
                     onClick={() => setWhatsappConfig({ ...whatsappConfig, provider: provider.id })}
                     className={`p-4 rounded-xl border-2 text-left transition-all ${
                       whatsappConfig.provider === provider.id
-                        ? 'border-emerald-500 bg-emerald-50'
+                        ? 'border-indigo-500 bg-indigo-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
@@ -218,7 +218,7 @@ export default function Settings() {
                   value={whatsappConfig.api_url}
                   onChange={(e) => setWhatsappConfig({ ...whatsappConfig, api_url: e.target.value })}
                   placeholder="https://tu-servidor.com"
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
                 />
               </div>
 
@@ -231,7 +231,7 @@ export default function Settings() {
                   value={whatsappConfig.session}
                   onChange={(e) => setWhatsappConfig({ ...whatsappConfig, session: e.target.value })}
                   placeholder="default"
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
                 />
               </div>
 
@@ -244,7 +244,7 @@ export default function Settings() {
                   value={whatsappConfig.api_key}
                   onChange={(e) => setWhatsappConfig({ ...whatsappConfig, api_key: e.target.value })}
                   placeholder="Tu API key si es requerida"
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
                 />
               </div>
             </div>
@@ -257,11 +257,11 @@ export default function Settings() {
               
               {testResult && (
                 <div className={`flex items-center gap-2 text-sm ${
-                  testResult.success ? 'text-emerald-600' : 'text-red-600'
+                  testResult.success ? 'text-indigo-600' : 'text-red-600'
                 }`}>
                   {testResult.success ? (
                     <>
-                      <Wifi className="h-4 w-4" />
+                      <CheckCircle className="h-4 w-4" />
                       Conectado correctamente
                     </>
                   ) : (
@@ -291,7 +291,7 @@ export default function Settings() {
                   className="p-2 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors"
                 >
                   {copied ? (
-                    <Check className="h-4 w-4 text-emerald-600" />
+                    <Check className="h-4 w-4 text-indigo-600" />
                   ) : (
                     <Copy className="h-4 w-4 text-gray-600" />
                   )}
@@ -310,7 +310,7 @@ export default function Settings() {
                   id="auto_sync"
                   checked={whatsappConfig.auto_sync}
                   onChange={(e) => setWhatsappConfig({ ...whatsappConfig, auto_sync: e.target.checked })}
-                  className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                  className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                 />
                 <label htmlFor="auto_sync" className="text-sm text-gray-700">
                   Auto-sincronizar contactos
@@ -321,7 +321,7 @@ export default function Settings() {
                 <select
                   value={whatsappConfig.sync_interval}
                   onChange={(e) => setWhatsappConfig({ ...whatsappConfig, sync_interval: parseInt(e.target.value) })}
-                  className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   {SYNC_INTERVALS.map((interval) => (
                     <option key={interval.value} value={interval.value}>

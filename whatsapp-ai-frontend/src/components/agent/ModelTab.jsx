@@ -55,7 +55,7 @@ export default function ModelTab({ config, setConfig }) {
               }`}
             >
               {model.recommended && (
-                <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-emerald-500 text-white text-xs font-medium rounded-full">
+                <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-indigo-600 text-white text-xs font-medium rounded-full">
                   Recomendado
                 </span>
               )}
@@ -175,19 +175,19 @@ export default function ModelTab({ config, setConfig }) {
 
       {/* Response Time Estimate */}
       <section>
-        <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-5">
+        <div className="bg-indigo-50 rounded-xl border border-indigo-100 p-5">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-medium text-emerald-900">Tiempo de Respuesta Estimado</h3>
-              <p className="text-sm text-emerald-700">
+              <h3 className="font-medium text-indigo-900">Tiempo de Respuesta Estimado</h3>
+              <p className="text-sm text-indigo-700">
                 Con {selectedModel.name} y {config.max_tokens} tokens
               </p>
             </div>
             <div className="text-right">
-              <p className="text-3xl font-bold text-emerald-600">
+              <p className="text-3xl font-bold text-indigo-600">
                 {selectedModel.value.includes('mini') || selectedModel.value.includes('3.5') ? '1-2' : '2-4'}s
               </p>
-              <p className="text-xs text-emerald-600">+ {config.response_delay || 3}s de espera</p>
+              <p className="text-xs text-indigo-600">+ {config.response_delay || 3}s de espera</p>
             </div>
           </div>
         </div>

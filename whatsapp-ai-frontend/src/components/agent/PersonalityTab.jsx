@@ -27,7 +27,7 @@ const PROMPT_SECTIONS = [
     key: 'task', 
     label: 'Objetivos Principales', 
     icon: Target, 
-    color: 'emerald',
+    color: 'indigo',
     placeholder: 'Ej: Tu objetivo principal es agendar citas, responder preguntas sobre servicios y precios, y ofrecer una experiencia excepcional...',
     description: 'Define las metas y tareas principales del agente'
   },
@@ -60,7 +60,7 @@ const DEFAULT_SECTIONS = {
 const colorClasses = {
   blue: { bg: 'bg-blue-100', text: 'text-blue-600', border: 'border-blue-200', light: 'bg-blue-50', ring: 'ring-blue-500' },
   purple: { bg: 'bg-purple-100', text: 'text-purple-600', border: 'border-purple-200', light: 'bg-purple-50', ring: 'ring-purple-500' },
-  emerald: { bg: 'bg-emerald-100', text: 'text-emerald-600', border: 'border-emerald-200', light: 'bg-emerald-50', ring: 'ring-emerald-500' },
+  indigo: { bg: 'bg-indigo-100', text: 'text-indigo-600', border: 'border-indigo-200', light: 'bg-indigo-50', ring: 'ring-indigo-500' },
   amber: { bg: 'bg-amber-100', text: 'text-amber-600', border: 'border-amber-200', light: 'bg-amber-50', ring: 'ring-amber-500' },
   pink: { bg: 'bg-pink-100', text: 'text-pink-600', border: 'border-pink-200', light: 'bg-pink-50', ring: 'ring-pink-500' },
 }
@@ -304,7 +304,7 @@ ${sections.tone}
               onClick={(e) => { e.stopPropagation(); copyPrompt(); }}
               className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-700 transition-colors"
             >
-              {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+              {copied ? <Check className="h-4 w-4 text-indigo-600" /> : <Copy className="h-4 w-4" />}
               {copied ? 'Copiado!' : 'Copiar'}
             </button>
           </button>

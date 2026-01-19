@@ -20,7 +20,7 @@ function ChatBubble({ message, isUser }) {
         className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm ${
           isUser 
             ? 'bg-gray-100 text-gray-700 rounded-tl-sm' 
-            : 'bg-emerald-50 text-emerald-900 rounded-tr-sm'
+            : 'bg-indigo-50 text-indigo-900 rounded-tr-sm'
         }`}
       >
         {message}
@@ -73,8 +73,8 @@ export default function ActivityFeed({ conversations = [], loading = false }) {
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
             </span>
             <h2 className="text-lg font-semibold text-gray-900">Chat en Vivo</h2>
           </div>
@@ -105,8 +105,8 @@ export default function ActivityFeed({ conversations = [], loading = false }) {
       <div className="flex items-center justify-between p-4 border-b border-gray-100">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
           </span>
           <h2 className="text-lg font-semibold text-gray-900">Chat en Vivo</h2>
         </div>

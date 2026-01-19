@@ -49,7 +49,7 @@ export default function ApiKeys() {
       </div>
 
       {saved && (
-        <div className="flex items-center gap-2 p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700">
+        <div className="flex items-center gap-2 p-4 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-700">
           <CheckCircle className="h-5 w-5" />
           <span>Configuración guardada correctamente</span>
         </div>

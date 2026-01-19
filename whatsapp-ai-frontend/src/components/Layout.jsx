@@ -113,7 +113,7 @@ export default function Layout() {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 w-64 bg-gradient-to-b from-emerald-600 via-emerald-500 to-teal-500 z-50 transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col ${
+      <aside className={`fixed inset-y-0 left-0 w-64 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 z-50 transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         {/* Background decoration */}
@@ -146,7 +146,7 @@ export default function Layout() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     isActive
-                      ? 'bg-white text-emerald-700 shadow-lg shadow-emerald-900/20'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20'
                       : 'text-white/80 hover:bg-white/15 hover:text-white'
                   }`
                 }
@@ -170,7 +170,7 @@ export default function Layout() {
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                       isActive
-                        ? 'bg-white text-emerald-700 shadow-lg shadow-emerald-900/20'
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20'
                         : 'text-white/80 hover:bg-white/15 hover:text-white'
                     }`
                   }
@@ -212,7 +212,7 @@ export default function Layout() {
                 agentLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
               } ${
                 agentEnabled 
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-200' 
+                  ? 'bg-gradient-to-r from-indigo-600 to-sky-500 text-white shadow-lg shadow-indigo-200' 
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -228,7 +228,7 @@ export default function Layout() {
                 <p className={`text-sm font-semibold ${agentEnabled ? 'text-white' : 'text-gray-700'}`}>
                   {agentEnabled ? 'IA Activa' : 'IA Inactiva'}
                 </p>
-                <p className={`text-xs ${agentEnabled ? 'text-emerald-100' : 'text-gray-500'}`}>
+                <p className={`text-xs ${agentEnabled ? 'text-indigo-100' : 'text-gray-500'}`}>
                   {agentLoading ? 'Cambiando...' : agentEnabled ? 'Respondiendo' : 'Click para activar'}
                 </p>
               </div>

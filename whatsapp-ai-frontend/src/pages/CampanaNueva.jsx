@@ -14,7 +14,7 @@ const FILTROS = [
     label: 'Todos los activos', 
     desc: 'Todos los contactos con estado activo',
     icon: Users,
-    color: 'emerald'
+    color: 'indigo'
   },
   { 
     value: 'actividad', 
@@ -203,14 +203,14 @@ export default function CampanaNueva() {
                 value={formData.nombre}
                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                 placeholder="Ej: Promoción Febrero, Reactivación Clientes..."
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
             
             {/* Destinatarios */}
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center gap-2 mb-4">
-                <Users className="h-5 w-5 text-emerald-600" />
+                <Users className="h-5 w-5 text-indigo-600" />
                 <h2 className="text-lg font-semibold text-gray-900">Destinatarios</h2>
               </div>
               
@@ -306,7 +306,7 @@ export default function CampanaNueva() {
                     id="excluir-campana"
                     checked={!!formData.filtro_valor.excluir_campana_dias}
                     onChange={(e) => updateFiltroValor('excluir_campana_dias', e.target.checked ? 7 : null)}
-                    className="rounded text-emerald-600 focus:ring-emerald-500"
+                    className="rounded text-indigo-600 focus:ring-indigo-500"
                   />
                   <label htmlFor="excluir-campana" className="text-sm text-gray-700 flex items-center gap-2">
                     Excluir si recibió campaña en últimos
@@ -328,7 +328,7 @@ export default function CampanaNueva() {
                     id="limite"
                     checked={!!formData.filtro_valor.limite}
                     onChange={(e) => updateFiltroValor('limite', e.target.checked ? 100 : null)}
-                    className="rounded text-emerald-600 focus:ring-emerald-500"
+                    className="rounded text-indigo-600 focus:ring-indigo-500"
                   />
                   <label htmlFor="limite" className="text-sm text-gray-700 flex items-center gap-2">
                     Limitar a máximo
@@ -350,7 +350,7 @@ export default function CampanaNueva() {
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5 text-emerald-600" />
+                  <MessageSquare className="h-5 w-5 text-indigo-600" />
                   <h2 className="text-lg font-semibold text-gray-900">Mensaje</h2>
                 </div>
                 
@@ -384,7 +384,7 @@ export default function CampanaNueva() {
 Usa variables para personalizar:
 • {nombre} - Nombre del contacto
 • {telefono} - Teléfono del contacto"
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
               />
               
               <div className="mt-3 flex items-center gap-4 text-sm text-gray-500">
@@ -402,7 +402,7 @@ Usa variables para personalizar:
             {/* Velocidad */}
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center gap-2 mb-2">
-                <Settings className="h-5 w-5 text-emerald-600" />
+                <Settings className="h-5 w-5 text-indigo-600" />
                 <h2 className="text-lg font-semibold text-gray-900">Velocidad de envío</h2>
               </div>
               
@@ -422,12 +422,12 @@ Usa variables para personalizar:
                     onClick={() => setFormData({ ...formData, velocidad: vel.value })}
                     className={`p-4 rounded-xl border-2 text-center transition-all relative ${
                       formData.velocidad === vel.value
-                        ? 'border-emerald-500 bg-emerald-50'
+                        ? 'border-indigo-500 bg-indigo-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     {vel.recommended && (
-                      <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-emerald-500 text-white text-xs px-2 py-0.5 rounded-full">
+                      <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-xs px-2 py-0.5 rounded-full">
                         Recomendado
                       </span>
                     )}
@@ -448,20 +448,20 @@ Usa variables para personalizar:
             {/* Preview de destinatarios */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 sticky top-24">
               <div className="flex items-center gap-2 mb-4">
-                <Eye className="h-5 w-5 text-emerald-600" />
+                <Eye className="h-5 w-5 text-indigo-600" />
                 <h2 className="text-lg font-semibold text-gray-900">Vista previa</h2>
               </div>
               
               {/* Contador de destinatarios */}
-              <div className="text-center py-4 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl mb-4">
+              <div className="text-center py-4 bg-gradient-to-r from-indigo-50 to-sky-50 border border-indigo-200 rounded-xl mb-4">
                 {loadingPreview ? (
-                  <Loader2 className="h-6 w-6 text-emerald-500 animate-spin mx-auto" />
+                  <Loader2 className="h-6 w-6 text-indigo-500 animate-spin mx-auto" />
                 ) : (
                   <>
-                    <p className="text-3xl font-bold text-emerald-600">
+                    <p className="text-3xl font-bold text-indigo-600">
                       {previewCount !== null ? previewCount.toLocaleString() : '--'}
                     </p>
-                    <p className="text-sm text-emerald-700">destinatarios</p>
+                    <p className="text-sm text-indigo-700">destinatarios</p>
                   </>
                 )}
               </div>
@@ -472,7 +472,7 @@ Usa variables para personalizar:
                 <div className="bg-[#0b141a] rounded-2xl p-3 shadow-lg">
                   {/* Header del chat */}
                   <div className="flex items-center gap-2 pb-2 border-b border-gray-700">
-                    <div className="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center">
+                    <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center">
                       <span className="text-white text-xs font-bold">TN</span>
                     </div>
                     <div>
@@ -491,7 +491,7 @@ Usa variables para personalizar:
                               .replace('{telefono}', '+52 55 1234 5678')
                           : 'Tu mensaje aparecerá aquí...'}
                       </p>
-                      <p className="text-right text-[10px] text-emerald-200 mt-1">
+                      <p className="text-right text-[10px] text-indigo-200 mt-1">
                         {new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })} ✓✓
                       </p>
                     </div>
@@ -506,8 +506,8 @@ Usa variables para personalizar:
                   <div className="space-y-2 max-h-64 overflow-y-auto">
                     {previewMuestra.map((c) => (
                       <div key={c.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-                        <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
-                          <span className="text-emerald-700 text-sm font-medium">
+                        <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                          <span className="text-indigo-700 text-sm font-medium">
                             {(c.nombre || c.telefono || '?')[0].toUpperCase()}
                           </span>
                         </div>

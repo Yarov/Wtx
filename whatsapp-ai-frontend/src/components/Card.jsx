@@ -5,8 +5,8 @@ export default function Card({ title, description, icon: Icon, children, classNa
         <div className="px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
             {Icon && (
-              <div className="p-2 bg-emerald-50 rounded-lg">
-                <Icon className="h-5 w-5 text-emerald-600" />
+              <div className="p-2 bg-indigo-50 rounded-lg">
+                <Icon className="h-5 w-5 text-indigo-600" />
               </div>
             )}
             <div>

@@ -207,7 +207,7 @@ ${sections.tone}
           </p>
           <div className="flex items-center gap-3">
             {saved && (
-              <span className="text-sm text-emerald-600 font-medium">
+              <span className="text-sm text-indigo-600 font-medium">
                 ✓ Guardado correctamente
               </span>
             )}
@@ -239,8 +239,8 @@ ${sections.tone}
           </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4 hover:shadow-md transition-shadow">
-          <div className="p-3 bg-emerald-100 rounded-xl">
-            <Zap className="h-6 w-6 text-emerald-600" />
+          <div className="p-3 bg-indigo-100 rounded-xl">
+            <Zap className="h-6 w-6 text-indigo-600" />
           </div>
           <div>
             <p className="text-xl font-bold text-gray-900">{config.temperature}</p>

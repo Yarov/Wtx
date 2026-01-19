@@ -179,7 +179,7 @@ export default function WhatsAppConfig() {
             
             {testResult && (
               <div className={`flex items-center gap-2 text-sm ${
-                testResult.success ? 'text-emerald-600' : 'text-red-600'
+                testResult.success ? 'text-indigo-600' : 'text-red-600'
               }`}>
                 {testResult.success ? (
                   <>
@@ -217,7 +217,7 @@ export default function WhatsAppConfig() {
             className="p-3 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
           >
             {copied ? (
-              <Check className="h-5 w-5 text-emerald-600" />
+              <Check className="h-5 w-5 text-indigo-600" />
             ) : (
               <Copy className="h-5 w-5 text-gray-600" />
             )}
@@ -280,7 +280,7 @@ export default function WhatsAppConfig() {
       {/* Save Button */}
       <div className="flex items-center justify-end gap-3">
         {saved && (
-          <span className="text-sm text-emerald-600">✓ Guardado</span>
+          <span className="text-sm text-indigo-600">✓ Guardado</span>
         )}
         <Button onClick={handleSave} loading={saving}>
           Guardar Configuración

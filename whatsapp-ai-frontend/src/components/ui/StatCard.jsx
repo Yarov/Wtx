@@ -31,8 +31,8 @@ export default function StatCard({
       </div>
       {subtitle && (
         <div className="mt-3 flex items-center gap-1 text-sm">
-          <ArrowUpRight className="h-4 w-4 text-emerald-500" />
-          <span className="text-emerald-600">{subtitle}</span>
+          <ArrowUpRight className="h-4 w-4 text-indigo-500" />
+          <span className="text-indigo-600">{subtitle}</span>
         </div>
       )}
       {link && (

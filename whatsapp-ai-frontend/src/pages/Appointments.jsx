@@ -6,7 +6,7 @@ import { appointmentsApi } from '../api/client'
 import { ConfirmDialog } from '../components/ui'
 
 const STATUS_CONFIG = {
-  confirmada: { bg: 'bg-emerald-100', text: 'text-emerald-800', label: 'Confirmada' },
+  confirmada: { bg: 'bg-indigo-100', text: 'text-indigo-800', label: 'Confirmada' },
   pendiente: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Pendiente' },
   completada: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Completada' },
   cancelada: { bg: 'bg-red-100', text: 'text-red-800', label: 'Cancelada' },
@@ -86,7 +86,7 @@ export default function Appointments() {
               onClick={() => setFilter(f)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 filter === f
-                  ? 'bg-emerald-600 text-white'
+                  ? 'bg-indigo-600 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -167,9 +167,9 @@ export default function Appointments() {
           <h3 className="font-semibold text-blue-900">Total Citas</h3>
           <p className="text-3xl font-bold text-blue-600 mt-2">{appointments.length}</p>
         </div>
-        <div className="bg-emerald-50 rounded-xl p-6 border border-emerald-100">
-          <h3 className="font-semibold text-emerald-900">Hoy</h3>
-          <p className="text-3xl font-bold text-emerald-600 mt-2">
+        <div className="bg-indigo-50 rounded-xl p-6 border border-indigo-100">
+          <h3 className="font-semibold text-indigo-900">Hoy</h3>
+          <p className="text-3xl font-bold text-indigo-600 mt-2">
             {appointments.filter(a => new Date(a.fecha).toDateString() === new Date().toDateString()).length}
           </p>
         </div>
