@@ -113,33 +113,41 @@ export default function Layout() {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 w-64 bg-gray-900 z-50 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+      <aside className={`fixed inset-y-0 left-0 w-64 bg-gradient-to-b from-emerald-600 via-emerald-500 to-teal-500 z-50 transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
-        <div className="flex h-16 items-center justify-between px-6 border-b border-gray-800">
+        {/* Background decoration */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-20 -right-20 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-20 -left-10 w-32 h-32 bg-black/10 rounded-full blur-2xl" />
+        </div>
+
+        <div className="relative flex-shrink-0 flex h-16 items-center justify-between px-6 border-b border-white/20">
           <div className="flex items-center gap-3">
-            <Bot className="h-8 w-8 text-emerald-500" />
+            <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+              <Bot className="h-6 w-6 text-white" />
+            </div>
             <span className="text-xl font-bold text-white">Wtx</span>
           </div>
           <button 
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-2 text-gray-400 hover:text-white"
+            className="lg:hidden p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
         
-        <nav className="mt-6 px-3 flex-1 overflow-y-auto">
+        <nav className="relative mt-6 px-3 flex-1 overflow-y-auto">
           <div className="space-y-1">
             {mainNavigation.map((item) => (
               <NavLink
                 key={item.name}
                 to={item.href}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     isActive
-                      ? 'bg-emerald-600 text-white'
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                      ? 'bg-white text-emerald-700 shadow-lg shadow-emerald-900/20'
+                      : 'text-white/80 hover:bg-white/15 hover:text-white'
                   }`
                 }
               >
@@ -151,7 +159,7 @@ export default function Layout() {
 
           {/* Configuración */}
           <div className="mt-8">
-            <p className="px-3 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            <p className="px-3 mb-2 text-xs font-semibold text-white/50 uppercase tracking-wider">
               Configuración
             </p>
             <div className="space-y-1">
@@ -160,10 +168,10 @@ export default function Layout() {
                   key={item.name}
                   to={item.href}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                       isActive
-                        ? 'bg-emerald-600 text-white'
-                        : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                        ? 'bg-white text-emerald-700 shadow-lg shadow-emerald-900/20'
+                        : 'text-white/80 hover:bg-white/15 hover:text-white'
                     }`
                   }
                 >
@@ -175,9 +183,9 @@ export default function Layout() {
           </div>
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
-          <div className="flex items-center justify-between text-gray-500 text-xs">
-            <span>v3.0.0</span>
+        <div className="relative flex-shrink-0 p-4 border-t border-white/20">
+          <div className="flex items-center justify-between text-white/50 text-xs">
+            <span>v3.0</span>
             <span>Wtx Agent</span>
           </div>
         </div>
