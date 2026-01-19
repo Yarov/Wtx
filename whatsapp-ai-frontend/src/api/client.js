@@ -98,6 +98,7 @@ export const campanasApi = {
   cancelar: (id) => api.post(`/campanas/${id}/cancelar`),
   destinatarios: (id, params = {}) => api.get(`/campanas/${id}/destinatarios`, { params }),
   preview: (id) => api.post(`/campanas/${id}/preview`),
+  previewDestinatarios: (data) => api.post('/campanas/preview-destinatarios', data),
   enviarPrueba: (data) => api.post('/campanas/enviar-prueba', data),
   mejorarMensaje: (data) => api.post('/campanas/mejorar-mensaje', data),
   stats: () => api.get('/campanas/stats'),

@@ -20,9 +20,20 @@ const VELOCIDADES = [
 ]
 
 const FILTROS = [
-  { value: 'todos', label: 'Todos los contactos' },
-  { value: 'inactivos', label: 'Contactos inactivos' },
+  { value: 'todos', label: 'Todos los contactos activos' },
+  { value: 'actividad', label: 'Por actividad reciente' },
   { value: 'tag', label: 'Por etiqueta' },
+  { value: 'tag_actividad', label: 'Etiqueta + Actividad' },
+  { value: 'manual', label: 'Selección manual' },
+]
+
+const PERIODOS = [
+  { value: 'hoy', label: 'Hoy' },
+  { value: 'ultimos_3_dias', label: 'Últimos 3 días' },
+  { value: 'ultima_semana', label: 'Última semana' },
+  { value: 'ultimas_2_semanas', label: 'Últimas 2 semanas' },
+  { value: 'ultimo_mes', label: 'Último mes' },
+  { value: 'ultimos_3_meses', label: 'Últimos 3 meses' },
 ]
 
 export default function Campanas() {
@@ -246,9 +257,36 @@ export default function Campanas() {
     return Math.round((campana.enviados / campana.total_destinatarios) * 100)
   }
 
+  const [previewCount, setPreviewCount] = useState(null)
+  const [loadingPreview, setLoadingPreview] = useState(false)
+
+  const loadPreviewCount = async () => {
+    setLoadingPreview(true)
+    try {
+      const response = await campanasApi.previewDestinatarios({
+        filtro_tipo: formData.filtro_tipo,
+        filtro_valor: formData.filtro_valor
+      })
+      setPreviewCount(response.data.total)
+    } catch (error) {
+      console.error('Error loading preview:', error)
+      setPreviewCount(null)
+    } finally {
+      setLoadingPreview(false)
+    }
+  }
+
+  // Auto-load preview when filter changes
+  useEffect(() => {
+    if (showModal) {
+      loadPreviewCount()
+    }
+  }, [formData.filtro_tipo, formData.filtro_valor, showModal])
+
   const getDestinatariosCount = () => {
+    if (loadingPreview) return '...'
+    if (previewCount !== null) return previewCount
     if (formData.filtro_tipo === 'todos') return contactosStats.total
-    if (formData.filtro_tipo === 'inactivos') return contactosStats.sin_actividad_30d || 0
     return '?'
   }
 
@@ -549,21 +587,117 @@ export default function Campanas() {
                   ))}
                 </div>
                 
-                {formData.filtro_tipo === 'inactivos' && (
-                  <div className="mt-3 flex items-center gap-2">
-                    <span className="text-sm text-gray-500">Sin mensajes en los últimos</span>
-                    <input
-                      type="number"
-                      value={formData.filtro_valor.dias || 30}
+                {/* Filtro por actividad */}
+                {formData.filtro_tipo === 'actividad' && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Contactos que escribieron en:
+                    </label>
+                    <select
+                      value={formData.filtro_valor.periodo || 'ultima_semana'}
                       onChange={(e) => setFormData({ 
                         ...formData, 
-                        filtro_valor: { dias: parseInt(e.target.value) || 30 } 
+                        filtro_valor: { ...formData.filtro_valor, periodo: e.target.value } 
+                      })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                    >
+                      {PERIODOS.map((p) => (
+                        <option key={p.value} value={p.value}>{p.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Filtro por tag */}
+                {formData.filtro_tipo === 'tag' && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Etiqueta:
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.filtro_valor.tag || ''}
+                      onChange={(e) => setFormData({ 
+                        ...formData, 
+                        filtro_valor: { ...formData.filtro_valor, tag: e.target.value } 
+                      })}
+                      placeholder="Ej: vip, interesado, cliente"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                    />
+                  </div>
+                )}
+
+                {/* Filtro combinado tag + actividad */}
+                {formData.filtro_tipo === 'tag_actividad' && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Etiqueta:
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.filtro_valor.tag || ''}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          filtro_valor: { ...formData.filtro_valor, tag: e.target.value } 
+                        })}
+                        placeholder="Ej: vip, interesado"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Que escribieron en:
+                      </label>
+                      <select
+                        value={formData.filtro_valor.periodo || 'ultima_semana'}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          filtro_valor: { ...formData.filtro_valor, periodo: e.target.value } 
+                        })}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                      >
+                        {PERIODOS.map((p) => (
+                          <option key={p.value} value={p.value}>{p.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* Límite opcional */}
+                <div className="mt-3 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="limite-check"
+                    checked={!!formData.filtro_valor.limite}
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      filtro_valor: { 
+                        ...formData.filtro_valor, 
+                        limite: e.target.checked ? 100 : null 
+                      } 
+                    })}
+                    className="rounded text-emerald-600"
+                  />
+                  <label htmlFor="limite-check" className="text-sm text-gray-500">
+                    Limitar a
+                  </label>
+                  {formData.filtro_valor.limite && (
+                    <input
+                      type="number"
+                      value={formData.filtro_valor.limite}
+                      onChange={(e) => setFormData({ 
+                        ...formData, 
+                        filtro_valor: { ...formData.filtro_valor, limite: parseInt(e.target.value) || 100 } 
                       })}
                       className="w-20 px-2 py-1 border border-gray-200 rounded text-sm"
                     />
-                    <span className="text-sm text-gray-500">días</span>
-                  </div>
-                )}
+                  )}
+                  {formData.filtro_valor.limite && (
+                    <span className="text-sm text-gray-500">contactos máximo</span>
+                  )}
+                </div>
 
                 <p className="mt-2 text-sm text-gray-500">
                   Aproximadamente <strong>{getDestinatariosCount()}</strong> contactos

@@ -75,6 +75,81 @@ async def obtener_campana(
     return campana.to_dict()
 
 
+@router.post("/preview-destinatarios", summary="Preview recipients", description="Preview how many contacts match the filter criteria before creating a campaign.")
+async def preview_destinatarios(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """Previsualizar cantidad de destinatarios según filtros"""
+    filtro_tipo = data.get("filtro_tipo", "todos")
+    filtro_valor = data.get("filtro_valor", {})
+    
+    # Base query: solo contactos activos
+    query = db.query(Contacto).filter(Contacto.estado == "activo")
+    
+    if filtro_tipo == "actividad":
+        periodo = filtro_valor.get("periodo", "ultima_semana")
+        periodos_dias = {
+            "hoy": 1, "ultimos_3_dias": 3, "ultima_semana": 7,
+            "ultimas_2_semanas": 14, "ultimo_mes": 30, "ultimos_3_meses": 90,
+        }
+        
+        if periodo == "rango_personalizado":
+            desde = filtro_valor.get("desde")
+            hasta = filtro_valor.get("hasta")
+            if desde:
+                fecha_desde = datetime.fromisoformat(desde.replace("Z", "+00:00"))
+                query = query.filter(Contacto.ultimo_mensaje >= fecha_desde)
+            if hasta:
+                fecha_hasta = datetime.fromisoformat(hasta.replace("Z", "+00:00"))
+                query = query.filter(Contacto.ultimo_mensaje <= fecha_hasta)
+        else:
+            dias = periodos_dias.get(periodo, 7)
+            fecha_limite = datetime.utcnow() - timedelta(days=dias)
+            query = query.filter(
+                Contacto.ultimo_mensaje >= fecha_limite,
+                Contacto.ultimo_mensaje.is_not(None)
+            )
+    
+    elif filtro_tipo == "tag":
+        tag = filtro_valor.get("tag", "")
+        if tag:
+            query = query.filter(Contacto.tags.ilike(f'%"{tag}"%'))
+    
+    elif filtro_tipo == "manual":
+        ids = filtro_valor.get("ids", [])
+        if ids:
+            query = query.filter(Contacto.id.in_(ids))
+        else:
+            return {"total": 0, "contactos": []}
+    
+    elif filtro_tipo == "tag_actividad":
+        tag = filtro_valor.get("tag", "")
+        periodo = filtro_valor.get("periodo", "ultima_semana")
+        periodos_dias = {"hoy": 1, "ultimos_3_dias": 3, "ultima_semana": 7, "ultimas_2_semanas": 14, "ultimo_mes": 30}
+        dias = periodos_dias.get(periodo, 7)
+        fecha_limite = datetime.utcnow() - timedelta(days=dias)
+        
+        if tag:
+            query = query.filter(Contacto.tags.ilike(f'%"{tag}"%'))
+        query = query.filter(
+            Contacto.ultimo_mensaje >= fecha_limite,
+            Contacto.ultimo_mensaje.is_not(None)
+        )
+    
+    # Contar total
+    total = query.count()
+    
+    # Obtener muestra (primeros 10)
+    muestra = query.limit(10).all()
+    
+    return {
+        "total": total,
+        "muestra": [{"id": c.id, "nombre": c.nombre, "telefono": c.telefono} for c in muestra]
+    }
+
+
 @router.post("", summary="Create campaign", description="Create a new bulk messaging campaign with name, message template and recipient filters.")
 async def crear_campana(
     data: dict,
@@ -476,32 +551,77 @@ async def _calcular_destinatarios(campana: Campana, db: Session):
     # Limpiar destinatarios anteriores
     db.query(CampanaDestinatario).filter(CampanaDestinatario.campana_id == campana.id).delete()
     
-    # Obtener contactos según filtro
-    query = db.query(Contacto).filter(Contacto.estado != "bloqueado")
+    # Obtener contactos activos (no bloqueados ni inactivos)
+    query = db.query(Contacto).filter(Contacto.estado == "activo")
     
     filtro_tipo = campana.filtro_tipo
     filtro_valor = json.loads(campana.filtro_valor) if campana.filtro_valor else {}
     
-    if filtro_tipo == "inactivos":
-        dias = filtro_valor.get("dias", 30)
-        fecha_limite = datetime.utcnow() - timedelta(days=dias)
-        query = query.filter(
-            or_(
-                Contacto.ultimo_mensaje < fecha_limite,
-                Contacto.ultimo_mensaje.is_(None)
+    if filtro_tipo == "actividad":
+        # Filtro por actividad reciente
+        periodo = filtro_valor.get("periodo", "ultima_semana")
+        
+        # Mapeo de periodos a días
+        periodos_dias = {
+            "hoy": 1,
+            "ultimos_3_dias": 3,
+            "ultima_semana": 7,
+            "ultimas_2_semanas": 14,
+            "ultimo_mes": 30,
+            "ultimos_3_meses": 90,
+        }
+        
+        if periodo == "rango_personalizado":
+            # Rango de fechas personalizado
+            desde = filtro_valor.get("desde")
+            hasta = filtro_valor.get("hasta")
+            if desde:
+                fecha_desde = datetime.fromisoformat(desde.replace("Z", "+00:00"))
+                query = query.filter(Contacto.ultimo_mensaje >= fecha_desde)
+            if hasta:
+                fecha_hasta = datetime.fromisoformat(hasta.replace("Z", "+00:00"))
+                query = query.filter(Contacto.ultimo_mensaje <= fecha_hasta)
+        else:
+            dias = periodos_dias.get(periodo, 7)
+            fecha_limite = datetime.utcnow() - timedelta(days=dias)
+            query = query.filter(
+                Contacto.ultimo_mensaje >= fecha_limite,
+                Contacto.ultimo_mensaje.is_not(None)
             )
-        )
+    
     elif filtro_tipo == "tag":
         tag = filtro_valor.get("tag", "")
         if tag:
             query = query.filter(Contacto.tags.ilike(f'%"{tag}"%'))
+    
     elif filtro_tipo == "manual":
         ids = filtro_valor.get("ids", [])
         if ids:
             query = query.filter(Contacto.id.in_(ids))
         else:
             query = query.filter(False)  # No hay IDs seleccionados
-    # "todos" no necesita filtro adicional
+    
+    elif filtro_tipo == "tag_actividad":
+        # Combinación: tag + actividad reciente
+        tag = filtro_valor.get("tag", "")
+        periodo = filtro_valor.get("periodo", "ultima_semana")
+        periodos_dias = {"hoy": 1, "ultimos_3_dias": 3, "ultima_semana": 7, "ultimas_2_semanas": 14, "ultimo_mes": 30}
+        dias = periodos_dias.get(periodo, 7)
+        fecha_limite = datetime.utcnow() - timedelta(days=dias)
+        
+        if tag:
+            query = query.filter(Contacto.tags.ilike(f'%"{tag}"%'))
+        query = query.filter(
+            Contacto.ultimo_mensaje >= fecha_limite,
+            Contacto.ultimo_mensaje.is_not(None)
+        )
+    
+    # "todos" no necesita filtro adicional (solo contactos activos)
+    
+    # Aplicar límite si está definido
+    limite = filtro_valor.get("limite")
+    if limite and isinstance(limite, int) and limite > 0:
+        query = query.limit(limite)
     
     contactos = query.all()
     
