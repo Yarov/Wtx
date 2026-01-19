@@ -7,9 +7,11 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
-from models import get_db, BusinessConfig, ToolsConfig, Configuracion, Inventario, Disponibilidad
+from models import (
+    get_db, BusinessConfig, ToolsConfig, Configuracion, Inventario, Disponibilidad,
+    Cita, Memoria, HorarioBloqueado, Contacto, Campana, CampanaDestinatario, BackgroundJob, Usuario
+)
 from api.routers.auth import get_current_user
-from models import Usuario
 from database import get_config, set_config
 
 router = APIRouter(
@@ -551,3 +553,95 @@ Responde SOLO con JSON:
         
     except Exception as e:
         print(f"Error generating prompts: {e}")
+
+
+class FactoryResetRequest(BaseModel):
+    sections: list = []  # Lista de secciones a resetear, vacía = todo
+
+
+@router.post("/factory-reset", summary="Factory reset", description="Reset selected or all data to factory defaults.")
+async def factory_reset(
+    data: FactoryResetRequest = FactoryResetRequest(),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """
+    Reset selectivo o completo de la base de datos.
+    sections puede incluir: contactos, citas, campanas, inventario, conversaciones, configuracion, horarios
+    Si sections está vacío, se borra todo.
+    Solo usuarios admin pueden ejecutar esto.
+    """
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Solo administradores pueden ejecutar factory reset")
+    
+    sections = data.sections if data.sections else [
+        'contactos', 'citas', 'campanas', 'inventario', 
+        'conversaciones', 'configuracion', 'horarios', 'usuarios'
+    ]
+    
+    deleted = {}
+    
+    try:
+        # Campañas (incluye destinatarios)
+        if 'campanas' in sections:
+            deleted["campana_destinatarios"] = db.query(CampanaDestinatario).delete()
+            deleted["campanas"] = db.query(Campana).delete()
+        
+        # Contactos
+        if 'contactos' in sections:
+            deleted["contactos"] = db.query(Contacto).delete()
+        
+        # Citas
+        if 'citas' in sections:
+            deleted["citas"] = db.query(Cita).delete()
+        
+        # Conversaciones (memoria)
+        if 'conversaciones' in sections:
+            deleted["memoria"] = db.query(Memoria).delete()
+        
+        # Inventario
+        if 'inventario' in sections:
+            deleted["inventario"] = db.query(Inventario).delete()
+        
+        # Horarios
+        if 'horarios' in sections:
+            deleted["horarios_bloqueados"] = db.query(HorarioBloqueado).delete()
+            deleted["disponibilidad"] = db.query(Disponibilidad).delete()
+        
+        # Configuración (incluye tools, business config, prompts)
+        if 'configuracion' in sections:
+            deleted["tools_config"] = db.query(ToolsConfig).delete()
+            deleted["configuracion"] = db.query(Configuracion).delete()
+            deleted["business_config"] = db.query(BusinessConfig).delete()
+        
+        # Background jobs siempre se limpian si hay campañas o contactos
+        if 'campanas' in sections or 'contactos' in sections:
+            deleted["background_jobs"] = db.query(BackgroundJob).delete()
+        
+        # Usuarios (excepto el usuario actual)
+        if 'usuarios' in sections:
+            deleted["usuarios"] = db.query(Usuario).filter(Usuario.id != current_user.id).delete()
+        
+        # Full reset: eliminar también al admin actual
+        if 'full_reset' in sections:
+            deleted["usuario_admin"] = db.query(Usuario).filter(Usuario.id == current_user.id).delete()
+        
+        db.commit()
+        
+        # Reinicializar datos por defecto según lo que se borró
+        initialized = []
+        if 'configuracion' in sections or 'inventario' in sections or 'horarios' in sections:
+            initialized = init_all_default_data(db)
+            db.commit()
+        
+        return {
+            "status": "ok",
+            "message": "Reset completado",
+            "deleted": deleted,
+            "initialized": initialized,
+            "sections_reset": sections
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error en factory reset: {str(e)}")

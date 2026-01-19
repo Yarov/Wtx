@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { toolsApi, businessApi } from '../api/client'
+import useSecretReset from '../hooks/useSecretReset'
+import FactoryResetModal from './FactoryResetModal'
 import { 
   LayoutDashboard, 
   Package, 
@@ -33,7 +35,7 @@ const CONFIG_NAVIGATION = [
 ]
 
 export default function Layout() {
-  const { user, logout } = useAuth()
+  const { user, logout, isAdmin } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [agentEnabled, setAgentEnabled] = useState(true)
@@ -41,6 +43,9 @@ export default function Layout() {
   const [modules, setModules] = useState({ inventory: true, appointments: true, schedule: true })
   const [modulesLoaded, setModulesLoaded] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Secret factory reset: Cmd + K (solo admins)
+  const [resetModalOpen, setResetModalOpen] = useSecretReset(isAdmin)
 
   useEffect(() => {
     loadAgentStatus()
@@ -269,6 +274,12 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
+
+      {/* Factory Reset Modal (Cmd + K) */}
+      <FactoryResetModal 
+        isOpen={resetModalOpen} 
+        onClose={() => setResetModalOpen(false)} 
+      />
     </div>
   )
 }
