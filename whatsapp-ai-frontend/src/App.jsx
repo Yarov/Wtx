@@ -13,6 +13,7 @@ import Conversations from './pages/Conversations'
 import Schedule from './pages/Schedule'
 import Contactos from './pages/Contactos'
 import Campanas from './pages/Campanas'
+import CampanaNueva from './pages/CampanaNueva'
 import Setup from './pages/Setup'
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
             <Route path="conversations" element={<Conversations />} />
             <Route path="contactos" element={<Contactos />} />
             <Route path="campanas" element={<Campanas />} />
+            <Route path="campanas/nueva" element={<CampanaNueva />} />
             <Route path="schedule" element={<Schedule />} />
           </Route>
         </Routes>

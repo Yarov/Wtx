@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Play, Pause, X, Eye, Loader2, Send, Clock, CheckCircle, XCircle, Users, Wand2, Search, User } from 'lucide-react'
 import Button from '../components/Button'
 import { campanasApi, contactosApi } from '../api/client'
@@ -21,7 +22,8 @@ const VELOCIDADES = [
 
 const FILTROS = [
   { value: 'todos', label: 'Todos los contactos activos' },
-  { value: 'actividad', label: 'Por actividad reciente' },
+  { value: 'actividad', label: 'Activos recientemente', desc: 'Que escribieron en X días' },
+  { value: 'sin_actividad', label: 'Para reactivar', desc: 'Que NO han escrito en X días' },
   { value: 'tag', label: 'Por etiqueta' },
   { value: 'tag_actividad', label: 'Etiqueta + Actividad' },
   { value: 'manual', label: 'Selección manual' },
@@ -36,7 +38,15 @@ const PERIODOS = [
   { value: 'ultimos_3_meses', label: 'Últimos 3 meses' },
 ]
 
+const PERIODOS_SIN_ACTIVIDAD = [
+  { value: 'ultima_semana', label: 'Más de 1 semana' },
+  { value: 'ultimas_2_semanas', label: 'Más de 2 semanas' },
+  { value: 'ultimo_mes', label: 'Más de 1 mes' },
+  { value: 'ultimos_3_meses', label: 'Más de 3 meses' },
+]
+
 export default function Campanas() {
+  const navigate = useNavigate()
   const [campanas, setCampanas] = useState([])
   const [stats, setStats] = useState({ total: 0, enviando: 0, completadas: 0 })
   const [contactosStats, setContactosStats] = useState({ total: 0 })
@@ -392,7 +402,7 @@ export default function Campanas() {
             <Send className="h-4 w-4 mr-2" />
             Probar mensaje
           </Button>
-          <Button onClick={openCreateModal}>
+          <Button onClick={() => navigate('/campanas/nueva')}>
             <Plus className="h-4 w-4 mr-2" />
             Nueva Campaña
           </Button>
@@ -665,38 +675,98 @@ export default function Campanas() {
                   </div>
                 )}
 
-                {/* Límite opcional */}
-                <div className="mt-3 flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="limite-check"
-                    checked={!!formData.filtro_valor.limite}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      filtro_valor: { 
-                        ...formData.filtro_valor, 
-                        limite: e.target.checked ? 100 : null 
-                      } 
-                    })}
-                    className="rounded text-emerald-600"
-                  />
-                  <label htmlFor="limite-check" className="text-sm text-gray-500">
-                    Limitar a
-                  </label>
-                  {formData.filtro_valor.limite && (
-                    <input
-                      type="number"
-                      value={formData.filtro_valor.limite}
+                {/* Filtro sin actividad (para reactivación) */}
+                {formData.filtro_tipo === 'sin_actividad' && (
+                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <label className="block text-sm font-medium text-amber-800 mb-2">
+                      Contactos que NO han escrito en:
+                    </label>
+                    <select
+                      value={formData.filtro_valor.periodo || 'ultimo_mes'}
                       onChange={(e) => setFormData({ 
                         ...formData, 
-                        filtro_valor: { ...formData.filtro_valor, limite: parseInt(e.target.value) || 100 } 
+                        filtro_valor: { ...formData.filtro_valor, periodo: e.target.value } 
                       })}
-                      className="w-20 px-2 py-1 border border-gray-200 rounded text-sm"
+                      className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm"
+                    >
+                      {PERIODOS_SIN_ACTIVIDAD.map((p) => (
+                        <option key={p.value} value={p.value}>{p.label}</option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs text-amber-600">
+                      Ideal para campañas de reactivación
+                    </p>
+                  </div>
+                )}
+
+                {/* Excluir contactos con campaña reciente */}
+                <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="excluir-campana-check"
+                      checked={!!formData.filtro_valor.excluir_campana_dias}
+                      onChange={(e) => setFormData({ 
+                        ...formData, 
+                        filtro_valor: { 
+                          ...formData.filtro_valor, 
+                          excluir_campana_dias: e.target.checked ? 7 : null 
+                        } 
+                      })}
+                      className="rounded text-emerald-600"
                     />
-                  )}
-                  {formData.filtro_valor.limite && (
-                    <span className="text-sm text-gray-500">contactos máximo</span>
-                  )}
+                    <label htmlFor="excluir-campana-check" className="text-sm text-gray-700">
+                      Excluir si recibió campaña en últimos
+                    </label>
+                    {formData.filtro_valor.excluir_campana_dias && (
+                      <>
+                        <input
+                          type="number"
+                          value={formData.filtro_valor.excluir_campana_dias}
+                          onChange={(e) => setFormData({ 
+                            ...formData, 
+                            filtro_valor: { ...formData.filtro_valor, excluir_campana_dias: parseInt(e.target.value) || 7 } 
+                          })}
+                          className="w-16 px-2 py-1 border border-gray-200 rounded text-sm"
+                        />
+                        <span className="text-sm text-gray-500">días</span>
+                      </>
+                    )}
+                  </div>
+                  
+                  {/* Límite opcional */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="limite-check"
+                      checked={!!formData.filtro_valor.limite}
+                      onChange={(e) => setFormData({ 
+                        ...formData, 
+                        filtro_valor: { 
+                          ...formData.filtro_valor, 
+                          limite: e.target.checked ? 100 : null 
+                        } 
+                      })}
+                      className="rounded text-emerald-600"
+                    />
+                    <label htmlFor="limite-check" className="text-sm text-gray-700">
+                      Limitar a máximo
+                    </label>
+                    {formData.filtro_valor.limite && (
+                      <>
+                        <input
+                          type="number"
+                          value={formData.filtro_valor.limite}
+                          onChange={(e) => setFormData({ 
+                            ...formData, 
+                            filtro_valor: { ...formData.filtro_valor, limite: parseInt(e.target.value) || 100 } 
+                          })}
+                          className="w-20 px-2 py-1 border border-gray-200 rounded text-sm"
+                        />
+                        <span className="text-sm text-gray-500">contactos</span>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 <p className="mt-2 text-sm text-gray-500">

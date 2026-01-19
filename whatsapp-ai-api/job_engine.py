@@ -134,6 +134,7 @@ async def procesar_campana_masiva(job: BackgroundJob, db):
         if result.get("success"):
             dest.estado = "enviado"
             dest.enviado_at = datetime.utcnow()
+            contacto.ultima_campana = datetime.utcnow()  # Marcar que recibió campaña
             job.exitosos += 1
             campana.enviados = (campana.enviados or 0) + 1
         else:

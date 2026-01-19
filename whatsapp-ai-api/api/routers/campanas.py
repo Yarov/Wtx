@@ -138,6 +138,31 @@ async def preview_destinatarios(
             Contacto.ultimo_mensaje.is_not(None)
         )
     
+    elif filtro_tipo == "sin_actividad":
+        # Contactos que NO han escrito en X días (para reactivación)
+        periodo = filtro_valor.get("periodo", "ultimo_mes")
+        periodos_dias = {"ultima_semana": 7, "ultimas_2_semanas": 14, "ultimo_mes": 30, "ultimos_3_meses": 90}
+        dias = periodos_dias.get(periodo, 30)
+        fecha_limite = datetime.utcnow() - timedelta(days=dias)
+        
+        query = query.filter(
+            or_(
+                Contacto.ultimo_mensaje < fecha_limite,
+                Contacto.ultimo_mensaje.is_(None)
+            )
+        )
+    
+    # Excluir contactos que ya recibieron campaña recientemente
+    excluir_campana_dias = filtro_valor.get("excluir_campana_dias")
+    if excluir_campana_dias and isinstance(excluir_campana_dias, int):
+        fecha_limite_campana = datetime.utcnow() - timedelta(days=excluir_campana_dias)
+        query = query.filter(
+            or_(
+                Contacto.ultima_campana < fecha_limite_campana,
+                Contacto.ultima_campana.is_(None)
+            )
+        )
+    
     # Contar total
     total = query.count()
     
@@ -616,7 +641,32 @@ async def _calcular_destinatarios(campana: Campana, db: Session):
             Contacto.ultimo_mensaje.is_not(None)
         )
     
+    elif filtro_tipo == "sin_actividad":
+        # Contactos que NO han escrito en X días (para reactivación)
+        periodo = filtro_valor.get("periodo", "ultimo_mes")
+        periodos_dias = {"ultima_semana": 7, "ultimas_2_semanas": 14, "ultimo_mes": 30, "ultimos_3_meses": 90}
+        dias = periodos_dias.get(periodo, 30)
+        fecha_limite = datetime.utcnow() - timedelta(days=dias)
+        
+        query = query.filter(
+            or_(
+                Contacto.ultimo_mensaje < fecha_limite,
+                Contacto.ultimo_mensaje.is_(None)
+            )
+        )
+    
     # "todos" no necesita filtro adicional (solo contactos activos)
+    
+    # Excluir contactos que ya recibieron campaña recientemente
+    excluir_campana_dias = filtro_valor.get("excluir_campana_dias")
+    if excluir_campana_dias and isinstance(excluir_campana_dias, int):
+        fecha_limite_campana = datetime.utcnow() - timedelta(days=excluir_campana_dias)
+        query = query.filter(
+            or_(
+                Contacto.ultima_campana < fecha_limite_campana,
+                Contacto.ultima_campana.is_(None)
+            )
+        )
     
     # Aplicar límite si está definido
     limite = filtro_valor.get("limite")

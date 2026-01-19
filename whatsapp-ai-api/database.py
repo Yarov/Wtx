@@ -3,20 +3,23 @@ Database module - PostgreSQL con SQLAlchemy
 """
 import os
 import sys
+from sqlalchemy import text
 from models import Base, get_engine, SessionLocal
 from models import Configuracion, ToolsConfig, Inventario, Disponibilidad
 
 _initialized = False
 
 def init_database():
-    """Inicializar base de datos (crear tablas)"""
+    """Inicializar base de datos (verificar conexión)"""
     global _initialized
     if _initialized:
         return
     
+    # Solo verificar conexión - las tablas las crea Alembic
     engine = get_engine()
-    Base.metadata.create_all(bind=engine, checkfirst=True)
-    print("Database tables created", file=sys.stderr)
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    print("Database connection verified", file=sys.stderr)
     _initialized = True
 
 
