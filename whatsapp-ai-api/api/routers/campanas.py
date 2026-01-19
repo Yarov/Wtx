@@ -175,6 +175,9 @@ async def iniciar_campana(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
+    from models import BackgroundJob
+    from redis_queue import encolar_job
+    
     campana = db.query(Campana).filter(Campana.id == campana_id).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")
@@ -188,11 +191,27 @@ async def iniciar_campana(
         if campana.total_destinatarios == 0:
             raise HTTPException(status_code=400, detail="No hay destinatarios para esta campaña")
     
+    # Crear job para procesar la campaña
+    job = BackgroundJob(
+        tipo="campana_masiva",
+        estado="pendiente",
+        total=campana.total_destinatarios,
+        procesados=0,
+        exitosos=0,
+        fallidos=0,
+        mensaje=f"campana_id:{campana_id}"
+    )
+    db.add(job)
+    
     campana.estado = "enviando"
     campana.iniciada_at = datetime.utcnow()
     db.commit()
+    db.refresh(job)
     
-    return {"status": "ok", "message": "Campaña iniciada"}
+    # Encolar en Redis
+    encolar_job(job.id, "campana_masiva", {"campana_id": campana_id})
+    
+    return {"status": "ok", "message": "Campaña encolada para envío", "job_id": job.id}
 
 
 @router.post("/{campana_id}/pausar", summary="Pause campaign", description="Temporarily stop sending messages. Can be resumed later.")

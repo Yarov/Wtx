@@ -12,3 +12,4 @@ bcrypt>=5.0.0
 python-jose[cryptography]
 email-validator
 phonenumbers
+redis

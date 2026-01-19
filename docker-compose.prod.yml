@@ -2,13 +2,15 @@
 #
 # En Coolify:
 #   1. Asignar dominio SOLO al servicio "frontend" (puerto 80)
-#   2. NO asignar dominio a "api" ni "postgres"
+#   2. NO asignar dominio a "api", "worker", "redis" ni "postgres"
 #   3. El frontend hace proxy interno de /api -> api:3000
 #
 # Variables requeridas en Coolify:
 #   - OPENAI_API_KEY: API key de OpenAI
 #   - JWT_SECRET: Secret para JWT (genera con: openssl rand -hex 32)
 #   - DB_PASSWORD: Password de PostgreSQL
+#   - WHATSAPP_API_URL: URL de WAHA/Evolution API
+#   - WHATSAPP_API_KEY: API key de WAHA/Evolution
 
 services:
   postgres:
@@ -20,6 +22,24 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U whatsapp_agent -d whatsapp_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - internal
 
@@ -31,9 +51,37 @@ services:
       DATABASE_URL: postgresql://whatsapp_agent:${DB_PASSWORD:-changeme_in_production}@postgres:5432/whatsapp_db
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       JWT_SECRET: ${JWT_SECRET:-default_jwt_secret_change_in_production}
+      REDIS_URL: redis://redis:6379/0
+      WHATSAPP_API_URL: ${WHATSAPP_API_URL:-}
+      WHATSAPP_API_KEY: ${WHATSAPP_API_KEY:-}
+      WHATSAPP_SESSION: ${WHATSAPP_SESSION:-default}
       CORS_ORIGINS: "*"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - internal
+
+  worker:
+    build:
+      context: ./whatsapp-ai-api
+      dockerfile: Dockerfile.prod
+    command: python worker.py
+    environment:
+      DATABASE_URL: postgresql://whatsapp_agent:${DB_PASSWORD:-changeme_in_production}@postgres:5432/whatsapp_db
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      REDIS_URL: redis://redis:6379/0
+      WHATSAPP_API_URL: ${WHATSAPP_API_URL:-}
+      WHATSAPP_API_KEY: ${WHATSAPP_API_KEY:-}
+      WHATSAPP_SESSION: ${WHATSAPP_SESSION:-default}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - internal
@@ -53,6 +101,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   coolify:

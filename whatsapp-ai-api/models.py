@@ -216,6 +216,7 @@ class Contacto(Base):
     modo_humano_razon = Column(String(200), nullable=True)
     
     origen = Column(String(50))  # whatsapp_sync, importado, manual, mensaje
+    ultima_verificacion = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -243,6 +244,7 @@ class Contacto(Base):
             "modo_humano_desde": self.modo_humano_desde.isoformat() if self.modo_humano_desde else None,
             "modo_humano_razon": self.modo_humano_razon,
             "origen": self.origen,
+            "ultima_verificacion": self.ultima_verificacion.isoformat() if self.ultima_verificacion else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

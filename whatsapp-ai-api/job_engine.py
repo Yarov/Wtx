@@ -1,25 +1,35 @@
 """
-Motor de Jobs - Sistema unificado para procesar tareas en background
-Soporta: verificación de contactos, campañas, sincronización, etc.
+Procesadores de Jobs - Lógica de procesamiento para cada tipo de job
+El worker.py usa estos procesadores via JOB_PROCESSORS
 """
 import asyncio
 import logging
-from datetime import datetime
-from typing import Callable, Dict, Any
+from datetime import datetime, timedelta
+from typing import Callable, Dict
 
-from models import SessionLocal, BackgroundJob, Campana, CampanaDestinatario, Contacto
+from sqlalchemy import or_
+from models import BackgroundJob, Campana, CampanaDestinatario, Contacto
 from whatsapp_service import whatsapp_service
 
 logger = logging.getLogger(__name__)
 
+# Días antes de re-verificar un contacto
+DIAS_REVERIFICACION = 7
 
-# ============================================
-# PROCESADORES DE JOBS
-# ============================================
 
 async def procesar_verificacion_contactos(job: BackgroundJob, db):
     """Verifica qué contactos siguen activos en WhatsApp"""
-    contactos = db.query(Contacto).filter(Contacto.estado == "activo").all()
+    fecha_limite = datetime.utcnow() - timedelta(days=DIAS_REVERIFICACION)
+    
+    # Solo verificar activos que nunca fueron verificados o hace más de X días
+    contactos = db.query(Contacto).filter(
+        Contacto.estado == "activo",
+        or_(
+            Contacto.ultima_verificacion.is_(None),
+            Contacto.ultima_verificacion < fecha_limite
+        )
+    ).all()
+    
     job.total = len(contactos)
     job.mensaje = "Verificando contactos..."
     db.commit()
@@ -27,6 +37,8 @@ async def procesar_verificacion_contactos(job: BackgroundJob, db):
     for i, contacto in enumerate(contactos):
         try:
             result = await whatsapp_service.check_number_exists(contacto.telefono)
+            
+            contacto.ultima_verificacion = datetime.utcnow()
             
             if result.get("exists"):
                 job.exitosos += 1
@@ -88,7 +100,7 @@ async def procesar_sync_contactos(job: BackgroundJob, db):
 
 
 async def procesar_campana_masiva(job: BackgroundJob, db):
-    """Procesa envío de una campaña (alternativa al worker de campañas)"""
+    """Procesa envío de una campaña masiva"""
     campana_id = int(job.mensaje.split(":")[1]) if ":" in (job.mensaje or "") else None
     
     if not campana_id:
@@ -113,7 +125,6 @@ async def procesar_campana_masiva(job: BackgroundJob, db):
             job.fallidos += 1
             continue
         
-        # Reemplazar variables
         mensaje = campana.mensaje
         mensaje = mensaje.replace("{nombre}", contacto.nombre or "Cliente")
         mensaje = mensaje.replace("{telefono}", contacto.telefono)
@@ -143,134 +154,9 @@ async def procesar_campana_masiva(job: BackgroundJob, db):
     job.mensaje = f"Campaña completada: {job.exitosos} enviados, {job.fallidos} fallidos"
 
 
-# ============================================
-# REGISTRO DE PROCESADORES
-# ============================================
-
+# Registro de procesadores - usado por worker.py
 JOB_PROCESSORS: Dict[str, Callable] = {
     "verificar_contactos": procesar_verificacion_contactos,
     "sync_contactos": procesar_sync_contactos,
     "campana_masiva": procesar_campana_masiva,
 }
-
-
-# ============================================
-# MOTOR PRINCIPAL
-# ============================================
-
-async def procesar_job(job_id: int):
-    """Procesa un job específico"""
-    db = SessionLocal()
-    try:
-        job = db.query(BackgroundJob).filter(BackgroundJob.id == job_id).first()
-        if not job:
-            logger.error(f"Job {job_id} no encontrado")
-            return
-        
-        processor = JOB_PROCESSORS.get(job.tipo)
-        if not processor:
-            job.estado = "error"
-            job.mensaje = f"Tipo de job desconocido: {job.tipo}"
-            db.commit()
-            return
-        
-        job.estado = "procesando"
-        job.started_at = datetime.utcnow()
-        db.commit()
-        
-        logger.info(f"Iniciando job {job_id} ({job.tipo})")
-        
-        await processor(job, db)
-        
-        job.estado = "completado"
-        job.completed_at = datetime.utcnow()
-        db.commit()
-        
-        logger.info(f"Job {job_id} completado: {job.mensaje}")
-        
-    except Exception as e:
-        logger.error(f"Error en job {job_id}: {e}")
-        job = db.query(BackgroundJob).filter(BackgroundJob.id == job_id).first()
-        if job:
-            job.estado = "error"
-            job.mensaje = str(e)
-            job.completed_at = datetime.utcnow()
-            db.commit()
-    finally:
-        db.close()
-
-
-async def procesar_jobs_pendientes():
-    """Procesa todos los jobs pendientes (para worker en loop)"""
-    db = SessionLocal()
-    try:
-        jobs = db.query(BackgroundJob).filter(
-            BackgroundJob.estado == "pendiente"
-        ).order_by(BackgroundJob.created_at).all()
-        
-        for job in jobs:
-            await procesar_job(job.id)
-            
-    except Exception as e:
-        logger.error(f"Error procesando jobs pendientes: {e}")
-    finally:
-        db.close()
-
-
-async def job_worker():
-    """Worker principal que procesa jobs en background"""
-    logger.info("Job worker iniciado")
-    while True:
-        try:
-            await procesar_jobs_pendientes()
-        except Exception as e:
-            logger.error(f"Error en job worker: {e}")
-        await asyncio.sleep(5)
-
-
-# ============================================
-# HELPERS PARA CREAR JOBS
-# ============================================
-
-def crear_job(tipo: str, total: int = 0, mensaje: str = "") -> BackgroundJob:
-    """Crea un nuevo job y lo retorna"""
-    db = SessionLocal()
-    try:
-        job = BackgroundJob(
-            tipo=tipo,
-            estado="pendiente",
-            total=total,
-            procesados=0,
-            exitosos=0,
-            fallidos=0,
-            mensaje=mensaje or f"Iniciando {tipo}..."
-        )
-        db.add(job)
-        db.commit()
-        db.refresh(job)
-        return job
-    finally:
-        db.close()
-
-
-def obtener_job_activo(tipo: str) -> BackgroundJob:
-    """Obtiene el job activo de un tipo específico"""
-    db = SessionLocal()
-    try:
-        return db.query(BackgroundJob).filter(
-            BackgroundJob.tipo == tipo,
-            BackgroundJob.estado.in_(["pendiente", "procesando"])
-        ).first()
-    finally:
-        db.close()
-
-
-def obtener_ultimo_job(tipo: str) -> BackgroundJob:
-    """Obtiene el último job de un tipo específico"""
-    db = SessionLocal()
-    try:
-        return db.query(BackgroundJob).filter(
-            BackgroundJob.tipo == tipo
-        ).order_by(BackgroundJob.created_at.desc()).first()
-    finally:
-        db.close()

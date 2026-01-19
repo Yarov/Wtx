@@ -1,7 +1,7 @@
 """
 Contacts Router - CRM contact management, sync and human mode control
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
 from datetime import datetime, timedelta
@@ -393,12 +393,11 @@ async def limpiar_duplicados(
 
 @router.post("/verificar-activos", summary="Start contact verification", description="Start a background job to verify which contacts are still active on WhatsApp.")
 async def iniciar_verificacion_activos(
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
     from models import BackgroundJob
-    from job_engine import procesar_job
+    from redis_queue import encolar_job
     
     # Verificar si ya hay un job en proceso
     job_activo = db.query(BackgroundJob).filter(
@@ -428,20 +427,20 @@ async def iniciar_verificacion_activos(
         procesados=0,
         exitosos=0,
         fallidos=0,
-        mensaje="Iniciando verificación..."
+        mensaje="En cola, esperando worker..."
     )
     db.add(job)
     db.commit()
     db.refresh(job)
     
-    # Iniciar tarea en background usando el motor unificado
-    background_tasks.add_task(procesar_job, job.id)
+    # Encolar en Redis para que el worker lo procese
+    encolar_job(job.id, "verificar_contactos")
     
     return {
         "status": "iniciado",
         "job_id": job.id,
         "total": total,
-        "message": f"Verificación iniciada para {total} contactos"
+        "message": f"Verificación encolada para {total} contactos"
     }
 
 
