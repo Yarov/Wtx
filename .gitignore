@@ -30,6 +30,9 @@ dist/
 .env.local
 .env.*.local
 
+# Windsurf (local config)
+.windsurf/
+
 # OS
 .DS_Store
 Thumbs.db
