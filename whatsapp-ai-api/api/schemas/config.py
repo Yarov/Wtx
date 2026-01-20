@@ -18,6 +18,8 @@ class PromptModel(BaseModel):
     response_delay: Optional[int] = 3
     business_name: Optional[str] = ""
     business_type: Optional[str] = ""
+    edit_mode: Optional[str] = "sections"
+    manual_prompt: Optional[str] = ""
 
 
 class ImprovePromptModel(BaseModel):

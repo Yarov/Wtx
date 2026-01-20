@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   User, Target, FileText, AlertTriangle, Volume2, 
   ChevronDown, ChevronUp, Loader2, Wand2, RotateCcw,
-  Eye, EyeOff, Copy, Check
+  Eye, EyeOff, Copy, Check, Code, LayoutTemplate
 } from 'lucide-react'
 import { promptApi } from '../../api/client'
 
@@ -70,12 +70,23 @@ export default function PersonalityTab({
   setSections, 
   config, 
   setConfig,
+  manualPrompt,
+  setManualPrompt,
+  editMode,
+  setEditMode,
   onSave 
 }) {
   const [expandedSection, setExpandedSection] = useState('role')
   const [improving, setImproving] = useState(null)
   const [showPreview, setShowPreview] = useState(false)
   const [copied, setCopied] = useState(false)
+  
+  // Sync manual prompt when switching to manual mode
+  useEffect(() => {
+    if (editMode === 'manual' && !manualPrompt) {
+      setManualPrompt(buildFullPrompt())
+    }
+  }, [editMode])
 
   const buildFullPrompt = () => {
     return `## ROL
@@ -147,6 +158,87 @@ ${sections.tone}
 
   return (
     <div className="space-y-8">
+      {/* Edit Mode Toggle */}
+      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+        <div>
+          <h3 className="font-medium text-gray-900">Modo de edición</h3>
+          <p className="text-sm text-gray-500">
+            {editMode === 'sections' 
+              ? 'Edita el prompt por secciones con ayuda de IA' 
+              : 'Escribe el prompt completo manualmente'}
+          </p>
+        </div>
+        <div className="flex bg-white rounded-lg border border-gray-200 p-1">
+          <button
+            onClick={() => setEditMode('sections')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              editMode === 'sections'
+                ? 'bg-violet-100 text-violet-700'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <LayoutTemplate className="h-4 w-4" />
+            Secciones
+          </button>
+          <button
+            onClick={() => setEditMode('manual')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              editMode === 'manual'
+                ? 'bg-violet-100 text-violet-700'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Code className="h-4 w-4" />
+            Manual
+          </button>
+        </div>
+      </div>
+
+      {/* Manual Mode */}
+      {editMode === 'manual' ? (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">Prompt Manual</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Escribe el prompt completo del sistema. Este texto será usado directamente como instrucciones para el agente.
+            </p>
+          </div>
+          
+          <div className="relative">
+            <textarea
+              value={manualPrompt}
+              onChange={(e) => setManualPrompt(e.target.value)}
+              placeholder="Escribe aquí el prompt completo del sistema..."
+              rows={20}
+              className="w-full px-4 py-4 bg-gray-900 text-gray-100 border border-gray-700 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none leading-relaxed"
+            />
+            <div className="absolute bottom-4 right-4 flex items-center gap-2">
+              <span className="px-2 py-1 bg-gray-800 text-gray-400 text-xs rounded">
+                {manualPrompt?.length || 0} caracteres
+              </span>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(manualPrompt)
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-xs transition-colors"
+              >
+                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                {copied ? 'Copiado' : 'Copiar'}
+              </button>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0" />
+            <p className="text-sm text-amber-800">
+              En modo manual, el prompt se guarda tal cual lo escribas. Las secciones predefinidas no se usarán.
+            </p>
+          </div>
+        </section>
+      ) : (
+        <>
       {/* Business Info Section */}
       <section>
         <h2 className="text-lg font-semibold text-gray-900 mb-1">Información del Negocio</h2>
@@ -318,6 +410,8 @@ ${sections.tone}
           )}
         </div>
       </section>
+        </>
+      )}
     </div>
   )
 }

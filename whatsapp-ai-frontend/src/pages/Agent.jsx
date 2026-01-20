@@ -39,6 +39,8 @@ export default function Agent() {
     triggers: ['frustration', 'complaint', 'human_request'],
     custom_triggers: '',
   })
+  const [editMode, setEditMode] = useState('sections') // 'sections' or 'manual'
+  const [manualPrompt, setManualPrompt] = useState('')
 
   const handleRestartOnboarding = async () => {
     setShowRestartConfirm(false)
@@ -72,6 +74,13 @@ export default function Agent() {
           business_name: promptRes.data.business_name || DEFAULT_CONFIG.business_name,
           business_type: promptRes.data.business_type || DEFAULT_CONFIG.business_type,
         })
+        // Load edit mode and manual prompt
+        if (promptRes.data.edit_mode) {
+          setEditMode(promptRes.data.edit_mode)
+        }
+        if (promptRes.data.manual_prompt) {
+          setManualPrompt(promptRes.data.manual_prompt)
+        }
       }
     } catch (error) {
       console.error('Error loading prompt:', error)
@@ -126,10 +135,15 @@ ${sections.tone}
   const handleSave = async () => {
     setSaving(true)
     try {
+      // Build the prompt based on edit mode
+      const systemPrompt = editMode === 'manual' ? manualPrompt : buildFullPrompt()
+      
       await Promise.all([
         promptApi.updatePrompt({
-          system_prompt: buildFullPrompt(),
+          system_prompt: systemPrompt,
           prompt_sections: sections,
+          edit_mode: editMode,
+          manual_prompt: manualPrompt,
           ...config
         }),
         configApi.updateHumanModeConfig(humanModeConfig)
@@ -321,6 +335,10 @@ ${sections.tone}
               setSections={setSections}
               config={config}
               setConfig={setConfig}
+              manualPrompt={manualPrompt}
+              setManualPrompt={setManualPrompt}
+              editMode={editMode}
+              setEditMode={setEditMode}
             />
           )}
           

@@ -58,6 +58,8 @@ async def get_prompt(current_user: Usuario = Depends(get_current_user)):
         "response_delay": int(get_config("response_delay", "3")),
         "business_name": get_config("business_name", ""),
         "business_type": get_config("business_type", ""),
+        "edit_mode": get_config("prompt_edit_mode", "sections"),
+        "manual_prompt": get_config("manual_prompt", ""),
     }
 
 
@@ -68,6 +70,8 @@ async def update_prompt(prompt: PromptModel, current_user: Usuario = Depends(get
         if value is not None:
             if key == "prompt_sections":
                 set_config(key, json.dumps(value) if value else "")
+            elif key == "edit_mode":
+                set_config("prompt_edit_mode", str(value))
             else:
                 set_config(key, str(value))
     return {"status": "ok"}
