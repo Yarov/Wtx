@@ -211,8 +211,8 @@ def parse_webhook_message(data: dict) -> dict | None:
         payload = data.get("payload", {})
         event = data.get("event", "")
         
-        # Solo procesar mensajes de texto entrantes
-        if event not in ["message", "message.any"]:
+        # Solo procesar mensajes de texto entrantes (no message.any para evitar duplicados)
+        if event != "message":
             return None
         
         # Ignorar mensajes salientes

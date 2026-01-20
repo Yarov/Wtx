@@ -59,7 +59,7 @@ class WAHAManager:
                         "webhooks": [
                             {
                                 "url": webhook_url,
-                                "events": ["message", "message.any", "session.status"]
+                                "events": ["message", "session.status"]
                             }
                         ]
                     }
@@ -68,9 +68,12 @@ class WAHAManager:
                 logger.info(f"Iniciando sesión 'default' con webhook: {webhook_url}")
                 response = await client.post(url, json=payload, headers=self._get_headers())
                 
-                # Si 422, la sesión ya está iniciada - obtener estado actual
+                # Si 422, la sesión ya está iniciada - actualizar webhook y obtener estado
                 if response.status_code == 422:
-                    logger.info("Sesión ya iniciada, obteniendo estado...")
+                    logger.info("Sesión ya iniciada, actualizando webhook...")
+                    # Actualizar webhook en sesión existente
+                    await self.update_webhook(webhook_url)
+                    
                     status_result = await self.get_session_status()
                     if status_result.get("success"):
                         status = status_result.get("status", "UNKNOWN")
@@ -201,6 +204,43 @@ class WAHAManager:
             logger.error(f"Error obteniendo estado: {e}")
             return {"success": False, "status": "ERROR", "error": str(e)}
     
+
+
+    async def update_webhook(self, webhook_url: str) -> dict:
+        """
+        Actualizar webhook en sesión existente.
+        Usa PUT /api/sessions/{session}/config para actualizar la configuración.
+        """
+        if not self.is_configured():
+            return {"success": False, "error": "WAHA no configurado"}
+        
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                url = f"{self.api_url}/api/sessions/{self.session_name}"
+                payload = {
+                    "config": {
+                        "webhooks": [
+                            {
+                                "url": webhook_url,
+                                "events": ["message", "session.status"]
+                            }
+                        ]
+                    }
+                }
+                
+                logger.info(f"Actualizando webhook a: {webhook_url}")
+                response = await client.put(url, json=payload, headers=self._get_headers())
+                
+                if response.status_code in [200, 201]:
+                    logger.info("Webhook actualizado correctamente")
+                    return {"success": True, "data": response.json()}
+                else:
+                    logger.warning(f"No se pudo actualizar webhook: {response.status_code} - {response.text}")
+                    return {"success": False, "error": response.text}
+                    
+        except Exception as e:
+            logger.error(f"Error actualizando webhook: {e}")
+            return {"success": False, "error": str(e)}
 
 
 # Instancia global
