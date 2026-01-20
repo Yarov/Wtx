@@ -16,7 +16,8 @@ import {
   Zap,
   Settings,
   Menu,
-  X
+  X,
+  Smartphone
 } from 'lucide-react'
 
 const BASE_NAVIGATION = [
@@ -30,6 +31,7 @@ const BASE_NAVIGATION = [
 ]
 
 const CONFIG_NAVIGATION = [
+  { name: 'WhatsApp', href: '/whatsapp', icon: Smartphone, always: true },
   { name: 'Configuración', href: '/settings', icon: Settings, always: true },
   { name: 'Horarios', href: '/schedule', icon: Clock, module: 'schedule' },
 ]

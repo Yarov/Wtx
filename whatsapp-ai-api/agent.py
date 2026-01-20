@@ -9,8 +9,8 @@ load_dotenv()
 
 
 def get_openai_client():
-    """Obtener cliente OpenAI con API key de config o env"""
-    api_key = get_config("openai_api_key") or os.getenv("OPENAI_API_KEY")
+    """Obtener cliente OpenAI con API key desde variable de entorno"""
+    api_key = os.getenv("OPENAI_API_KEY")
     return OpenAI(api_key=api_key)
 
 

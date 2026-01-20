@@ -442,16 +442,16 @@ async def mejorar_mensaje_ia(
     Usar IA para generar o mejorar un mensaje de campaña.
     Body: { "mensaje": "texto actual", "objetivo": "promocion|reactivacion|informativo|personalizado", "instrucciones": "opcional" }
     """
+    import os
     from openai import OpenAI
-    from database import get_config
     
     mensaje_actual = data.get("mensaje", "").strip()
     objetivo = data.get("objetivo", "promocion")
     instrucciones = data.get("instrucciones", "").strip()
     
-    api_key = get_config("openai_api_key")
+    api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        raise HTTPException(status_code=400, detail="API key de OpenAI no configurada")
+        raise HTTPException(status_code=400, detail="API key de OpenAI no configurada en variables de entorno")
     
     client = OpenAI(api_key=api_key)
     

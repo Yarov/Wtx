@@ -122,7 +122,7 @@ async def upload_inventory(file: UploadFile = File(...), current_user: Usuario =
     
     # Use AI only to map unknown headers
     mapping = {}
-    api_key = get_config("openai_api_key", "") or os.getenv("OPENAI_API_KEY", "")
+    api_key = os.getenv("OPENAI_API_KEY", "")
     if api_key:
         try:
             client = OpenAI(api_key=api_key)

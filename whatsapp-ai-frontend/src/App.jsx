@@ -15,6 +15,7 @@ import Contactos from './pages/Contactos'
 import Campanas from './pages/Campanas'
 import CampanaNueva from './pages/CampanaNueva'
 import Setup from './pages/Setup'
+import WhatsAppConfig from './pages/WhatsAppConfig'
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
             <Route path="campanas" element={<Campanas />} />
             <Route path="campanas/nueva" element={<CampanaNueva />} />
             <Route path="schedule" element={<Schedule />} />
+            <Route path="whatsapp" element={<WhatsAppConfig />} />
           </Route>
         </Routes>
       </AuthProvider>

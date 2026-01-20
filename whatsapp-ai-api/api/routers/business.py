@@ -258,13 +258,14 @@ async def setup_chat(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
+    import os
     from openai import OpenAI
     import json
     
-    openai_key = get_config("openai_api_key")
+    openai_key = os.getenv("OPENAI_API_KEY")
     if not openai_key:
         return {
-            "response": "Necesito que configures tu API key de OpenAI primero en Configuración.",
+            "response": "La API key de OpenAI no está configurada. Contacta al administrador.",
             "config_ready": False,
             "needs_api_key": True
         }
@@ -467,10 +468,11 @@ async def apply_setup_config(
 
 async def generate_prompts_from_config(config_data: dict, db):
     """Genera prompts personalizados basados en la configuración"""
+    import os
     from openai import OpenAI
     import json
     
-    openai_key = get_config("openai_api_key")
+    openai_key = os.getenv("OPENAI_API_KEY")
     if not openai_key:
         return
     

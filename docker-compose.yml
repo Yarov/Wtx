@@ -44,7 +44,6 @@ services:
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
       - WHATSAPP_API_URL=${WHATSAPP_API_URL}
       - WHATSAPP_API_KEY=${WHATSAPP_API_KEY}
-      - WHATSAPP_SESSION=${WHATSAPP_SESSION:-default}
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       postgres:
@@ -71,7 +70,6 @@ services:
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
       - WHATSAPP_API_URL=${WHATSAPP_API_URL}
       - WHATSAPP_API_KEY=${WHATSAPP_API_KEY}
-      - WHATSAPP_SESSION=${WHATSAPP_SESSION:-default}
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       postgres:

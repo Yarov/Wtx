@@ -30,7 +30,8 @@ from api.routers import (
     jobs,
     business,
     webhook,
-    dashboard
+    dashboard,
+    whatsapp
 )
 
 app = FastAPI(
@@ -72,6 +73,7 @@ app.include_router(campanas.router, prefix=api_prefix)
 app.include_router(jobs.router, prefix=api_prefix)
 app.include_router(business.router, prefix=api_prefix)
 app.include_router(dashboard.router, prefix=api_prefix)
+app.include_router(whatsapp.router, prefix=api_prefix)
 app.include_router(webhook.router)
 
 

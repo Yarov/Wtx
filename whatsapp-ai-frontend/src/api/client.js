@@ -41,9 +41,10 @@ export const configApi = {
 }
 
 export const whatsappApi = {
-  getConfig: () => api.get('/config/whatsapp'),
-  updateConfig: (data) => api.put('/config/whatsapp', data),
-  testConnection: () => api.post('/config/whatsapp/test'),
+  // Endpoints simplificados - el usuario solo ve QR y estado
+  connect: () => api.post('/whatsapp/connect'),
+  getStatus: () => api.get('/whatsapp/status'),
+  disconnect: () => api.post('/whatsapp/disconnect'),
 }
 
 export const contactosApi = {
