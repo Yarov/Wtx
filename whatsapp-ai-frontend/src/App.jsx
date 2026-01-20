@@ -5,7 +5,6 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
-import Settings from './pages/Settings'
 import Agent from './pages/Agent'
 import Inventory from './pages/Inventory'
 import Appointments from './pages/Appointments'
@@ -28,7 +27,6 @@ function App() {
           
           <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route index element={<Dashboard />} />
-            <Route path="settings" element={<Settings />} />
             <Route path="agent" element={<Agent />} />
             <Route path="inventory" element={<Inventory />} />
             <Route path="appointments" element={<Appointments />} />

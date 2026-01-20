@@ -14,7 +14,6 @@ import {
   LogOut,
   User,
   Zap,
-  Settings,
   Menu,
   X,
   Smartphone
@@ -32,7 +31,6 @@ const BASE_NAVIGATION = [
 
 const CONFIG_NAVIGATION = [
   { name: 'WhatsApp', href: '/whatsapp', icon: Smartphone, always: true },
-  { name: 'Configuración', href: '/settings', icon: Settings, always: true },
   { name: 'Horarios', href: '/schedule', icon: Clock, module: 'schedule' },
 ]
 

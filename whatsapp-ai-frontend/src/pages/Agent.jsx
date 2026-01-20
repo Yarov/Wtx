@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MessageSquare, Wrench, Settings, Brain, Zap, Loader2, RotateCcw } from 'lucide-react'
+import { MessageSquare, Wrench, Settings, Brain, Zap, Loader2, RotateCcw, UserRound } from 'lucide-react'
 import Button from '../components/Button'
-import { PersonalityTab, ToolsTab, ModelTab } from '../components/agent'
-import { toolsApi, promptApi, businessApi } from '../api/client'
+import { PersonalityTab, ToolsTab, ModelTab, HumanModeTab } from '../components/agent'
+import { toolsApi, promptApi, businessApi, configApi } from '../api/client'
 import { ConfirmDialog } from '../components/ui'
 
 const DEFAULT_SECTIONS = {
@@ -33,6 +33,12 @@ export default function Agent() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [showRestartConfirm, setShowRestartConfirm] = useState(false)
+  const [humanModeConfig, setHumanModeConfig] = useState({
+    expire_hours: 0,
+    reactivar_command: '#reactivar',
+    triggers: ['frustration', 'complaint', 'human_request'],
+    custom_triggers: '',
+  })
 
   const handleRestartOnboarding = async () => {
     setShowRestartConfirm(false)
@@ -83,6 +89,16 @@ export default function Agent() {
       console.error('Error loading tools:', error)
     }
     
+    // Load human mode config
+    try {
+      const humanRes = await configApi.getHumanModeConfig()
+      if (humanRes.data) {
+        setHumanModeConfig(prev => ({ ...prev, ...humanRes.data }))
+      }
+    } catch (error) {
+      console.error('Error loading human mode config:', error)
+    }
+    
     setLoading(false)
   }
 
@@ -110,11 +126,14 @@ ${sections.tone}
   const handleSave = async () => {
     setSaving(true)
     try {
-      await promptApi.updatePrompt({
-        system_prompt: buildFullPrompt(),
-        prompt_sections: sections,
-        ...config
-      })
+      await Promise.all([
+        promptApi.updatePrompt({
+          system_prompt: buildFullPrompt(),
+          prompt_sections: sections,
+          ...config
+        }),
+        configApi.updateHumanModeConfig(humanModeConfig)
+      ])
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (error) {
@@ -168,6 +187,13 @@ ${sections.tone}
       icon: Settings,
       color: 'emerald',
       description: 'Configuración técnica'
+    },
+    { 
+      id: 'human_mode', 
+      label: 'Modo Humano', 
+      icon: UserRound,
+      color: 'orange',
+      description: 'Transferencia a atención humana'
     },
   ]
 
@@ -309,6 +335,13 @@ ${sections.tone}
             <ModelTab
               config={config}
               setConfig={setConfig}
+            />
+          )}
+          
+          {activeTab === 'human_mode' && (
+            <HumanModeTab
+              config={humanModeConfig}
+              setConfig={setHumanModeConfig}
             />
           )}
         </div>
