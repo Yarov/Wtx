@@ -1,6 +1,7 @@
 """
 Webhook Router - Incoming WhatsApp message handling for WAHA and Evolution API
 """
+import json
 import logging
 from fastapi import APIRouter, Request, Response
 
@@ -10,11 +11,67 @@ from agent import responder
 from api.routers.contactos import (
     guardar_contacto_mensaje,
     desactivar_modo_humano_por_telefono,
-    verificar_modo_humano
+    verificar_modo_humano,
+    activar_modo_humano_por_telefono
 )
 from campaign_engine import marcar_respondido
 
 logger = logging.getLogger(__name__)
+
+
+def detectar_trigger_modo_humano(mensaje: str, respuesta: str) -> bool:
+    """
+    Detectar si el mensaje o respuesta contiene triggers para activar modo humano.
+    Retorna True si se debe activar modo humano.
+    """
+    # Obtener triggers configurados
+    triggers_str = get_config("human_mode_triggers", '["frustration","complaint","human_request"]')
+    custom_triggers_str = get_config("human_mode_custom_triggers", "")
+    
+    try:
+        triggers = json.loads(triggers_str)
+    except:
+        triggers = ["frustration", "complaint", "human_request"]
+    
+    texto = (mensaje + " " + respuesta).lower()
+    
+    # Palabras clave por trigger
+    trigger_keywords = {
+        "frustration": ["molesto", "enojado", "frustrado", "harto", "cansado de", "no sirve", "pésimo", "horrible", "terrible", "indignado"],
+        "complaint": ["queja", "reclamo", "demanda", "problema grave", "inaceptable", "exijo", "reembolso", "devolución"],
+        "human_request": ["hablar con humano", "persona real", "agente humano", "hablar con alguien", "asesor", "ejecutivo", "representante", "operador", "supervisor"],
+        "urgency": ["urgente", "emergencia", "ahora mismo", "inmediatamente", "lo antes posible", "crítico"],
+        "complexity": ["no entiendes", "no me ayudas", "no puedes", "no sabes", "inútil", "no sirves"],
+        "negotiation": ["descuento", "rebaja", "precio especial", "promoción", "negociar", "oferta"]
+    }
+    
+    # Verificar triggers habilitados
+    for trigger in triggers:
+        if trigger in trigger_keywords:
+            for keyword in trigger_keywords[trigger]:
+                if keyword in texto:
+                    logger.info(f"Trigger detectado: {trigger} (keyword: {keyword})")
+                    return True
+    
+    # Verificar triggers personalizados (solo en mensaje del usuario)
+    if custom_triggers_str:
+        mensaje_lower = mensaje.lower()
+        custom_keywords = [k.strip().lower() for k in custom_triggers_str.split(",") if k.strip()]
+        for keyword in custom_keywords:
+            # Búsqueda flexible: todas las palabras del keyword deben estar en el mensaje
+            keyword_words = keyword.split()
+            if len(keyword_words) == 1:
+                # Palabra única: buscar como substring
+                if keyword in mensaje_lower:
+                    logger.info(f"Trigger personalizado detectado: {keyword}")
+                    return True
+            else:
+                # Frase: verificar que todas las palabras estén presentes
+                if all(word in mensaje_lower for word in keyword_words):
+                    logger.info(f"Trigger personalizado detectado: {keyword}")
+                    return True
+    
+    return False
 
 router = APIRouter(tags=["Webhook"])
 
@@ -88,6 +145,14 @@ async def whatsapp_webhook(request: Request):
         # Generar respuesta con IA
         respuesta = responder(incoming_msg, from_number)
         logger.info(f"Response: {respuesta[:100]}...")
+        
+        # Detectar triggers para modo humano
+        try:
+            if detectar_trigger_modo_humano(incoming_msg, respuesta):
+                activar_modo_humano_por_telefono(from_number, "Trigger automático detectado")
+                logger.info(f"Modo humano activado automáticamente para {from_number}")
+        except Exception as e:
+            logger.warning(f"Error detectando triggers: {e}")
         
         # Enviar respuesta
         if whatsapp_service.is_configured():
