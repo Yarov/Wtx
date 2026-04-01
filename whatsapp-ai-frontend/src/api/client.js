@@ -55,8 +55,6 @@ export const contactosApi = {
   delete: (id) => api.delete(`/contactos/${id}`),
   deleteAll: () => api.delete('/contactos/all', { data: { confirm: true } }),
   sync: () => api.post('/contactos/sync'),
-  verificar: () => api.post('/contactos/verificar'),
-  importar: (data) => api.post('/contactos/importar', data),
   // Modo Humano
   listModoHumano: () => api.get('/contactos/modo-humano'),
   activarModoHumano: (id, razon) => api.post(`/contactos/${id}/modo-humano`, { razon }),

@@ -20,6 +20,7 @@ class PromptModel(BaseModel):
     business_type: Optional[str] = ""
     edit_mode: Optional[str] = "sections"
     manual_prompt: Optional[str] = ""
+    clear_memory: Optional[bool] = False  # Opcional: limpiar memoria de conversaciones al actualizar
 
 
 class ImprovePromptModel(BaseModel):

@@ -89,8 +89,36 @@ services:
       - api
     restart: unless-stopped
 
+  whatsapp-bridge:
+    build:
+      context: ./whatsapp-bridge
+      dockerfile: Dockerfile
+    container_name: whatsapp-bridge
+    hostname: whatsapp-bridge
+    ports:
+      - "3080:3080"
+    environment:
+      - PORT=3080
+      - API_KEY=${WHATSAPP_API_KEY}
+      - LOG_LEVEL=info
+      - AUTH_STATE_DIR=/app/auth_data
+      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+    volumes:
+      - whatsapp_auth:/app/auth_data
+    shm_size: '256m'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  whatsapp_auth:
     driver: local

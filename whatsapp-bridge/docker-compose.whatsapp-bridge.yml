@@ -1,0 +1,34 @@
+# Add this service to the main docker-compose.yml or use:
+#   docker compose -f docker-compose.yml -f whatsapp-bridge/docker-compose.whatsapp-bridge.yml up -d
+#
+# Then set in your .env:
+#   WHATSAPP_API_URL=http://whatsapp-bridge:3080
+#   WHATSAPP_API_KEY=your-api-key-here
+
+services:
+  whatsapp-bridge:
+    build:
+      context: ./whatsapp-bridge
+      dockerfile: Dockerfile
+    container_name: whatsapp-bridge
+    ports:
+      - "3080:3080"
+    environment:
+      - PORT=3080
+      - API_KEY=${WHATSAPP_API_KEY}
+      - LOG_LEVEL=info
+      - AUTH_STATE_DIR=/app/auth_data
+    volumes:
+      - whatsapp_auth:/app/auth_data
+    restart: unless-stopped
+    # whatsapp-web.js needs more shared memory for Chromium
+    shm_size: '256m'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  whatsapp_auth:

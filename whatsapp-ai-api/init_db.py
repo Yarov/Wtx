@@ -2,7 +2,7 @@
 Script de inicialización de la base de datos PostgreSQL.
 Crea todas las tablas y datos por defecto.
 """
-from models import Base, engine, SessionLocal
+from models import Base, get_engine, SessionLocal
 from models import (
     Cita, Inventario, Memoria, Disponibilidad, 
     HorarioBloqueado, Configuracion, ToolsConfig
@@ -12,7 +12,7 @@ from models import (
 def init_database():
     """Crear todas las tablas"""
     print("Creando tablas...")
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=get_engine())
     print("Tablas creadas")
 
 

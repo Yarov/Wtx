@@ -30,7 +30,7 @@ def detectar_trigger_modo_humano(mensaje: str, respuesta: str) -> bool:
     
     try:
         triggers = json.loads(triggers_str)
-    except:
+    except (json.JSONDecodeError, TypeError):
         triggers = ["frustration", "complaint", "human_request"]
     
     texto = (mensaje + " " + respuesta).lower()
@@ -137,13 +137,14 @@ async def whatsapp_webhook(request: Request):
         
         # Verificar si agente esta habilitado
         agent_enabled = get_config("agent_enabled", "true").lower() == "true"
-        
+
         if not agent_enabled:
             logger.info("Agent is disabled, not responding")
             return Response(content='{"status": "agent_disabled"}', media_type="application/json", status_code=200)
-        
-        # Generar respuesta con IA
+
+        # Generar respuesta con el agente
         respuesta = responder(incoming_msg, from_number)
+
         logger.info(f"Response: {respuesta[:100]}...")
         
         # Detectar triggers para modo humano

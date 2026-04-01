@@ -46,7 +46,7 @@ async def get_prompt(current_user: Usuario = Depends(get_current_user)):
     if prompt_sections_str:
         try:
             prompt_sections = json.loads(prompt_sections_str)
-        except:
+        except (json.JSONDecodeError, TypeError):
             pass
     
     return {
@@ -63,9 +63,16 @@ async def get_prompt(current_user: Usuario = Depends(get_current_user)):
     }
 
 
-@router.put("/prompt", summary="Update AI prompt config", description="Update the AI agent's system prompt, model, temperature and other settings.")
+@router.put("/prompt", summary="Update AI prompt config", description="Update the AI agent's system prompt, model, temperature and other settings. Optionally clear conversation memory if clear_memory is true.")
 async def update_prompt(prompt: PromptModel, current_user: Usuario = Depends(get_current_user)):
+    from models import SessionLocal, Memoria
+
     data = prompt.dict()
+
+    # Extraer el flag de limpiar memoria
+    clear_memory = data.pop("clear_memory", False)
+
+    # Actualizar configuración
     for key, value in data.items():
         if value is not None:
             if key == "prompt_sections":
@@ -74,7 +81,22 @@ async def update_prompt(prompt: PromptModel, current_user: Usuario = Depends(get
                 set_config("prompt_edit_mode", str(value))
             else:
                 set_config(key, str(value))
-    return {"status": "ok"}
+
+    # Solo limpiar memoria si se solicitó explícitamente
+    response = {"status": "ok"}
+    if clear_memory:
+        db = SessionLocal()
+        try:
+            deleted_count = db.query(Memoria).delete()
+            db.commit()
+            response["memoria_limpiada"] = deleted_count
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Error clearing memory: {str(e)}")
+        finally:
+            db.close()
+
+    return response
 
 
 @router.post("/prompt/improve", summary="AI-powered prompt improvement", description="Use GPT to automatically improve and optimize prompt sections for better agent responses.")
@@ -219,9 +241,9 @@ async def get_human_mode_config(current_user: Usuario = Depends(get_current_user
     triggers_str = get_config("human_mode_triggers", '["frustration","complaint","human_request"]')
     try:
         triggers = json.loads(triggers_str)
-    except:
+    except (json.JSONDecodeError, TypeError):
         triggers = ["frustration", "complaint", "human_request"]
-    
+
     return {
         "expire_hours": int(get_config("human_mode_expire_hours", "0")),
         "reactivar_command": get_config("human_mode_reactivar_command", "#reactivar"),
@@ -240,5 +262,5 @@ async def update_human_mode_config(data: dict, current_user: Usuario = Depends(g
         set_config("human_mode_triggers", json.dumps(data["triggers"]))
     if "custom_triggers" in data:
         set_config("human_mode_custom_triggers", data["custom_triggers"])
-    
+
     return {"status": "ok"}
