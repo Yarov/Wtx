@@ -2,8 +2,10 @@
 #
 # En Coolify:
 #   1. Asignar dominio SOLO al servicio "frontend" (puerto 80)
-#   2. NO asignar dominio a "api", "worker", "redis" ni "postgres"
-#   3. El frontend hace proxy interno de /api -> api:3000
+#   2. NO asignar dominio a "wtxapi", "worker", "redis" ni "postgres"
+#   3. El frontend hace proxy interno de /api -> wtxapi:3000
+#   Nota: el servicio se llama "wtxapi" (no "api") para evitar colisión de
+#   nombre con otros proyectos en la red compartida de Coolify.
 #
 # Variables requeridas en Coolify:
 #   - OPENAI_API_KEY: API key de OpenAI
@@ -13,7 +15,7 @@
 #   - WHATSAPP_API_KEY: API key de WAHA/Evolution
 
 services:
-  postgres:
+  wtxdb:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: whatsapp_agent
@@ -30,7 +32,7 @@ services:
     networks:
       - internal
 
-  redis:
+  wtxredis:
     image: redis:7-alpine
     volumes:
       - redis_data:/data
@@ -43,24 +45,24 @@ services:
     networks:
       - internal
 
-  api:
+  wtxapi:
     build:
       context: ./whatsapp-ai-api
       dockerfile: Dockerfile.prod
     environment:
-      DATABASE_URL: postgresql://whatsapp_agent:${DB_PASSWORD:?DB_PASSWORD required}@postgres:5432/whatsapp_db
+      DATABASE_URL: postgresql://whatsapp_agent:${DB_PASSWORD:?DB_PASSWORD required}@wtxdb:5432/whatsapp_db
       OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY required}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required (openssl rand -hex 32)}
       WEBHOOK_TOKEN: ${WEBHOOK_TOKEN:-}
-      REDIS_URL: redis://redis:6379/0
+      REDIS_URL: redis://wtxredis:6379/0
       WHATSAPP_API_URL: ${WHATSAPP_API_URL:-}
       WHATSAPP_API_KEY: ${WHATSAPP_API_KEY:-}
       WHATSAPP_SESSION: ${WHATSAPP_SESSION:-default}
       CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS required (comma-separated origins, no '*')}
     depends_on:
-      postgres:
+      wtxdb:
         condition: service_healthy
-      redis:
+      wtxredis:
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -72,19 +74,19 @@ services:
       dockerfile: Dockerfile.prod
     command: python worker.py
     environment:
-      DATABASE_URL: postgresql://whatsapp_agent:${DB_PASSWORD:?DB_PASSWORD required}@postgres:5432/whatsapp_db
+      DATABASE_URL: postgresql://whatsapp_agent:${DB_PASSWORD:?DB_PASSWORD required}@wtxdb:5432/whatsapp_db
       OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY required}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required (openssl rand -hex 32)}
-      REDIS_URL: redis://redis:6379/0
+      REDIS_URL: redis://wtxredis:6379/0
       WHATSAPP_API_URL: ${WHATSAPP_API_URL:-}
       WHATSAPP_API_KEY: ${WHATSAPP_API_KEY:-}
       WHATSAPP_SESSION: ${WHATSAPP_SESSION:-default}
     healthcheck:
       disable: true
     depends_on:
-      postgres:
+      wtxdb:
         condition: service_healthy
-      redis:
+      wtxredis:
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -97,7 +99,7 @@ services:
       args:
         VITE_API_URL: /api
     depends_on:
-      - api
+      - wtxapi
     restart: unless-stopped
     networks:
       - coolify

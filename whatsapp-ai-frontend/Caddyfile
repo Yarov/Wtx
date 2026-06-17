@@ -2,8 +2,17 @@
     root * /usr/share/caddy
     encode gzip
 
+    # API, WebSocket en tiempo real y archivos subidos -> backend (wtxapi)
     handle /api/* {
-        reverse_proxy api:3000
+        reverse_proxy wtxapi:3000
+    }
+
+    handle /ws {
+        reverse_proxy wtxapi:3000
+    }
+
+    handle /uploads/* {
+        reverse_proxy wtxapi:3000
     }
 
     handle {
