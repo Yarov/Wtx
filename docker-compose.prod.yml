@@ -15,7 +15,7 @@
 #   - WHATSAPP_API_KEY: API key de WAHA/Evolution
 
 services:
-  postgres:
+  wtxdb:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: whatsapp_agent
@@ -32,7 +32,7 @@ services:
     networks:
       - internal
 
-  redis:
+  wtxredis:
     image: redis:7-alpine
     volumes:
       - redis_data:/data
@@ -50,19 +50,19 @@ services:
       context: ./whatsapp-ai-api
       dockerfile: Dockerfile.prod
     environment:
-      DATABASE_URL: postgresql://whatsapp_agent:${DB_PASSWORD:?DB_PASSWORD required}@postgres:5432/whatsapp_db
+      DATABASE_URL: postgresql://whatsapp_agent:${DB_PASSWORD:?DB_PASSWORD required}@wtxdb:5432/whatsapp_db
       OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY required}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required (openssl rand -hex 32)}
       WEBHOOK_TOKEN: ${WEBHOOK_TOKEN:-}
-      REDIS_URL: redis://redis:6379/0
+      REDIS_URL: redis://wtxredis:6379/0
       WHATSAPP_API_URL: ${WHATSAPP_API_URL:-}
       WHATSAPP_API_KEY: ${WHATSAPP_API_KEY:-}
       WHATSAPP_SESSION: ${WHATSAPP_SESSION:-default}
       CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS required (comma-separated origins, no '*')}
     depends_on:
-      postgres:
+      wtxdb:
         condition: service_healthy
-      redis:
+      wtxredis:
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -74,19 +74,19 @@ services:
       dockerfile: Dockerfile.prod
     command: python worker.py
     environment:
-      DATABASE_URL: postgresql://whatsapp_agent:${DB_PASSWORD:?DB_PASSWORD required}@postgres:5432/whatsapp_db
+      DATABASE_URL: postgresql://whatsapp_agent:${DB_PASSWORD:?DB_PASSWORD required}@wtxdb:5432/whatsapp_db
       OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY required}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required (openssl rand -hex 32)}
-      REDIS_URL: redis://redis:6379/0
+      REDIS_URL: redis://wtxredis:6379/0
       WHATSAPP_API_URL: ${WHATSAPP_API_URL:-}
       WHATSAPP_API_KEY: ${WHATSAPP_API_KEY:-}
       WHATSAPP_SESSION: ${WHATSAPP_SESSION:-default}
     healthcheck:
       disable: true
     depends_on:
-      postgres:
+      wtxdb:
         condition: service_healthy
-      redis:
+      wtxredis:
         condition: service_healthy
     restart: unless-stopped
     networks:
