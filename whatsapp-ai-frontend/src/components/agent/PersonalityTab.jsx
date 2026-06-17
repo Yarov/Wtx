@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Bot, Sparkles, Loader2,
   ClipboardList, BookOpen, UserRound, Check,
+  Plus, Pencil, Trash2, X, GripVertical, ListChecks,
 } from 'lucide-react'
-import { promptApi } from '../../api/client'
+import { promptApi, captureApi } from '../../api/client'
+import { ConfirmDialog } from '../ui'
 
 const TONOS = [
   { id: 'formal', label: 'Formal', desc: 'Profesional y respetuoso' },
@@ -187,7 +189,354 @@ export function FichaSection({ ficha, setFicha, config, setConfig }) {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Sección 3 — ¿Cuándo te paso la conversación a ti? (modo humano)
+   Sección 3a — Datos que el agente reúne antes de pasártelo (captura)
+   ────────────────────────────────────────────────────────────────────────── */
+const CAPTURE_FIELD_TYPES = [
+  { id: 'texto', label: 'Texto' },
+  { id: 'email', label: 'Correo' },
+  { id: 'telefono', label: 'Teléfono' },
+  { id: 'numero', label: 'Número' },
+  { id: 'fecha', label: 'Fecha' },
+]
+
+const CAPTURE_SUGGESTIONS = [
+  { etiqueta: 'Nombre', tipo: 'texto' },
+  { etiqueta: 'Servicio de interés', tipo: 'texto' },
+  { etiqueta: 'Teléfono', tipo: 'telefono' },
+]
+
+const slugifyField = (s) =>
+  (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '') || 'dato'
+
+const typeLabel = (tipo) =>
+  CAPTURE_FIELD_TYPES.find((t) => t.id === tipo)?.label || 'Texto'
+
+export function CaptureFieldsSection() {
+  const [fields, setFields] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [toast, setToast] = useState(null) // { type, msg }
+
+  // Editor inline: null | {} (nuevo) | {id, ...} (editar)
+  const [editing, setEditing] = useState(null)
+  const [labelDraft, setLabelDraft] = useState('')
+  const [typeDraft, setTypeDraft] = useState('texto')
+  const [requiredDraft, setRequiredDraft] = useState(true)
+  const [savingField, setSavingField] = useState(false)
+
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+
+  useEffect(() => { loadFields() }, [])
+
+  const showToast = (type, msg) => {
+    setToast({ type, msg })
+    setTimeout(() => setToast(null), 2800)
+  }
+
+  const loadFields = async () => {
+    setLoading(true)
+    try {
+      const res = await captureApi.getFields()
+      setFields(res.data || [])
+    } catch (e) {
+      console.error('Error loading capture fields:', e)
+      showToast('error', 'No se pudieron cargar los datos')
+    }
+    setLoading(false)
+  }
+
+  const isRequired = (f) => f.obligatorio ?? f.requerido ?? true
+
+  const startNew = (preset) => {
+    setEditing({})
+    setLabelDraft(preset?.etiqueta || '')
+    setTypeDraft(preset?.tipo || 'texto')
+    setRequiredDraft(true)
+  }
+
+  const startEdit = (f) => {
+    setEditing(f)
+    setLabelDraft(f.etiqueta || '')
+    setTypeDraft(f.tipo || 'texto')
+    setRequiredDraft(isRequired(f))
+  }
+
+  const cancelEdit = () => {
+    setEditing(null)
+    setLabelDraft('')
+    setTypeDraft('texto')
+    setRequiredDraft(true)
+  }
+
+  const handleSaveField = async () => {
+    const etiqueta = labelDraft.trim()
+    if (!etiqueta) return
+    setSavingField(true)
+    try {
+      if (editing?.id) {
+        const res = await captureApi.updateField(editing.id, {
+          etiqueta,
+          tipo: typeDraft,
+          obligatorio: requiredDraft,
+        })
+        const updated = res.data || { ...editing, etiqueta, tipo: typeDraft, obligatorio: requiredDraft }
+        setFields((prev) => prev.map((f) => (f.id === editing.id ? { ...f, ...updated } : f)))
+        showToast('success', 'Dato actualizado')
+      } else {
+        const res = await captureApi.createField({
+          nombre: slugifyField(etiqueta),
+          etiqueta,
+          tipo: typeDraft,
+          obligatorio: requiredDraft,
+          orden: fields.length,
+        })
+        const created = res.data || { nombre: slugifyField(etiqueta), etiqueta, tipo: typeDraft, obligatorio: requiredDraft }
+        setFields((prev) => [...prev, created])
+        showToast('success', 'Dato agregado')
+      }
+      cancelEdit()
+    } catch (e) {
+      console.error('Error saving capture field:', e)
+      showToast('error', e.response?.data?.detail || 'No se pudo guardar el dato')
+    }
+    setSavingField(false)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await captureApi.deleteField(deleteTarget.id)
+      setFields((prev) => prev.filter((f) => f.id !== deleteTarget.id))
+      setDeleteTarget(null)
+      showToast('success', 'Dato eliminado')
+    } catch (e) {
+      console.error('Error deleting capture field:', e)
+      showToast('error', 'No se pudo eliminar el dato')
+    }
+    setDeleting(false)
+  }
+
+  const requiredCount = fields.filter(isRequired).length
+
+  return (
+    <div>
+      <div className="rounded-xl bg-violet-50/60 border border-violet-100 p-4 mb-5">
+        <p className="text-sm text-gray-700 leading-relaxed">
+          Cuando el agente reúna estos datos, te paso la conversación automáticamente. Si el
+          cliente solo pregunta y no los da, el agente sigue respondiendo (no te molesta).
+        </p>
+        {fields.length > 0 && (
+          <p className="text-xs text-violet-700 mt-2 font-medium">
+            {requiredCount > 0
+              ? `Datos mínimos para pasarte la conversación: ${requiredCount}.`
+              : 'Ningún dato está marcado como obligatorio: marca al menos uno como obligatorio para que te pase la conversación.'}
+          </p>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-10">
+          <Loader2 className="h-7 w-7 animate-spin text-violet-400" />
+        </div>
+      ) : fields.length === 0 && !editing ? (
+        <CaptureEmptyState onPick={startNew} onCreateBlank={() => startNew()} />
+      ) : (
+        <div className="space-y-2.5">
+          {fields.map((field) => {
+            const required = isRequired(field)
+            return (
+              <div
+                key={field.id || field.nombre}
+                className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3.5 hover:border-violet-200 transition-colors"
+              >
+                <GripVertical className="h-4 w-4 text-gray-300 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-gray-900">{field.etiqueta}</span>
+                    <span className="px-2 py-0.5 text-[10px] rounded-full bg-gray-100 text-gray-500 font-medium">
+                      {typeLabel(field.tipo)}
+                    </span>
+                    {required ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded-full bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-100 font-medium">
+                        <Check className="h-2.5 w-2.5" /> Obligatorio
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 text-[10px] rounded-full bg-gray-50 text-gray-400 font-medium">
+                        Opcional
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => startEdit(field)}
+                    className="p-2 text-gray-400 hover:text-violet-600 rounded-lg hover:bg-violet-50 transition-colors"
+                    title="Editar dato"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setDeleteTarget(field)}
+                    className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                    title="Eliminar dato"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+
+          {/* Botón para agregar (cuando no se está editando algo nuevo) */}
+          {!editing && (
+            <button
+              type="button"
+              onClick={() => startNew()}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-dashed border-violet-300 text-sm font-medium text-violet-600 hover:bg-violet-50 transition-colors"
+            >
+              <Plus className="h-4 w-4" /> Agregar dato
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Editor inline (crear / editar) */}
+      {editing && (
+        <div className="mt-3 rounded-xl border border-violet-100 bg-violet-50/40 p-4">
+          <p className="text-xs font-medium text-violet-700 mb-3 flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" />
+            {editing?.id ? 'Editar dato' : 'Nuevo dato'}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              value={labelDraft}
+              onChange={(e) => setLabelDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSaveField() } }}
+              placeholder="Ej: Nombre"
+              autoFocus
+              className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+            />
+            <select
+              value={typeDraft}
+              onChange={(e) => setTypeDraft(e.target.value)}
+              className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+            >
+              {CAPTURE_FIELD_TYPES.map((t) => (
+                <option key={t.id} value={t.id}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <label className="flex items-center gap-2.5 mt-3 cursor-pointer select-none">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={requiredDraft}
+              onClick={() => setRequiredDraft((v) => !v)}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                requiredDraft ? 'bg-violet-600' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  requiredDraft ? 'translate-x-4' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+            <span className="text-sm text-gray-700">
+              Obligatorio <span className="text-gray-400">(es uno de los datos mínimos para pasarte la conversación)</span>
+            </span>
+          </label>
+
+          <div className="flex items-center gap-2 mt-4">
+            <button
+              type="button"
+              onClick={handleSaveField}
+              disabled={savingField || !labelDraft.trim()}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 transition-all disabled:opacity-50"
+            >
+              {savingField ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              {editing?.id ? 'Guardar' : 'Agregar'}
+            </button>
+            <button
+              type="button"
+              onClick={cancelEdit}
+              disabled={savingField}
+              className="px-3 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        loading={deleting}
+        title="Eliminar dato"
+        message={`Se eliminará "${deleteTarget?.etiqueta}". El agente dejará de reunir este dato.`}
+        confirmText="Eliminar"
+        variant="danger"
+      />
+
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 z-[60] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${
+            toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
+          }`}
+        >
+          {toast.type === 'success' ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+          {toast.msg}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CaptureEmptyState({ onPick, onCreateBlank }) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+      <div className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center mb-4">
+        <ListChecks className="h-6 w-6 text-white" />
+      </div>
+      <h3 className="text-base font-semibold text-gray-900">Aún no eliges qué datos reunir</h3>
+      <p className="text-sm text-gray-500 mt-1 max-w-md mx-auto">
+        Elige los datos mínimos que el agente debe reunir del cliente. Cuando los tenga, te
+        paso la conversación. Empieza con una sugerencia:
+      </p>
+      <div className="mt-5 flex items-center justify-center gap-2 flex-wrap">
+        {CAPTURE_SUGGESTIONS.map((s) => (
+          <button
+            key={s.etiqueta}
+            type="button"
+            onClick={() => onPick(s)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-violet-50 text-violet-700 text-sm font-medium border border-violet-100 hover:bg-violet-100 transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" /> {s.etiqueta}
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={onCreateBlank}
+        className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-violet-700 hover:bg-violet-50 transition-colors"
+      >
+        <Plus className="h-4 w-4" /> Crear un dato desde cero
+      </button>
+    </div>
+  )
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Sección 3b — Además, pásame al cliente si… (modo humano)
    ────────────────────────────────────────────────────────────────────────── */
 export function HumanModeSection({ humanConfig, setHumanConfig }) {
   const toggleTrigger = (id) => {

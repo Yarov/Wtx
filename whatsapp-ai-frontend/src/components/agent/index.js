@@ -1,5 +1,6 @@
 export {
   FichaSection,
+  CaptureFieldsSection,
   HumanModeSection,
   AdvancedSettingsSection,
   buildSectionsFromFicha,

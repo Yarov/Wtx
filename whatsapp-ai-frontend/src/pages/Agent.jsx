@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import {
   Bot, BookOpen, UserRound, MessageCircle, Loader2, Check,
-  ChevronDown, Settings2, Route, X,
+  ChevronDown, Settings2, X, ListChecks, ShieldAlert,
 } from 'lucide-react'
 import {
   FichaSection,
+  CaptureFieldsSection,
   HumanModeSection,
   AdvancedSettingsSection,
   buildSectionsFromFicha,
@@ -13,9 +14,8 @@ import {
 } from '../components/agent/PersonalityTab'
 import TestChat from '../components/agent/TestChat'
 import Conocimiento from './Conocimiento'
-import Funnel from './Funnel'
 import { useAuth } from '../contexts/AuthContext'
-import { promptApi, configApi, whatsappApi, conocimientoApi, funnelApi } from '../api/client'
+import { promptApi, configApi, whatsappApi, conocimientoApi, captureApi } from '../api/client'
 
 const DEFAULT_FICHA = {
   nombre: '',
@@ -136,15 +136,15 @@ export default function Agent() {
     checks.push({ id: 'personality', name: 'Personalidad', ok: !!(ficha.nombre && ficha.negocio) })
 
     let knowledgeOk = false
-    let funnelOk = false
+    let captureOk = false
     let whatsappOk = false
     try {
       const docs = await conocimientoApi.list()
       knowledgeOk = (docs.data || []).length > 0
     } catch (_) {}
     try {
-      const steps = await funnelApi.getSteps()
-      funnelOk = (steps.data || []).length > 0
+      const f = await captureApi.getFields()
+      captureOk = (f.data || []).length > 0
     } catch (_) {}
     try {
       const st = await whatsappApi.getStatus()
@@ -152,7 +152,7 @@ export default function Agent() {
     } catch (_) {}
 
     checks.push({ id: 'knowledge', name: 'Conocimiento', ok: knowledgeOk })
-    checks.push({ id: 'funnel', name: 'Camino del cliente', ok: funnelOk })
+    checks.push({ id: 'capture', name: 'Datos a reunir', ok: captureOk })
     checks.push({ id: 'whatsapp', name: 'WhatsApp conectado', ok: whatsappOk })
 
     const done = checks.filter((c) => c.ok).length
@@ -173,8 +173,7 @@ export default function Agent() {
       identity: 'darle personalidad a tu asistente',
       personality: 'darle nombre y describir tu negocio',
       knowledge: 'agregar información de tu negocio',
-      funnel: 'definir el camino del cliente',
-      capture: 'elegir qué datos capturar',
+      capture: 'elegir qué datos debe reunir antes de pasarte la conversación',
       ai_config: 'ajustar la configuración del asistente',
       human_mode: 'configurar cuándo pasar a humano',
       whatsapp: 'conectar tu WhatsApp',
@@ -243,7 +242,9 @@ export default function Agent() {
                 </span>
               )}
             </div>
-            <p className="text-gray-500 text-sm mt-1">Enséñale a atender como lo harías tú</p>
+            <p className="text-gray-500 text-sm mt-1">
+              Atiende el primer contacto, reúne los datos clave y te pasa la conversación
+            </p>
           </div>
 
           {/* Acciones */}
@@ -321,9 +322,44 @@ export default function Agent() {
           n={3}
           icon={UserRound}
           title="¿Cuándo te paso la conversación a ti?"
-          subtitle="Cuando el cliente diga algo de esto, el asistente deja de responder y te avisa."
+          subtitle="El asistente atiende el primer contacto y filtra. Cuando reúne los datos clave —o el cliente lo necesita— te pasa la conversación."
         />
-        <HumanModeSection humanConfig={humanConfig} setHumanConfig={setHumanConfig} />
+
+        {/* 3a — Datos que el agente reúne antes de pasártelo */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
+              <ListChecks className="h-4 w-4 text-violet-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">
+                Datos que el agente reúne antes de pasártelo
+              </h3>
+              <p className="text-sm text-gray-500">
+                Los datos mínimos que necesitas de cada cliente. Al tenerlos, te paso la conversación.
+              </p>
+            </div>
+          </div>
+          <CaptureFieldsSection />
+        </div>
+
+        {/* 3b — Además, pásame al cliente si… */}
+        <div className="mt-10 pt-8 border-t border-gray-100 space-y-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
+              <ShieldAlert className="h-4 w-4 text-violet-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">
+                Además, pásame al cliente si…
+              </h3>
+              <p className="text-sm text-gray-500">
+                Si pasa algo de esto, el asistente deja de responder y te avisa de inmediato.
+              </p>
+            </div>
+          </div>
+          <HumanModeSection humanConfig={humanConfig} setHumanConfig={setHumanConfig} />
+        </div>
       </section>
 
       {/* ─── Sección final: Pruébalo ─── */}
@@ -352,7 +388,7 @@ export default function Agent() {
             <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${advancedOpen ? 'rotate-180' : ''}`} />
           </summary>
 
-          <div className="px-5 pb-8 pt-2 border-t border-gray-100 space-y-12">
+          <div className="px-5 pb-8 pt-2 border-t border-gray-100">
             {/* Ajustes técnicos */}
             <div>
               <h3 className="text-base font-semibold text-gray-900 mb-1">Ajustes técnicos</h3>
@@ -360,18 +396,6 @@ export default function Agent() {
                 Solo si quieres afinar cómo responde. Los valores recomendados ya están listos.
               </p>
               <AdvancedSettingsSection config={config} setConfig={setConfig} />
-            </div>
-
-            {/* El camino del cliente (funnel) */}
-            <div className="border-t border-gray-100 pt-8">
-              <div className="flex items-center gap-2 mb-1">
-                <Route className="h-4 w-4 text-violet-500" />
-                <h3 className="text-base font-semibold text-gray-900">El camino del cliente</h3>
-              </div>
-              <p className="text-sm text-gray-500 mb-5">
-                Las etapas por las que tu asistente lleva a cada cliente, de la primera conversación al cierre.
-              </p>
-              <Funnel />
             </div>
           </div>
         </details>
