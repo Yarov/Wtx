@@ -1,18 +1,20 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Zap, MessageSquare, Loader2, RotateCcw } from 'lucide-react'
-import Button from '../components/Button'
-import Toggle from '../components/Toggle'
-import { PersonalityTab, SkillsTab, TestChat } from '../components/agent'
-import { toolsApi, promptApi, businessApi, configApi } from '../api/client'
-import { ConfirmDialog } from '../components/ui'
+import { Bot, BookOpen, GitBranch, MessageCircle, Loader2, Check } from 'lucide-react'
+import PersonalityTab, {
+  buildSectionsFromFicha,
+  buildSystemPromptFromSections,
+  deriveFichaFromSections,
+} from '../components/agent/PersonalityTab'
+import TestChat from '../components/agent/TestChat'
+import Conocimiento from './Conocimiento'
+import Funnel from './Funnel'
+import { promptApi, configApi, whatsappApi, conocimientoApi, funnelApi } from '../api/client'
 
-const DEFAULT_SECTIONS = {
-  role: 'Eres un asistente virtual profesional especializado en atención al cliente.',
-  context: 'Trabajas para un negocio que atiende clientes via WhatsApp.',
-  task: 'Tu objetivo es responder preguntas de los clientes, brindar información sobre el negocio y ofrecer una experiencia de atención excepcional.',
-  constraints: 'No inventes información. Si no sabes algo, indícalo. No compartas datos de otros clientes. Responde siempre en español.',
-  tone: 'Mantén un tono amigable, profesional y cercano. Usa emojis con moderación. Sé conciso pero cálido.',
+const DEFAULT_FICHA = {
+  nombre: '',
+  negocio: '',
+  tono: 'cercano',
+  no_hacer: '',
 }
 
 const DEFAULT_CONFIG = {
@@ -20,39 +22,33 @@ const DEFAULT_CONFIG = {
   temperature: 0.7,
   max_tokens: 500,
   response_delay: 3,
-  business_name: 'Mi Negocio',
-  business_type: 'barbería',
+  business_name: '',
+  business_type: '',
 }
 
+const DEFAULT_HUMAN = {
+  expire_hours: 0,
+  reactivar_command: '#reactivar',
+  triggers: ['frustration', 'complaint', 'human_request'],
+  custom_triggers: '',
+}
+
+const TABS = [
+  { id: 'personality', label: 'Personalidad', icon: Bot },
+  { id: 'knowledge', label: 'Lo que sabe', icon: BookOpen },
+  { id: 'journey', label: 'El camino del cliente', icon: GitBranch },
+  { id: 'test', label: 'Probar', icon: MessageCircle },
+]
+
 export default function Agent() {
-  const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState('skills')
-  const [sections, setSections] = useState(DEFAULT_SECTIONS)
+  const [activeTab, setActiveTab] = useState('personality')
+  const [ficha, setFicha] = useState(DEFAULT_FICHA)
   const [config, setConfig] = useState(DEFAULT_CONFIG)
-  const [tools, setTools] = useState([])
-  const [skills, setSkills] = useState({})
+  const [humanConfig, setHumanConfig] = useState(DEFAULT_HUMAN)
+  const [health, setHealth] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [showRestartConfirm, setShowRestartConfirm] = useState(false)
-  const [humanModeConfig, setHumanModeConfig] = useState({
-    expire_hours: 0,
-    reactivar_command: '#reactivar',
-    triggers: ['frustration', 'complaint', 'human_request'],
-    custom_triggers: '',
-  })
-  const [editMode, setEditMode] = useState('sections')
-  const [manualPrompt, setManualPrompt] = useState('')
-
-  const handleRestartOnboarding = async () => {
-    setShowRestartConfirm(false)
-    try {
-      await businessApi.restartOnboarding()
-      navigate('/setup')
-    } catch (error) {
-      console.error('Error restarting onboarding:', error)
-    }
-  }
 
   useEffect(() => {
     loadData()
@@ -61,188 +57,200 @@ export default function Agent() {
   const loadData = async () => {
     setLoading(true)
 
-    try {
-      const promptRes = await promptApi.getPrompt()
-      if (promptRes.data) {
-        if (promptRes.data.prompt_sections) {
-          setSections(promptRes.data.prompt_sections)
-        }
-        setConfig({
-          model: promptRes.data.model || DEFAULT_CONFIG.model,
-          temperature: promptRes.data.temperature ?? DEFAULT_CONFIG.temperature,
-          max_tokens: promptRes.data.max_tokens || DEFAULT_CONFIG.max_tokens,
-          response_delay: promptRes.data.response_delay ?? DEFAULT_CONFIG.response_delay,
-          business_name: promptRes.data.business_name || DEFAULT_CONFIG.business_name,
-          business_type: promptRes.data.business_type || DEFAULT_CONFIG.business_type,
-        })
-        if (promptRes.data.edit_mode) {
-          setEditMode(promptRes.data.edit_mode)
-        }
-        if (promptRes.data.manual_prompt) {
-          setManualPrompt(promptRes.data.manual_prompt)
-        }
-      }
-    } catch (error) {
-      console.error('Error loading prompt:', error)
-    }
+    let loadedConfig = { ...DEFAULT_CONFIG }
+    let loadedSections = null
 
     try {
-      const toolsRes = await toolsApi.getTools()
-      setTools(toolsRes.data.map(t => ({
-        id: t.id,
-        enabled: t.enabled,
-        description: t.description,
-      })))
-    } catch (error) {
-      console.error('Error loading tools:', error)
+      const res = await promptApi.getPrompt()
+      if (res.data) {
+        loadedConfig = {
+          model: res.data.model || DEFAULT_CONFIG.model,
+          temperature: res.data.temperature ?? DEFAULT_CONFIG.temperature,
+          max_tokens: res.data.max_tokens || DEFAULT_CONFIG.max_tokens,
+          response_delay: res.data.response_delay ?? DEFAULT_CONFIG.response_delay,
+          business_name: res.data.business_name || DEFAULT_CONFIG.business_name,
+          business_type: res.data.business_type || DEFAULT_CONFIG.business_type,
+        }
+        loadedSections = res.data.prompt_sections || null
+      }
+    } catch (e) {
+      console.error('Error loading prompt:', e)
     }
+
+    setConfig(loadedConfig)
+
+    const derived = deriveFichaFromSections(loadedSections, loadedConfig)
+    setFicha(derived ? { ...DEFAULT_FICHA, ...derived } : DEFAULT_FICHA)
 
     try {
       const humanRes = await configApi.getHumanModeConfig()
       if (humanRes.data) {
-        setHumanModeConfig(prev => ({ ...prev, ...humanRes.data }))
+        setHumanConfig((prev) => ({ ...prev, ...humanRes.data }))
       }
-    } catch (error) {
-      console.error('Error loading human mode config:', error)
+    } catch (e) {
+      console.error('Error loading human mode config:', e)
     }
 
-    try {
-      const skillsRes = await configApi.getSkillsStatus()
-      if (skillsRes.data) {
-        setSkills(skillsRes.data.skills || {})
-        if (skillsRes.data.orchestrator_mode !== undefined) {
-          setConfig(prev => ({ ...prev, orchestrator_mode: skillsRes.data.orchestrator_mode }))
-        }
-      }
-    } catch (error) {
-      console.error('Error loading skills status:', error)
-    }
-
+    await loadHealth()
     setLoading(false)
   }
 
-  const buildFullPrompt = () => {
-    return `## ROL
-${sections.role}
-
-## CONTEXTO
-${sections.context}
-
-## TAREA
-${sections.task}
-
-## RESTRICCIONES
-${sections.constraints}
-
-## TONO
-${sections.tone}
-
-## INFORMACIÓN DEL NEGOCIO
-- Nombre: ${config.business_name}
-- Tipo: ${config.business_type}`
+  const loadHealth = async () => {
+    try {
+      const res = await configApi.agentHealth()
+      if (res.data && typeof res.data.score === 'number') {
+        setHealth(res.data)
+        return
+      }
+    } catch (e) {
+      console.error('Error loading agent health:', e)
+    }
+    // Fallback: compute a simple local score
+    await computeFallbackHealth()
   }
 
+  const computeFallbackHealth = async () => {
+    const checks = []
+    checks.push({ id: 'personality', name: 'Personalidad', ok: !!(ficha.nombre && ficha.negocio) })
+
+    let knowledgeOk = false
+    let funnelOk = false
+    let whatsappOk = false
+    try {
+      const docs = await conocimientoApi.list()
+      knowledgeOk = (docs.data || []).length > 0
+    } catch (_) {}
+    try {
+      const steps = await funnelApi.getSteps()
+      funnelOk = (steps.data || []).length > 0
+    } catch (_) {}
+    try {
+      const st = await whatsappApi.getStatus()
+      whatsappOk = ['connected', 'WORKING', 'authenticated'].includes(st.data?.status)
+    } catch (_) {}
+
+    checks.push({ id: 'knowledge', name: 'Conocimiento', ok: knowledgeOk })
+    checks.push({ id: 'funnel', name: 'Camino del cliente', ok: funnelOk })
+    checks.push({ id: 'whatsapp', name: 'WhatsApp conectado', ok: whatsappOk })
+
+    const done = checks.filter((c) => c.ok).length
+    const score = Math.round((done / checks.length) * 100)
+    setHealth({
+      score,
+      sections: checks.map((c) => ({ id: c.id, name: c.name, status: c.ok ? 'ok' : 'warning', score: c.ok ? 100 : 0 })),
+    })
+  }
+
+  // First thing the owner still needs to do.
+  const pending = (() => {
+    if (!health?.sections) {
+      if (!ficha.nombre || !ficha.negocio) return 'darle nombre y describir tu negocio'
+      return null
+    }
+    const labels = {
+      identity: 'darle personalidad a tu agente',
+      personality: 'darle nombre y describir tu negocio',
+      knowledge: 'agregar información de tu negocio',
+      funnel: 'definir el camino del cliente',
+      capture: 'elegir qué datos capturar',
+      ai_config: 'ajustar la configuración del agente',
+      human_mode: 'configurar cuándo pasar a humano',
+      whatsapp: 'conectar tu WhatsApp',
+      tools: 'activar las herramientas del agente',
+    }
+    const first = health.sections.find((s) => s.status !== 'ok')
+    if (!first) return null
+    return labels[first.id] || first.name
+  })()
+
   const handleSave = async () => {
+    if (activeTab !== 'personality') return
     setSaving(true)
     try {
-      const systemPrompt = editMode === 'manual' ? manualPrompt : buildFullPrompt()
+      const sections = buildSectionsFromFicha(ficha)
+      const systemPrompt = buildSystemPromptFromSections(sections)
 
       await Promise.all([
         promptApi.updatePrompt({
           system_prompt: systemPrompt,
           prompt_sections: sections,
-          edit_mode: editMode,
-          manual_prompt: manualPrompt,
-          ...config
+          edit_mode: 'sections',
+          model: config.model,
+          temperature: config.temperature,
+          max_tokens: config.max_tokens,
+          response_delay: config.response_delay,
+          business_name: ficha.nombre || config.business_name,
+          business_type: config.business_type,
         }),
-        configApi.updateHumanModeConfig(humanModeConfig)
+        configApi.updateHumanModeConfig(humanConfig),
       ])
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
-    } catch (error) {
-      console.error('Error saving:', error)
+      loadHealth()
+    } catch (e) {
+      console.error('Error saving:', e)
     } finally {
       setSaving(false)
     }
   }
 
-  const handleToggleSkill = async (skillName) => {
-    const skill = skills[skillName]
-    if (!skill) return
-
-    const newEnabled = !skill.enabled
-
-    const SKILL_TO_TOOL = {}
-
-    const toolId = SKILL_TO_TOOL[skillName]
-    if (!toolId) return
-
-    setSkills(prev => ({
-      ...prev,
-      [skillName]: { ...prev[skillName], enabled: newEnabled }
-    }))
-
-    try {
-      await toolsApi.toggleTool(toolId, newEnabled)
-      window.dispatchEvent(new Event('modules-changed'))
-    } catch (error) {
-      console.error('Error toggling skill:', error)
-      setSkills(prev => ({
-        ...prev,
-        [skillName]: { ...prev[skillName], enabled: !newEnabled }
-      }))
-    }
-  }
-
-  const tabs = [
-    { id: 'skills', label: 'Skills', icon: Zap },
-    { id: 'personality', label: 'Personalidad', icon: MessageSquare },
-  ]
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <Loader2 className="h-10 w-10 text-indigo-500 animate-spin mx-auto mb-4" />
-          <p className="text-gray-500">Cargando configuracion...</p>
+          <Loader2 className="h-10 w-10 text-violet-500 animate-spin mx-auto mb-4" />
+          <p className="text-gray-500">Cargando tu agente...</p>
         </div>
       </div>
     )
   }
 
+  const score = health?.score ?? 0
+
   return (
-    <div className="space-y-6 mx-auto pb-20">
+    <div className="space-y-6 mx-auto pb-12">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Agente IA</h1>
-          <p className="text-gray-500 text-sm">Configura el comportamiento y capacidades de tu agente</p>
+          <h1 className="text-2xl font-bold text-gray-900">Tu Agente</h1>
+          <p className="text-gray-500 text-sm mt-0.5">Enséñale a atender como lo harías tú</p>
         </div>
-        <div className="flex items-center gap-3">
-          {saved && (
-            <span className="text-sm text-indigo-600 font-medium">
-              Guardado
-            </span>
+
+        {/* Progress meter */}
+        <div className="w-full lg:max-w-sm">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-medium text-gray-500">Listo para atender</span>
+            <span className="text-sm font-bold text-violet-600">{score}%</span>
+          </div>
+          <div className="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500"
+              style={{ width: `${score}%` }}
+            />
+          </div>
+          {pending ? (
+            <p className="text-xs text-gray-500 mt-1.5">
+              Te falta: <span className="font-medium text-gray-700">{pending}</span>
+            </p>
+          ) : (
+            <p className="text-xs text-emerald-600 mt-1.5 font-medium">¡Todo listo! Tu agente está completo.</p>
           )}
-          <Button onClick={handleSave} loading={saving}>
-            {saved ? 'Guardado' : 'Guardar'}
-          </Button>
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
-        <nav className="flex gap-8">
-          {tabs.map(tab => {
+      {/* Tabs */}
+      <div className="flex items-center justify-between border-b border-gray-200">
+        <nav className="flex gap-6 lg:gap-8 overflow-x-auto">
+          {TABS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors ${
+                className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   isActive
-                    ? 'border-indigo-600 text-indigo-600'
+                    ? 'border-violet-600 text-violet-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -252,135 +260,61 @@ ${sections.tone}
             )
           })}
         </nav>
-      </div>
 
-      {/* Tab Content */}
-      {activeTab === 'skills' && (
-        <SkillsTab
-          skills={skills}
-          onToggleSkill={handleToggleSkill}
-          humanConfig={humanModeConfig}
-          setHumanConfig={setHumanModeConfig}
-        />
-      )}
-
-      {activeTab === 'personality' && (
-        <div className="space-y-8">
-          <PersonalityTab
-            sections={sections}
-            setSections={setSections}
-            config={config}
-            setConfig={setConfig}
-            manualPrompt={manualPrompt}
-            setManualPrompt={setManualPrompt}
-            editMode={editMode}
-            setEditMode={setEditMode}
-          />
-
-          {/* Model Settings Inline */}
-          <div className="border-t border-gray-200 pt-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Modelo y Parametros</h2>
-            <p className="text-sm text-gray-500 mb-6">Configuracion tecnica del agente</p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Model Selector */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Modelo</label>
-                <select
-                  value={config.model}
-                  onChange={(e) => setConfig({ ...config, model: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="gpt-4o-mini">GPT-4o Mini (rapido, economico)</option>
-                  <option value="gpt-4o">GPT-4o (mas inteligente)</option>
-                  <option value="gpt-4-turbo">GPT-4 Turbo (alta capacidad)</option>
-                  <option value="gpt-3.5-turbo">GPT-3.5 Turbo (basico)</option>
-                </select>
-              </div>
-
-              {/* Temperature */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Creatividad: {config.temperature}
-                </label>
-                <input
-                  type="range" min="0" max="1" step="0.1"
-                  value={config.temperature}
-                  onChange={(e) => setConfig({ ...config, temperature: parseFloat(e.target.value) })}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                />
-                <div className="flex justify-between mt-1 text-xs text-gray-400">
-                  <span>Preciso</span>
-                  <span>Creativo</span>
-                </div>
-              </div>
-
-              {/* Max Tokens */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Largo maximo: {config.max_tokens} tokens
-                </label>
-                <input
-                  type="range" min="100" max="2000" step="100"
-                  value={config.max_tokens}
-                  onChange={(e) => setConfig({ ...config, max_tokens: parseInt(e.target.value) })}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                />
-                <div className="flex justify-between mt-1 text-xs text-gray-400">
-                  <span>Corto</span>
-                  <span>Largo</span>
-                </div>
-              </div>
-
-              {/* Response Delay */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Espera antes de responder: {config.response_delay}s
-                </label>
-                <input
-                  type="range" min="0" max="10" step="1"
-                  value={config.response_delay || 3}
-                  onChange={(e) => setConfig({ ...config, response_delay: parseInt(e.target.value) })}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                />
-                <div className="flex justify-between mt-1 text-xs text-gray-400">
-                  <span>Inmediato</span>
-                  <span>10s</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Spacer */}
-            <div className="mt-6">
-            </div>
-          </div>
-
-          {/* Restart Onboarding */}
-          <div className="border-t border-gray-200 pt-6">
+        {activeTab === 'personality' && (
+          <div className="hidden sm:flex items-center gap-3 pb-2">
+            {saved && (
+              <span className="inline-flex items-center gap-1 text-sm text-emerald-600 font-medium">
+                <Check className="h-4 w-4" /> Guardado
+              </span>
+            )}
             <button
-              onClick={() => setShowRestartConfirm(true)}
-              className="text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1.5 transition-colors"
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 transition-all disabled:opacity-50 shadow-lg shadow-violet-500/25"
             >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reiniciar asistente de configuracion
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              Guardar
             </button>
           </div>
+        )}
+      </div>
+
+      {/* Mobile save button */}
+      {activeTab === 'personality' && (
+        <div className="sm:hidden">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 transition-all disabled:opacity-50 shadow-lg shadow-violet-500/25"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : null}
+            {saved ? 'Guardado' : 'Guardar'}
+          </button>
         </div>
       )}
 
-      <ConfirmDialog
-        isOpen={showRestartConfirm}
-        onClose={() => setShowRestartConfirm(false)}
-        onConfirm={handleRestartOnboarding}
-        title="Reiniciar configuracion?"
-        message="Esto te llevara al asistente de configuracion inicial. Tu configuracion actual se mantendra hasta que la modifiques."
-        confirmText="Reiniciar"
-        cancelText="Cancelar"
-        variant="warning"
-      />
+      {/* Content */}
+      {activeTab === 'personality' && (
+        <PersonalityTab
+          ficha={ficha}
+          setFicha={setFicha}
+          config={config}
+          setConfig={setConfig}
+          humanConfig={humanConfig}
+          setHumanConfig={setHumanConfig}
+        />
+      )}
 
-      {/* Test Chat Widget */}
-      <TestChat />
+      {activeTab === 'knowledge' && <Conocimiento />}
+
+      {activeTab === 'journey' && <Funnel />}
+
+      {activeTab === 'test' && (
+        <div className="max-w-2xl">
+          <TestChat embedded />
+        </div>
+      )}
     </div>
   )
 }

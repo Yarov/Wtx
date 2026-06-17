@@ -22,10 +22,12 @@ async def procesar_verificacion_contactos(job: BackgroundJob, db):
     """Verifica qué contactos siguen activos en WhatsApp"""
     fecha_limite = datetime.utcnow() - timedelta(days=DIAS_REVERIFICACION)
 
-    # Solo verificar activos que nunca fueron verificados o hace más de X días
+    # Solo verificar activos del MISMO usuario y perfil del job
     contactos = (
         db.query(Contacto)
         .filter(
+            Contacto.usuario_id == job.usuario_id,
+            Contacto.perfil_id == job.perfil_id,
             Contacto.estado == "activo",
             or_(
                 Contacto.ultima_verificacion.is_(None),
@@ -93,7 +95,11 @@ async def procesar_sync_contactos(job: BackgroundJob, db):
             telefono = contacto_data.get("telefono")
             nombre = contacto_data.get("nombre", "")
 
-            existente = db.query(Contacto).filter(Contacto.telefono == telefono).first()
+            existente = db.query(Contacto).filter(
+                Contacto.telefono == telefono,
+                Contacto.usuario_id == job.usuario_id,
+                Contacto.perfil_id == job.perfil_id,
+            ).first()
 
             if existente:
                 if nombre and not existente.nombre:

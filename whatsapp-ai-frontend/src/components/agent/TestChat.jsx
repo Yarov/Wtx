@@ -119,8 +119,8 @@ function MetadataPanel({ meta, expanded, onToggle }) {
   )
 }
 
-export default function TestChat() {
-  const [isOpen, setIsOpen] = useState(false)
+export default function TestChat({ embedded = false }) {
+  const [isOpen, setIsOpen] = useState(embedded)
   const [messages, setMessages] = useState([])   // { role, content } or { role: 'event', type, detail }
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -196,42 +196,21 @@ export default function TestChat() {
     }
   }
 
-  return (
-    <>
-      {/* Floating Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 ${
-          isOpen
-            ? 'bg-gray-600 hover:bg-gray-700 scale-90'
-            : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 scale-100 hover:scale-110'
-        }`}
-      >
-        {isOpen ? (
-          <X className="h-6 w-6 text-white" />
-        ) : (
-          <>
-            <MessageCircle className="h-6 w-6 text-white" />
-            {msgCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                {msgCount}
-              </span>
-            )}
-          </>
-        )}
-      </button>
-
-      {/* Chat Panel */}
-      <div
-        className={`fixed bottom-24 right-6 z-50 w-[420px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col transition-all duration-300 origin-bottom-right ${
-          isOpen
-            ? 'opacity-100 scale-100 translate-y-0'
-            : 'opacity-0 scale-95 translate-y-4 pointer-events-none'
-        }`}
-        style={{ height: '560px', maxHeight: 'calc(100vh - 120px)' }}
-      >
+  const panel = (
+    <div
+      className={
+        embedded
+          ? 'w-full bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col'
+          : `fixed bottom-24 right-6 z-50 w-[420px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col transition-all duration-300 origin-bottom-right ${
+              isOpen
+                ? 'opacity-100 scale-100 translate-y-0'
+                : 'opacity-0 scale-95 translate-y-4 pointer-events-none'
+            }`
+      }
+      style={{ height: embedded ? '600px' : '560px', maxHeight: embedded ? 'calc(100vh - 220px)' : 'calc(100vh - 120px)' }}
+    >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-t-2xl flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-t-2xl flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
               <MessageCircle className="h-4 w-4" />
@@ -249,12 +228,14 @@ export default function TestChat() {
             >
               <Trash2 className="h-4 w-4" />
             </button>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            {!embedded && (
+              <button
+                onClick={() => setIsOpen(false)}
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -335,7 +316,39 @@ export default function TestChat() {
             </button>
           </div>
         </div>
-      </div>
+    </div>
+  )
+
+  if (embedded) {
+    return panel
+  }
+
+  return (
+    <>
+      {/* Floating Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 ${
+          isOpen
+            ? 'bg-gray-600 hover:bg-gray-700 scale-90'
+            : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 scale-100 hover:scale-110'
+        }`}
+      >
+        {isOpen ? (
+          <X className="h-6 w-6 text-white" />
+        ) : (
+          <>
+            <MessageCircle className="h-6 w-6 text-white" />
+            {msgCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                {msgCount}
+              </span>
+            )}
+          </>
+        )}
+      </button>
+
+      {panel}
     </>
   )
 }

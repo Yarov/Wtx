@@ -1,7 +1,2 @@
 export { default as PersonalityTab } from './PersonalityTab'
-export { default as ToolsTab } from './ToolsTab'
-export { default as SkillsTab } from './SkillsTab'
-export { default as ModelTab } from './ModelTab'
-export { default as HumanModeTab } from './HumanModeTab'
 export { default as TestChat } from './TestChat'
-export { default as HealthCheck } from './HealthCheck'

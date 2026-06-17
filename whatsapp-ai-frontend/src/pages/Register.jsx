@@ -49,7 +49,7 @@ export default function Register() {
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-600 via-indigo-700 to-slate-900 p-12 flex-col justify-between relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-700 via-violet-700 to-fuchsia-900 p-12 flex-col justify-between relative overflow-hidden">
         {/* Background decoration */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/10 rounded-full blur-3xl" />
@@ -65,7 +65,7 @@ export default function Register() {
             </div>
             <span className="text-2xl font-bold text-white">Wtx</span>
           </div>
-          <p className="text-indigo-100 text-sm">WhatsApp AI Agent Platform</p>
+          <p className="text-violet-100 text-sm">Agente de WhatsApp con IA</p>
         </div>
 
         <div className="relative z-10 space-y-8">
@@ -73,19 +73,19 @@ export default function Register() {
             <h1 className="text-4xl font-bold text-white leading-tight mb-4">
               Comienza gratis<br />en minutos
             </h1>
-            <p className="text-indigo-100 text-lg mb-8">
-              Únete a miles de negocios que ya automatizan sus conversaciones de WhatsApp.
+            <p className="text-violet-100 text-lg mb-8">
+              Conecta tu WhatsApp y deja que un agente de IA atienda a tus clientes mientras tú creces.
             </p>
           </div>
 
           {/* Checklist */}
           <div className="space-y-4">
             {[
-              'Respuestas automáticas con IA',
-              'Agenda citas sin intervención',
-              'Campañas de marketing masivo',
-              'Analytics y métricas detalladas',
-              'Integración en 1 click',
+              'Agente con IA que responde 24/7',
+              'Todos tus números en una cuenta',
+              'CRM con clientes y lead scoring',
+              'Campañas de mensajería masiva',
+              'Conecta escaneando un QR',
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-3">
                 <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
@@ -101,8 +101,8 @@ export default function Register() {
           <div className="flex items-center gap-6">
             {BENEFITS.map((benefit, i) => (
               <div key={i} className="flex items-center gap-2">
-                <benefit.icon className="h-4 w-4 text-indigo-200" />
-                <span className="text-indigo-100 text-sm">{benefit.text}</span>
+                <benefit.icon className="h-4 w-4 text-violet-200" />
+                <span className="text-violet-100 text-sm">{benefit.text}</span>
               </div>
             ))}
           </div>
@@ -114,7 +114,7 @@ export default function Register() {
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-gradient-to-br from-indigo-600 to-sky-500 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center">
               <Bot className="h-7 w-7 text-white" />
             </div>
             <span className="text-2xl font-bold text-gray-900">Wtx</span>
@@ -142,7 +142,7 @@ export default function Register() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
                   placeholder="tu_usuario"
                   required
                   disabled={loading}
@@ -156,7 +156,7 @@ export default function Register() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
                   placeholder="tu@email.com"
                   required
                   disabled={loading}
@@ -173,7 +173,7 @@ export default function Register() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
                   placeholder="••••••••"
                   required
                   disabled={loading}
@@ -188,7 +188,7 @@ export default function Register() {
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
                   placeholder="••••••••"
                   required
                   disabled={loading}
@@ -200,7 +200,7 @@ export default function Register() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-indigo-600 to-sky-500 text-white py-3.5 rounded-xl font-semibold hover:from-indigo-700 hover:to-sky-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25 mt-6"
+              className="w-full bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white py-3.5 rounded-xl font-semibold hover:from-violet-600 hover:to-fuchsia-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-violet-500/30 mt-6"
             >
               {loading ? (
                 <>
@@ -219,20 +219,14 @@ export default function Register() {
           <div className="mt-6 text-center">
             <p className="text-gray-600">
               ¿Ya tienes cuenta?{' '}
-              <Link to="/login" className="text-indigo-600 hover:text-indigo-700 font-semibold">
+              <Link to="/login" className="text-violet-600 hover:text-fuchsia-600 font-semibold">
                 Iniciar sesión
               </Link>
             </p>
           </div>
 
-          {/* Trust badges */}
           <div className="mt-10 pt-6 border-t border-gray-200">
-            <div className="flex items-center justify-center gap-6 text-gray-400">
-              <div className="flex items-center gap-1.5 text-xs">
-                <Shield className="h-4 w-4" />
-                <span>256-bit SSL</span>
-              </div>
-              <div className="w-1 h-1 bg-gray-300 rounded-full" />
+            <div className="flex items-center justify-center text-gray-400">
               <div className="text-xs">Wtx v3.0</div>
             </div>
           </div>

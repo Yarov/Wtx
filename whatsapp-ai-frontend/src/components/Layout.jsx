@@ -14,8 +14,6 @@ import {
   Menu,
   X,
   Smartphone,
-  BookOpen,
-  GitBranch,
   FileText,
   Settings,
   BarChart3,
@@ -72,19 +70,19 @@ function ProfileSelector() {
                 key={p.id}
                 onClick={() => p.id !== perfilActivo.id && cambiarPerfil(p.id)}
                 className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                  p.id === perfilActivo.id ? 'bg-indigo-50' : ''
+                  p.id === perfilActivo.id ? 'bg-violet-50' : ''
                 }`}
               >
                 <span className="text-lg leading-none">{p.emoji || '📱'}</span>
                 <span className="flex-1 truncate text-gray-800">{p.nombre}</span>
-                {p.id === perfilActivo.id && <Check className="h-4 w-4 text-indigo-600" />}
+                {p.id === perfilActivo.id && <Check className="h-4 w-4 text-violet-600" />}
               </button>
             ))}
             <div className="border-t border-gray-100">
               <button
                 onClick={handleCreate}
                 disabled={creating}
-                className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-indigo-600 hover:bg-indigo-50 font-medium disabled:opacity-50"
+                className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-violet-600 hover:bg-violet-50 font-medium disabled:opacity-50"
               >
                 <Plus className="h-4 w-4" />
                 {creating ? 'Creando...' : 'Nuevo perfil'}
@@ -106,9 +104,7 @@ const MAIN_NAVIGATION = [
 
 const CONFIG_NAVIGATION = [
   { name: 'WhatsApp', href: '/whatsapp', icon: Smartphone, always: true },
-  { name: 'Agente IA', href: '/agent', icon: Bot, always: true },
-  { name: 'Conocimiento', href: '/conocimiento', icon: BookOpen, always: true },
-  { name: 'Funnel', href: '/funnel', icon: GitBranch, always: true },
+  { name: 'Tu Agente', href: '/agent', icon: Bot, always: true },
 ]
 
 // Bottom nav items for mobile (5 slots: 4 primary + "Más")
@@ -262,7 +258,7 @@ export default function Layout() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     isActive
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20'
+                      ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-900/20'
                       : 'text-white/80 hover:bg-white/15 hover:text-white'
                   }`
                 }
@@ -286,7 +282,7 @@ export default function Layout() {
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                       isActive
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20'
+                        ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-900/20'
                         : 'text-white/80 hover:bg-white/15 hover:text-white'
                     }`
                   }
@@ -330,8 +326,8 @@ export default function Layout() {
               className={`group flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 rounded-xl transition-all ${
                 agentLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
               } ${
-                agentEnabled 
-                  ? 'bg-gradient-to-r from-indigo-600 to-sky-500 text-white shadow-lg shadow-indigo-200' 
+                agentEnabled
+                  ? 'bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-lg shadow-violet-200'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -347,7 +343,7 @@ export default function Layout() {
                 <p className={`text-sm font-semibold ${agentEnabled ? 'text-white' : 'text-gray-700'}`}>
                   {agentEnabled ? 'IA Activa' : 'IA Inactiva'}
                 </p>
-                <p className={`text-xs ${agentEnabled ? 'text-indigo-100' : 'text-gray-500'}`}>
+                <p className={`text-xs ${agentEnabled ? 'text-violet-100' : 'text-gray-500'}`}>
                   {agentLoading ? 'Cambiando...' : agentEnabled ? 'Respondiendo' : 'Click para activar'}
                 </p>
               </div>

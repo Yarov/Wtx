@@ -259,8 +259,9 @@ async def send_message(
     # Notificar via WebSocket
     from ws_manager import ws_manager
 
-    await ws_manager.broadcast_to_user(
+    await ws_manager.broadcast_to_perfil(
         current_user.id,
+        perfil.id,
         "new_message",
         {
             "telefono": phone,

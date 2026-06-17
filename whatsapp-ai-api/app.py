@@ -127,7 +127,14 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.close(code=4001, reason="Invalid or expired token")
         return
 
-    await ws_manager.connect(websocket, usuario_id)
+    # Scope the realtime channel to the active profile (one WhatsApp number)
+    perfil_id = websocket.query_params.get("perfil_id")
+    try:
+        perfil_id = int(perfil_id) if perfil_id else None
+    except (ValueError, TypeError):
+        perfil_id = None
+
+    await ws_manager.connect(websocket, usuario_id, perfil_id)
     try:
         while True:
             text = await websocket.receive_text()

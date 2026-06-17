@@ -45,7 +45,10 @@ export default function useWebSocket(onMessage) {
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = window.location.host
-    const url = `${protocol}//${host}/ws?token=${encodeURIComponent(token)}`
+    // Scope realtime to the active profile so chats from other numbers don't leak in
+    const perfilId = localStorage.getItem('perfil_id')
+    const perfilParam = perfilId ? `&perfil_id=${encodeURIComponent(perfilId)}` : ''
+    const url = `${protocol}//${host}/ws?token=${encodeURIComponent(token)}${perfilParam}`
 
     setConnectionState(WS_STATE.CONNECTING)
 

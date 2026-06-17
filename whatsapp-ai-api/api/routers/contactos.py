@@ -524,13 +524,16 @@ async def iniciar_verificacion_activos(
 @router.get("/verificar-activos/estado", summary="Get verification status", description="Check the status of the active or last completed contact verification job.")
 async def obtener_estado_verificacion(
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     from models import BackgroundJob
-    
-    # Buscar job activo o el último
+
+    # Buscar job activo o el último — del usuario y perfil actual
     job = db.query(BackgroundJob).filter(
-        BackgroundJob.tipo == "verificar_contactos"
+        BackgroundJob.tipo == "verificar_contactos",
+        BackgroundJob.usuario_id == current_user.id,
+        BackgroundJob.perfil_id == perfil.id,
     ).order_by(BackgroundJob.created_at.desc()).first()
     
     if not job:

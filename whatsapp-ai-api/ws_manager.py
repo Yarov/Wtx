@@ -16,13 +16,17 @@ HEARTBEAT_TIMEOUT = 10   # seconds to wait for pong
 
 
 class ConnectionManager:
-    """Gestiona conexiones WebSocket activas, indexadas por usuario"""
+    """Gestiona conexiones WebSocket activas, indexadas por (usuario, perfil).
+
+    El scope es por PERFIL: cada número de WhatsApp tiene su propio canal en
+    tiempo real, así los chats/notificaciones de un perfil no se filtran a otro.
+    """
 
     def __init__(self):
-        # usuario_id -> list[WebSocket]
-        self.active_connections: dict[int, list[WebSocket]] = {}
-        # WebSocket -> usuario_id (reverse lookup)
-        self._ws_to_user: dict[WebSocket, int] = {}
+        # (usuario_id, perfil_id) -> list[WebSocket]
+        self.active_connections: dict[tuple, list[WebSocket]] = {}
+        # WebSocket -> (usuario_id, perfil_id)
+        self._ws_to_key: dict[WebSocket, tuple] = {}
         # WebSocket -> asyncio.Task (heartbeat tasks)
         self._heartbeat_tasks: dict[WebSocket, asyncio.Task] = {}
 
@@ -30,57 +34,58 @@ class ConnectionManager:
     def total_connections(self) -> int:
         return sum(len(conns) for conns in self.active_connections.values())
 
-    async def connect(self, websocket: WebSocket, usuario_id: int):
-        """Accept and register a WebSocket connection for a specific user"""
+    async def connect(self, websocket: WebSocket, usuario_id: int, perfil_id: int = None):
+        """Accept and register a WebSocket connection for a user+profile"""
         await websocket.accept()
-        if usuario_id not in self.active_connections:
-            self.active_connections[usuario_id] = []
-        self.active_connections[usuario_id].append(websocket)
-        self._ws_to_user[websocket] = usuario_id
-        # Start heartbeat for this connection
+        key = (usuario_id, perfil_id)
+        self.active_connections.setdefault(key, []).append(websocket)
+        self._ws_to_key[websocket] = key
         task = asyncio.create_task(self._heartbeat(websocket))
         self._heartbeat_tasks[websocket] = task
         logger.info(
-            f"WS connected for user {usuario_id}. "
-            f"User connections: {len(self.active_connections[usuario_id])}, "
+            f"WS connected for user {usuario_id} perfil {perfil_id}. "
             f"Total: {self.total_connections}"
         )
 
     def disconnect(self, websocket: WebSocket):
         """Remove a WebSocket connection and clean up"""
-        usuario_id = self._ws_to_user.pop(websocket, None)
-        if usuario_id is not None and usuario_id in self.active_connections:
-            conns = self.active_connections[usuario_id]
+        key = self._ws_to_key.pop(websocket, None)
+        if key is not None and key in self.active_connections:
+            conns = self.active_connections[key]
             if websocket in conns:
                 conns.remove(websocket)
             if not conns:
-                del self.active_connections[usuario_id]
-        # Cancel heartbeat
+                del self.active_connections[key]
         task = self._heartbeat_tasks.pop(websocket, None)
         if task and not task.done():
             task.cancel()
-        logger.info(
-            f"WS disconnected (user {usuario_id}). Total: {self.total_connections}"
-        )
+        logger.info(f"WS disconnected (key {key}). Total: {self.total_connections}")
 
-    async def broadcast_to_user(self, usuario_id: int, event: str, data: dict):
-        """Send event only to connections belonging to a specific user"""
-        conns = self.active_connections.get(usuario_id)
+    async def _send_many(self, conns: list, event: str, data: dict):
         if not conns:
             return
-
         message = json.dumps(
             {"event": event, "data": data}, ensure_ascii=False, default=str
         )
         disconnected = []
-        for conn in conns:
+        for conn in list(conns):
             try:
                 await conn.send_text(message)
             except Exception:
                 disconnected.append(conn)
-
         for conn in disconnected:
             self.disconnect(conn)
+
+    async def broadcast_to_perfil(self, usuario_id: int, perfil_id: int, event: str, data: dict):
+        """Send event only to connections of a specific user+profile"""
+        await self._send_many(self.active_connections.get((usuario_id, perfil_id)), event, data)
+
+    async def broadcast_to_user(self, usuario_id: int, event: str, data: dict):
+        """Send event to ALL of a user's connections (every profile). For
+        user-level events (e.g. agent on/off). Chat events should use
+        broadcast_to_perfil to stay scoped to one number."""
+        conns = [c for (uid, _pid), cs in self.active_connections.items() if uid == usuario_id for c in cs]
+        await self._send_many(conns, event, data)
 
     async def broadcast_to_all(self, event: str, data: dict):
         """Send event to ALL connected clients (system-wide)"""

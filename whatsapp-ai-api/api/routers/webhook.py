@@ -202,7 +202,15 @@ async def whatsapp_webhook(request: Request):
             if phone:
                 if not phone.startswith("+"):
                     phone = f"+{phone}"
-                await ws_manager.broadcast_to_all("typing", {"telefono": phone})
+                from tenant import resolver_perfil_por_session
+                from models import SessionLocal as _SL
+                _db = _SL()
+                try:
+                    uid, pid = resolver_perfil_por_session(data.get("session", ""), _db)
+                finally:
+                    _db.close()
+                if uid is not None:
+                    await ws_manager.broadcast_to_perfil(uid, pid, "typing", {"telefono": phone})
             return Response(
                 content='{"status":"ok"}',
                 media_type="application/json",
@@ -228,7 +236,10 @@ async def whatsapp_webhook(request: Request):
                     from models import SessionLocal as _SessionLocal
 
                     _db = _SessionLocal()
+                    rev_uid, rev_pid = None, None
                     try:
+                        from tenant import resolver_perfil_por_session
+                        rev_uid, rev_pid = resolver_perfil_por_session(data.get("session", ""), _db)
                         who = "Tu" if from_me else "El cliente"
                         MessageService.add_system_event(
                             _db,
@@ -236,15 +247,19 @@ async def whatsapp_webhook(request: Request):
                             "mensaje_eliminado",
                             f"{who} elimino un mensaje",
                             metadata={"original": original, "from_me": from_me},
+                            usuario_id=rev_uid,
+                            perfil_id=rev_pid,
                         )
                     finally:
                         _db.close()
+                    if rev_uid is not None:
+                        await ws_manager.broadcast_to_perfil(
+                            rev_uid, rev_pid,
+                            "message_revoked",
+                            {"telefono": phone, "original": original, "from_me": from_me},
+                        )
                 except Exception as e:
                     logger.warning(f"Error guardando mensaje eliminado: {e}")
-                await ws_manager.broadcast_to_all(
-                    "message_revoked",
-                    {"telefono": phone, "original": original, "from_me": from_me},
-                )
             return Response(
                 content='{"status":"ok"}',
                 media_type="application/json",
@@ -297,7 +312,7 @@ async def whatsapp_webhook(request: Request):
 
             # Broadcast typing antes del mensaje (para que el frontend vea actividad)
             if not is_from_me:
-                await ws_manager.broadcast_to_user(usuario_id, "typing", {"telefono": from_number})
+                await ws_manager.broadcast_to_perfil(usuario_id, perfil_id, "typing", {"telefono": from_number})
 
             # Construir contenido del mensaje (con media y quoted)
             msg_content = incoming_msg
@@ -350,8 +365,9 @@ async def whatsapp_webhook(request: Request):
                         usuario_id=usuario_id,
                         perfil_id=perfil_id,
                     )
-                    await ws_manager.broadcast_to_user(
+                    await ws_manager.broadcast_to_perfil(
                         usuario_id,
+                        perfil_id,
                         "new_message",
                         {
                             "telefono": from_number,
@@ -432,8 +448,9 @@ async def whatsapp_webhook(request: Request):
         logger.info(f"Response: {respuesta[:100]}...")
 
         # Notificar via WebSocket la respuesta del agente
-        await ws_manager.broadcast_to_user(
+        await ws_manager.broadcast_to_perfil(
             usuario_id,
+            perfil_id,
             "new_message",
             {
                 "telefono": from_number,
