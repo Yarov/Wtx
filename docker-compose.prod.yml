@@ -55,10 +55,14 @@ services:
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required (openssl rand -hex 32)}
       WEBHOOK_TOKEN: ${WEBHOOK_TOKEN:-}
       REDIS_URL: redis://wtxredis:6379/0
-      WHATSAPP_API_URL: ${WHATSAPP_API_URL:-}
+      # WhatsApp bridge interno (multi-sesión por perfil)
+      WHATSAPP_API_URL: http://wtxbridge:3080
       WHATSAPP_API_KEY: ${WHATSAPP_API_KEY:-}
+      WEBHOOK_INTERNAL_URL: http://wtxapi:3000/api/webhook/whatsapp
       WHATSAPP_SESSION: ${WHATSAPP_SESSION:-default}
       CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS required (comma-separated origins, no '*')}
+    volumes:
+      - media_uploads:/app/uploads
     depends_on:
       wtxdb:
         condition: service_healthy
@@ -78,7 +82,7 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY required}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required (openssl rand -hex 32)}
       REDIS_URL: redis://wtxredis:6379/0
-      WHATSAPP_API_URL: ${WHATSAPP_API_URL:-}
+      WHATSAPP_API_URL: http://wtxbridge:3080
       WHATSAPP_API_KEY: ${WHATSAPP_API_KEY:-}
       WHATSAPP_SESSION: ${WHATSAPP_SESSION:-default}
     healthcheck:
@@ -89,6 +93,32 @@ services:
       wtxredis:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - internal
+
+  wtxbridge:
+    build:
+      context: ./whatsapp-bridge
+      dockerfile: Dockerfile
+    environment:
+      - PORT=3080
+      - API_KEY=${WHATSAPP_API_KEY:-}
+      - WEBHOOK_TOKEN=${WEBHOOK_TOKEN:-}
+      - LOG_LEVEL=info
+      - AUTH_STATE_DIR=/app/auth_data
+      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+    volumes:
+      - whatsapp_auth:/app/auth_data
+      - media_uploads:/app/uploads
+    shm_size: '256m'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     networks:
       - internal
 
@@ -108,6 +138,8 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  whatsapp_auth:
+  media_uploads:
 
 networks:
   coolify:

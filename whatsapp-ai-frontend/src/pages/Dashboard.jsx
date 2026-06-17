@@ -1,9 +1,13 @@
 import { Link } from 'react-router-dom'
-import { RefreshCw, AlertCircle, ChevronRight, ArrowUpRight, ArrowDownRight, Settings, Users, Bot, Zap, GitBranch, Star, Database, MessageSquare } from 'lucide-react'
+import { RefreshCw, AlertCircle, ChevronRight, ArrowUpRight, ArrowDownRight, Settings, Users, GitBranch, Database, MessageSquare } from 'lucide-react'
 import { useDashboard } from '../hooks'
+import { useAuth } from '../contexts/AuthContext'
+
+const VIOLET = '#8b5cf6'
+const FUCHSIA = '#d946ef'
 
 // Smooth SVG sparkline
-function Sparkline({ data, color = '#6366f1', h = 24, w = 72 }) {
+function Sparkline({ data, color = VIOLET, h = 24, w = 72 }) {
   if (!data || data.length < 2) return null
   const max = Math.max(...data, 1), min = Math.min(...data, 0), range = max - min || 1
   const pts = data.map((v, i) => ({ x: (i / (data.length - 1)) * w, y: h - ((v - min) / range) * (h - 4) - 2 }))
@@ -11,7 +15,7 @@ function Sparkline({ data, color = '#6366f1', h = 24, w = 72 }) {
   return <svg width={w} height={h}><path d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" /></svg>
 }
 
-// Smooth SVG area chart
+// Smooth SVG area chart (violet→fuchsia)
 function AreaChart({ data, h = 150 }) {
   if (!data || data.length < 2) return <p className="text-sm text-gray-300 text-center py-10">Necesita mas datos para mostrar tendencia</p>
   const vals = data.map(d => d.conversations), max = Math.max(...vals, 1)
@@ -20,10 +24,13 @@ function AreaChart({ data, h = 150 }) {
   return (
     <div>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ height: h }} className="w-full">
-        <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6366f1" stopOpacity="0.15" /><stop offset="100%" stopColor="#6366f1" stopOpacity="0" /></linearGradient></defs>
+        <defs>
+          <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={VIOLET} stopOpacity="0.18" /><stop offset="100%" stopColor={VIOLET} stopOpacity="0" /></linearGradient>
+          <linearGradient id="agl" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor={VIOLET} /><stop offset="100%" stopColor={FUCHSIA} /></linearGradient>
+        </defs>
         <path d={`${line} L 100 100 L 0 100 Z`} fill="url(#ag)" />
-        <path d={line} fill="none" stroke="#6366f1" strokeWidth="1.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-        <circle cx={pts[pts.length-1].x} cy={pts[pts.length-1].y} r="2.5" fill="#6366f1" vectorEffect="non-scaling-stroke" />
+        <path d={line} fill="none" stroke="url(#agl)" strokeWidth="1.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        <circle cx={pts[pts.length-1].x} cy={pts[pts.length-1].y} r="2.5" fill={FUCHSIA} vectorEffect="non-scaling-stroke" />
       </svg>
       <div className="flex justify-between text-[10px] text-gray-400 mt-1"><span>{data[0]?.day}</span><span>Hoy</span></div>
     </div>
@@ -32,6 +39,7 @@ function AreaChart({ data, h = 150 }) {
 
 export default function Dashboard() {
   const { stats, hotLeads, campaigns, trend, alerts, systemStatus, loading, refreshing, refresh } = useDashboard()
+  const { perfilActivo } = useAuth()
 
   const s = stats || {}
   const humanMode = s.contacts?.human_mode || 0
@@ -46,13 +54,21 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reportes</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-bold text-gray-900">Reportes</h1>
+            {perfilActivo && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-50 border border-violet-100 text-violet-700 text-xs font-semibold">
+                <span className="text-sm leading-none">{perfilActivo.emoji || '📱'}</span>
+                {perfilActivo.nombre}
+              </span>
+            )}
+          </div>
           <p className="text-gray-400 mt-0.5 text-sm capitalize">{today.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={refresh} disabled={refreshing} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50">
+          <button onClick={refresh} disabled={refreshing} className="p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg disabled:opacity-50">
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-full text-sm">
@@ -77,8 +93,8 @@ export default function Dashboard() {
 
       {/* Row 1: KPIs principales */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPI label="Nuevos leads" value={s.contacts?.new_today || 0} sub={`${s.contacts?.new_week || 0} esta semana`} sparkData={(trend||[]).map(d=>d.new_contacts)} sparkColor="#8b5cf6" link="/contactos" loading={loading} />
-        <KPI label="Mensajes hoy" value={s.messages?.today || 0} trend={(s.messages?.today||0)-(s.messages?.yesterday||0)} sparkData={sparkConvs} link="/conversations" loading={loading} />
+        <KPI label="Nuevos leads" value={s.contacts?.new_today || 0} sub={`${s.contacts?.new_week || 0} esta semana`} sparkData={(trend||[]).map(d=>d.new_contacts)} sparkColor={FUCHSIA} link="/contactos" loading={loading} />
+        <KPI label="Mensajes hoy" value={s.messages?.today || 0} trend={(s.messages?.today||0)-(s.messages?.yesterday||0)} sparkData={sparkConvs} sparkColor={VIOLET} link="/conversations" loading={loading} />
         <KPI label="Acciones IA" value={totalAiActions} sub="esta semana" loading={loading} />
         <KPI label="Base total" value={s.contacts?.total || 0} sub={`${s.contacts?.con_datos || 0} con datos capturados`} link="/contactos" loading={loading} />
       </div>
@@ -86,8 +102,8 @@ export default function Dashboard() {
       {/* Row 2: Rendimiento IA */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide">Rendimiento del agente IA (7 dias)</h3>
-          <Link to="/agent" className="text-xs text-indigo-600 font-medium flex items-center gap-1"><Settings className="h-3 w-3" /> Configurar</Link>
+          <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide">Rendimiento del agente (7 dias)</h3>
+          <Link to="/agent" className="text-xs text-violet-600 hover:text-fuchsia-600 font-medium flex items-center gap-1"><Settings className="h-3 w-3" /> Configurar</Link>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <AIMetric icon={MessageSquare} label="Respuestas" value={ai.responses_week || 0} total={ai.user_msgs_week || 0} desc="de mensajes respondidos" />
@@ -97,20 +113,25 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Row 3: Funnel */}
+      {/* Row 3: Camino del cliente */}
       {funnelEntries.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide">Funnel de ventas</h3>
-            <Link to="/funnel" className="text-xs text-indigo-600 font-medium flex items-center gap-1"><Settings className="h-3 w-3" /> Configurar</Link>
+            <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide">El camino del cliente</h3>
+            <Link to="/agent" className="text-xs text-violet-600 hover:text-fuchsia-600 font-medium flex items-center gap-1"><Settings className="h-3 w-3" /> Configurar</Link>
           </div>
           <div className="grid grid-cols-4 gap-3">
             {funnelEntries.map(([key, step], i) => {
               const pct = Math.round((step.count / funnelTotal) * 100)
-              const colors = ['from-blue-500 to-blue-600', 'from-indigo-500 to-indigo-600', 'from-violet-500 to-violet-600', 'from-purple-500 to-purple-600']
+              // Escala violet→fuchsia segun la etapa
+              const t = funnelEntries.length > 1 ? i / (funnelEntries.length - 1) : 0
               const hasContacts = step.count > 0
               return (
-                <div key={key} className={`rounded-xl p-4 text-center ${hasContacts ? `bg-gradient-to-br ${colors[i % colors.length]} text-white` : 'bg-gray-50 text-gray-400'}`}>
+                <div
+                  key={key}
+                  className={`rounded-xl p-4 text-center ${hasContacts ? 'text-white' : 'bg-gray-50 text-gray-400'}`}
+                  style={hasContacts ? { background: `linear-gradient(135deg, ${mix(VIOLET, FUCHSIA, t)}, ${mix(VIOLET, FUCHSIA, Math.min(t + 0.18, 1))})` } : undefined}
+                >
                   <p className={`text-2xl font-bold ${hasContacts ? '' : 'text-gray-300'}`}>{step.count}</p>
                   <p className={`text-xs mt-1 ${hasContacts ? 'text-white/80' : 'text-gray-400'}`}>{step.titulo}</p>
                   {pct > 0 && <p className={`text-[10px] mt-0.5 ${hasContacts ? 'text-white/60' : ''}`}>{pct}%</p>}
@@ -118,7 +139,6 @@ export default function Dashboard() {
               )
             })}
           </div>
-          {/* Prediccion simple */}
           {funnelEntries.length >= 2 && funnelEntries[0][1].count > 0 && (
             <div className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-500">
               <span className="font-medium text-gray-700">Prediccion: </span>
@@ -136,23 +156,20 @@ export default function Dashboard() {
 
       {/* Row 4: Grafico + Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Grafico */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-5">
           <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Tendencia de actividad</h3>
           <AreaChart data={trend} />
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-4">
-          {/* Hot leads */}
           {hotLeads?.length > 0 && (
             <div className="bg-white rounded-2xl border border-gray-100 p-5">
               <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Leads con mayor potencial</h3>
               <div className="space-y-2">
                 {hotLeads.slice(0, 5).map((lead, i) => (
-                  <Link to="/contactos" key={i} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-gray-50 -mx-2">
+                  <Link to="/contactos" key={i} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-violet-50 -mx-2">
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 ${
-                      lead.lead_score >= 70 ? 'bg-amber-500' : lead.lead_score >= 50 ? 'bg-indigo-500' : 'bg-indigo-300'
+                      lead.lead_score >= 70 ? 'bg-gradient-to-br from-violet-500 to-fuchsia-500' : lead.lead_score >= 50 ? 'bg-violet-500' : 'bg-violet-300'
                     }`}>{lead.lead_score}</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">{lead.nombre}</p>
@@ -164,15 +181,14 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Campanas */}
           {(s.campaigns?.total > 0 || campaigns?.activas?.length > 0) && (
             <Link to="/campanas" className="block bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-sm transition-shadow">
               <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Campanas</h3>
               {campaigns?.activas?.length > 0 ? (
                 campaigns.activas.map((c, i) => (
                   <div key={i} className="mb-2">
-                    <div className="flex justify-between text-xs mb-1"><span className="font-medium text-gray-700">{c.nombre}</span><span className="text-indigo-600">{c.enviados}/{c.total}</span></div>
-                    <div className="h-1.5 bg-gray-100 rounded-full"><div className="h-1.5 bg-indigo-500 rounded-full transition-all" style={{ width: `${c.total ? (c.enviados/c.total)*100 : 0}%` }} /></div>
+                    <div className="flex justify-between text-xs mb-1"><span className="font-medium text-gray-700">{c.nombre}</span><span className="text-violet-600">{c.enviados}/{c.total}</span></div>
+                    <div className="h-1.5 bg-gray-100 rounded-full"><div className="h-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full transition-all" style={{ width: `${c.total ? (c.enviados/c.total)*100 : 0}%` }} /></div>
                   </div>
                 ))
               ) : (
@@ -189,9 +205,18 @@ export default function Dashboard() {
   )
 }
 
+// Interpola entre dos colores hex (t: 0..1)
+function mix(a, b, t) {
+  const ah = a.replace('#', ''), bh = b.replace('#', '')
+  const ar = parseInt(ah.slice(0,2),16), ag = parseInt(ah.slice(2,4),16), ab = parseInt(ah.slice(4,6),16)
+  const br = parseInt(bh.slice(0,2),16), bg = parseInt(bh.slice(2,4),16), bb = parseInt(bh.slice(4,6),16)
+  const r = Math.round(ar + (br-ar)*t), g = Math.round(ag + (bg-ag)*t), bl = Math.round(ab + (bb-ab)*t)
+  return `rgb(${r},${g},${bl})`
+}
+
 function KPI({ label, value, trend, sub, sparkData, sparkColor, link, loading }) {
   const inner = (
-    <div className="bg-white rounded-2xl border border-gray-100 p-5">
+    <div className="bg-white rounded-2xl border border-gray-100 p-5 hover:border-violet-200 hover:shadow-sm transition-all">
       <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{label}</p>
       <div className="flex items-end justify-between mt-2">
         <div>
@@ -208,7 +233,7 @@ function KPI({ label, value, trend, sub, sparkData, sparkColor, link, loading })
   return link ? <Link to={link}>{inner}</Link> : inner
 }
 
-function AIMetric({ icon: Icon, label, value, total, desc, color = 'text-indigo-600' }) {
+function AIMetric({ icon: Icon, label, value, total, desc, color = 'text-violet-600' }) {
   return (
     <div className="text-center">
       <Icon className={`h-5 w-5 mx-auto mb-1.5 ${color}`} />
@@ -221,5 +246,5 @@ function AIMetric({ icon: Icon, label, value, total, desc, color = 'text-indigo-
 }
 
 function Dot({ on, label }) {
-  return <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${on ? 'text-indigo-700' : 'text-gray-500'}`}><span className={`h-2 w-2 rounded-full ${on ? 'bg-indigo-500 animate-pulse' : 'bg-gray-400'}`} />{label}</span>
+  return <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${on ? 'text-violet-700' : 'text-gray-500'}`}><span className={`h-2 w-2 rounded-full ${on ? 'bg-violet-500 animate-pulse' : 'bg-gray-400'}`} />{label}</span>
 }
