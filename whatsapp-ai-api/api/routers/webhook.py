@@ -271,21 +271,25 @@ async def whatsapp_webhook(request: Request):
         media_url = parsed.get("media_url")
         media_type = parsed.get("media_type")
         quoted_msg = parsed.get("quoted_msg")
+        session_name = parsed.get("session", "")
 
         # Single DB session for entire webhook processing
         from message_service import MessageService
         from models import SessionLocal as _SessionLocal, MensajeConversacion
         from datetime import datetime, timedelta
-        from tenant import resolver_usuario_por_telefono
+        from tenant import resolver_usuario_por_telefono, resolver_perfil_por_session
         from api.routers.perfiles import get_perfil_activo_id
 
         _db = _SessionLocal()
         perfil_id = None
         try:
-            # Resolver usuario_id (multi-tenancy)
-            usuario_id = resolver_usuario_por_telefono(from_number, _db)
-            # Resolver perfil del usuario para usar la sesión del bridge correcta
-            perfil_id = get_perfil_activo_id(_db, usuario_id)
+            # Routing: prefer the bridge session ("perfil_<id>") — it tells us
+            # exactly which profile (and owner) this WhatsApp number belongs to.
+            usuario_id, perfil_id = resolver_perfil_por_session(session_name, _db)
+            if usuario_id is None:
+                # Fallback: resolve by the contact's phone + the user's active profile.
+                usuario_id = resolver_usuario_por_telefono(from_number, _db)
+                perfil_id = get_perfil_activo_id(_db, usuario_id)
 
             logger.info(
                 f"{'Outgoing' if is_from_me else 'Message from'} {from_number} ({contact_name}) [user:{usuario_id}]: {incoming_msg[:80]}"
@@ -312,7 +316,7 @@ async def whatsapp_webhook(request: Request):
             # Guardar/actualizar contacto (solo para mensajes entrantes)
             if not is_from_me:
                 try:
-                    guardar_contacto_mensaje(from_number, contact_name, db=_db, usuario_id=usuario_id)
+                    guardar_contacto_mensaje(from_number, contact_name, db=_db, usuario_id=usuario_id, perfil_id=perfil_id)
                 except Exception as e:
                     logger.warning(f"Error guardando contacto: {e}")
 
@@ -344,6 +348,7 @@ async def whatsapp_webhook(request: Request):
                         msg_content,
                         metadata=msg_metadata if msg_metadata else None,
                         usuario_id=usuario_id,
+                        perfil_id=perfil_id,
                     )
                     await ws_manager.broadcast_to_user(
                         usuario_id,
@@ -421,7 +426,7 @@ async def whatsapp_webhook(request: Request):
 
         loop = asyncio.get_event_loop()
         respuesta = await loop.run_in_executor(
-            None, responder, incoming_msg, from_number, usuario_id
+            None, responder, incoming_msg, from_number, usuario_id, perfil_id
         )
 
         logger.info(f"Response: {respuesta[:100]}...")

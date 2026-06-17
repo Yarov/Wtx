@@ -4,9 +4,28 @@ Resolves which user owns a phone contact and provides user-scoped helpers.
 """
 import logging
 from sqlalchemy.orm import Session
-from models import Contacto, MensajeConversacion
+from models import Contacto, MensajeConversacion, Perfil
 
 logger = logging.getLogger(__name__)
+
+
+def resolver_perfil_por_session(session_name: str, db: Session):
+    """Resolve (usuario_id, perfil_id) from the bridge session name "perfil_<id>".
+
+    This is the authoritative routing: an incoming message arrived on the
+    WhatsApp session of a specific profile, so it belongs to that profile and
+    its owner. Returns (None, None) if the session name is not a valid profile.
+    """
+    if not session_name or not session_name.startswith("perfil_"):
+        return None, None
+    try:
+        perfil_id = int(session_name.split("_", 1)[1])
+    except (ValueError, IndexError):
+        return None, None
+    perfil = db.query(Perfil).filter(Perfil.id == perfil_id).first()
+    if not perfil:
+        return None, None
+    return perfil.usuario_id, perfil.id
 
 
 def resolver_usuario_por_telefono(telefono: str, db: Session) -> int:

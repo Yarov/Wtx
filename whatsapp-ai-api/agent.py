@@ -447,19 +447,19 @@ def _get_tools_availability_info(usuario_id: int = None) -> str:
 # ─── Main Responder ──────────────────────────────────────────────────────
 
 
-def _sync_to_legacy_memoria(db, telefono: str, usuario_id: int = 1):
+def _sync_to_legacy_memoria(db, telefono: str, usuario_id: int = 1, perfil_id: int = None):
     """Sincronizar mensajes nuevos a la tabla Memoria para compatibilidad"""
     from models import Memoria
     from message_service import MessageService
     from datetime import datetime
 
-    # Resolver perfil activo del usuario (background, sin header HTTP)
-    perfil_id = None
-    try:
-        from api.routers.perfiles import get_perfil_activo_id
-        perfil_id = get_perfil_activo_id(db, usuario_id)
-    except Exception:
-        perfil_id = None
+    # Si no viene el perfil, resolver el activo del usuario (background sin header)
+    if perfil_id is None:
+        try:
+            from api.routers.perfiles import get_perfil_activo_id
+            perfil_id = get_perfil_activo_id(db, usuario_id)
+        except Exception:
+            perfil_id = None
 
     msgs = MessageService.get_messages_for_ai(db, telefono, usuario_id=usuario_id, limit=20)
     memoria = db.query(Memoria).filter(Memoria.telefono == telefono).first()
@@ -552,7 +552,7 @@ def _build_orchestrator_context(db, telefono: str, usuario_id: int, historial: l
 # ─── Main Responder ──────────────────────────────────────────────────────
 
 
-def responder(mensaje: str, telefono: str, usuario_id: int = 1) -> str:
+def responder(mensaje: str, telefono: str, usuario_id: int = 1, perfil_id: int = None) -> str:
     """Orchestrated responder — classify intent, run skill, then GPT for text only.
 
     Flow:
@@ -572,6 +572,11 @@ def responder(mensaje: str, telefono: str, usuario_id: int = 1) -> str:
 
     db = SessionLocal()
     try:
+        # Resolve the profile this conversation belongs to (defaults to active).
+        if perfil_id is None:
+            from api.routers.perfiles import get_perfil_activo_id
+            perfil_id = get_perfil_activo_id(db, usuario_id)
+
         client = get_openai_client(usuario_id)
 
         # Migrate legacy messages
@@ -591,7 +596,7 @@ def responder(mensaje: str, telefono: str, usuario_id: int = 1) -> str:
             .first()
         )
         if not last or (datetime.utcnow() - last.created_at).total_seconds() > 5:
-            MessageService.add_message(db, telefono, "user", mensaje, usuario_id=usuario_id)
+            MessageService.add_message(db, telefono, "user", mensaje, usuario_id=usuario_id, perfil_id=perfil_id)
 
         # Load history
         historial = MessageService.get_messages_for_ai(db, telefono, usuario_id=usuario_id, limit=20)
@@ -623,9 +628,9 @@ def responder(mensaje: str, telefono: str, usuario_id: int = 1) -> str:
             farewell = "Te voy a comunicar con un asesor que te va a ayudar. Un momento por favor."
             MessageService.add_message(
                 db, telefono, "assistant", farewell,
-                metadata={"source": "ai", "skill": "human_handoff"}, usuario_id=usuario_id,
+                metadata={"source": "ai", "skill": "human_handoff"}, usuario_id=usuario_id, perfil_id=perfil_id,
             )
-            _sync_to_legacy_memoria(db, telefono, usuario_id)
+            _sync_to_legacy_memoria(db, telefono, usuario_id, perfil_id)
             return farewell
 
         # ── Build focused prompt ──
@@ -661,7 +666,7 @@ def responder(mensaje: str, telefono: str, usuario_id: int = 1) -> str:
         # ── Post-actions ──
         MessageService.add_message(
             db, telefono, "assistant", respuesta,
-            metadata={"source": "ai", "skill": intent.primary}, usuario_id=usuario_id,
+            metadata={"source": "ai", "skill": intent.primary}, usuario_id=usuario_id, perfil_id=perfil_id,
         )
 
         # Lead score update (only if not already done by skill)
@@ -671,7 +676,7 @@ def responder(mensaje: str, telefono: str, usuario_id: int = 1) -> str:
             update_lead_state(db, telefono, usuario_id)
 
         # Sync legacy
-        _sync_to_legacy_memoria(db, telefono, usuario_id)
+        _sync_to_legacy_memoria(db, telefono, usuario_id, perfil_id)
 
         return respuesta
 

@@ -288,6 +288,7 @@ def parse_webhook_message(data: dict) -> dict | None:
     if "payload" in data:
         payload = data.get("payload", {})
         event = data.get("event", "")
+        session = data.get("session", "")  # e.g. "perfil_5" — used for routing
 
         if event != "message":
             return None
@@ -321,6 +322,7 @@ def parse_webhook_message(data: dict) -> dict | None:
                 "media_url": media_url,
                 "media_type": media_type,
                 "quoted_msg": quoted_msg,
+                "session": session,
             }
 
     return None
