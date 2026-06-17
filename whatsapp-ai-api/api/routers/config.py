@@ -593,12 +593,8 @@ async def test_chat(
             # Build tools_called as descriptive list
             tools_called = []
             for e in new_events:
-                if e.tipo_evento == "media_enviada":
-                    tools_called.append(f"📷 {e.contenido}")
-                elif e.tipo_evento == "datos_guardados":
+                if e.tipo_evento == "datos_guardados":
                     tools_called.append(f"💾 {e.contenido}")
-                elif e.tipo_evento == "cita_agendada":
-                    tools_called.append(f"📅 {e.contenido}")
                 elif e.tipo_evento == "paso_avanzado":
                     tools_called.append(f"⬆️ {e.contenido}")
                 elif e.tipo_evento == "intervencion_humana":

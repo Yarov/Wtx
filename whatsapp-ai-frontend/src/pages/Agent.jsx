@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Bot, BookOpen, GitBranch, MessageCircle, Loader2, Check } from 'lucide-react'
-import PersonalityTab, {
+import {
+  Bot, BookOpen, UserRound, MessageCircle, Loader2, Check,
+  ChevronDown, Settings2, Route, X,
+} from 'lucide-react'
+import {
+  FichaSection,
+  HumanModeSection,
+  AdvancedSettingsSection,
   buildSectionsFromFicha,
   buildSystemPromptFromSections,
   deriveFichaFromSections,
@@ -8,6 +14,7 @@ import PersonalityTab, {
 import TestChat from '../components/agent/TestChat'
 import Conocimiento from './Conocimiento'
 import Funnel from './Funnel'
+import { useAuth } from '../contexts/AuthContext'
 import { promptApi, configApi, whatsappApi, conocimientoApi, funnelApi } from '../api/client'
 
 const DEFAULT_FICHA = {
@@ -33,15 +40,28 @@ const DEFAULT_HUMAN = {
   custom_triggers: '',
 }
 
-const TABS = [
-  { id: 'personality', label: 'Personalidad', icon: Bot },
-  { id: 'knowledge', label: 'Lo que sabe', icon: BookOpen },
-  { id: 'journey', label: 'El camino del cliente', icon: GitBranch },
-  { id: 'test', label: 'Probar', icon: MessageCircle },
-]
+/* Encabezado de sección numerada */
+function SectionHeader({ n, icon: Icon, title, subtitle }) {
+  return (
+    <div className="flex items-start gap-3 mb-5">
+      <div className="relative shrink-0">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+          <Icon className="h-5 w-5 text-white" />
+        </div>
+        <span className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-white border border-violet-200 text-violet-600 text-[11px] font-bold flex items-center justify-center shadow-sm">
+          {n}
+        </span>
+      </div>
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+        {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
+      </div>
+    </div>
+  )
+}
 
 export default function Agent() {
-  const [activeTab, setActiveTab] = useState('personality')
+  const { perfilActivo } = useAuth()
   const [ficha, setFicha] = useState(DEFAULT_FICHA)
   const [config, setConfig] = useState(DEFAULT_CONFIG)
   const [humanConfig, setHumanConfig] = useState(DEFAULT_HUMAN)
@@ -49,6 +69,8 @@ export default function Agent() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [testOpen, setTestOpen] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -148,15 +170,15 @@ export default function Agent() {
       return null
     }
     const labels = {
-      identity: 'darle personalidad a tu agente',
+      identity: 'darle personalidad a tu asistente',
       personality: 'darle nombre y describir tu negocio',
       knowledge: 'agregar información de tu negocio',
       funnel: 'definir el camino del cliente',
       capture: 'elegir qué datos capturar',
-      ai_config: 'ajustar la configuración del agente',
+      ai_config: 'ajustar la configuración del asistente',
       human_mode: 'configurar cuándo pasar a humano',
       whatsapp: 'conectar tu WhatsApp',
-      tools: 'activar las herramientas del agente',
+      tools: 'activar las herramientas del asistente',
     }
     const first = health.sections.find((s) => s.status !== 'ok')
     if (!first) return null
@@ -164,7 +186,6 @@ export default function Agent() {
   })()
 
   const handleSave = async () => {
-    if (activeTab !== 'personality') return
     setSaving(true)
     try {
       const sections = buildSectionsFromFicha(ficha)
@@ -199,7 +220,7 @@ export default function Agent() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <Loader2 className="h-10 w-10 text-violet-500 animate-spin mx-auto mb-4" />
-          <p className="text-gray-500">Cargando tu agente...</p>
+          <p className="text-gray-500">Cargando tu asistente...</p>
         </div>
       </div>
     )
@@ -208,16 +229,50 @@ export default function Agent() {
   const score = health?.score ?? 0
 
   return (
-    <div className="space-y-6 mx-auto pb-12">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tu Agente</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Enséñale a atender como lo harías tú</p>
+    <div className="max-w-3xl mx-auto pb-16">
+      {/* ─── Header ─── */}
+      <div className="space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl font-bold text-gray-900">Tu Agente</h1>
+              {perfilActivo && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-50 border border-violet-100 text-violet-700 text-xs font-medium">
+                  <span className="text-sm leading-none">{perfilActivo.emoji || '📱'}</span>
+                  <span className="max-w-[140px] truncate">{perfilActivo.nombre}</span>
+                </span>
+              )}
+            </div>
+            <p className="text-gray-500 text-sm mt-1">Enséñale a atender como lo harías tú</p>
+          </div>
+
+          {/* Acciones */}
+          <div className="flex items-center gap-2 shrink-0">
+            {saved && (
+              <span className="hidden sm:inline-flex items-center gap-1 text-sm text-emerald-600 font-medium">
+                <Check className="h-4 w-4" /> Guardado
+              </span>
+            )}
+            <button
+              onClick={() => setTestOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 transition-colors"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Probar
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 transition-all disabled:opacity-50 shadow-lg shadow-violet-500/25"
+            >
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              Guardar
+            </button>
+          </div>
         </div>
 
-        {/* Progress meter */}
-        <div className="w-full lg:max-w-sm">
+        {/* Medidor de progreso */}
+        <div className="rounded-2xl border border-gray-200 bg-white p-4">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs font-medium text-gray-500">Listo para atender</span>
             <span className="text-sm font-bold text-violet-600">{score}%</span>
@@ -233,87 +288,123 @@ export default function Agent() {
               Te falta: <span className="font-medium text-gray-700">{pending}</span>
             </p>
           ) : (
-            <p className="text-xs text-emerald-600 mt-1.5 font-medium">¡Todo listo! Tu agente está completo.</p>
+            <p className="text-xs text-emerald-600 mt-1.5 font-medium">¡Todo listo! Tu asistente está completo.</p>
           )}
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center justify-between border-b border-gray-200">
-        <nav className="flex gap-6 lg:gap-8 overflow-x-auto">
-          {TABS.map((tab) => {
-            const Icon = tab.icon
-            const isActive = activeTab === tab.id
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                  isActive
-                    ? 'border-violet-600 text-violet-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            )
-          })}
-        </nav>
-
-        {activeTab === 'personality' && (
-          <div className="hidden sm:flex items-center gap-3 pb-2">
-            {saved && (
-              <span className="inline-flex items-center gap-1 text-sm text-emerald-600 font-medium">
-                <Check className="h-4 w-4" /> Guardado
-              </span>
-            )}
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 transition-all disabled:opacity-50 shadow-lg shadow-violet-500/25"
-            >
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              Guardar
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Mobile save button */}
-      {activeTab === 'personality' && (
-        <div className="sm:hidden">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 transition-all disabled:opacity-50 shadow-lg shadow-violet-500/25"
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : null}
-            {saved ? 'Guardado' : 'Guardar'}
-          </button>
-        </div>
-      )}
-
-      {/* Content */}
-      {activeTab === 'personality' && (
-        <PersonalityTab
-          ficha={ficha}
-          setFicha={setFicha}
-          config={config}
-          setConfig={setConfig}
-          humanConfig={humanConfig}
-          setHumanConfig={setHumanConfig}
+      {/* ─── Sección 1 ─── */}
+      <section className="mt-12">
+        <SectionHeader
+          n={1}
+          icon={Bot}
+          title="¿Quién es tu asistente?"
+          subtitle="Cuéntale lo básico. Con esto sabrá cómo presentarse y atender a tus clientes."
         />
-      )}
+        <FichaSection ficha={ficha} setFicha={setFicha} config={config} setConfig={setConfig} />
+      </section>
 
-      {activeTab === 'knowledge' && <Conocimiento />}
+      {/* ─── Sección 2 ─── */}
+      <section className="mt-14 border-t border-gray-200 pt-10">
+        <SectionHeader
+          n={2}
+          icon={BookOpen}
+          title="¿Qué debe saber para responder?"
+          subtitle="Las preguntas y datos de tu negocio que tu asistente usa para responder bien."
+        />
+        <Conocimiento />
+      </section>
 
-      {activeTab === 'journey' && <Funnel />}
+      {/* ─── Sección 3 ─── */}
+      <section className="mt-14 border-t border-gray-200 pt-10">
+        <SectionHeader
+          n={3}
+          icon={UserRound}
+          title="¿Cuándo te paso la conversación a ti?"
+          subtitle="Cuando el cliente diga algo de esto, el asistente deja de responder y te avisa."
+        />
+        <HumanModeSection humanConfig={humanConfig} setHumanConfig={setHumanConfig} />
+      </section>
 
-      {activeTab === 'test' && (
-        <div className="max-w-2xl">
-          <TestChat embedded />
-        </div>
+      {/* ─── Sección final: Pruébalo ─── */}
+      <section id="probar" className="mt-14 border-t border-gray-200 pt-10">
+        <SectionHeader
+          n={4}
+          icon={MessageCircle}
+          title="Pruébalo"
+          subtitle="Escribe como si fueras un cliente y mira cómo responde tu asistente."
+        />
+        <TestChat embedded />
+      </section>
+
+      {/* ─── Opciones avanzadas ─── */}
+      <section className="mt-12">
+        <details
+          className="rounded-2xl border border-gray-200 bg-white overflow-hidden"
+          open={advancedOpen}
+          onToggle={(e) => setAdvancedOpen(e.currentTarget.open)}
+        >
+          <summary className="flex items-center justify-between px-5 py-4 cursor-pointer list-none select-none hover:bg-gray-50 transition-colors">
+            <span className="flex items-center gap-2.5 text-sm font-medium text-gray-700">
+              <Settings2 className="h-4 w-4 text-gray-400" />
+              Opciones avanzadas
+            </span>
+            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${advancedOpen ? 'rotate-180' : ''}`} />
+          </summary>
+
+          <div className="px-5 pb-8 pt-2 border-t border-gray-100 space-y-12">
+            {/* Ajustes técnicos */}
+            <div>
+              <h3 className="text-base font-semibold text-gray-900 mb-1">Ajustes técnicos</h3>
+              <p className="text-sm text-gray-500 mb-5">
+                Solo si quieres afinar cómo responde. Los valores recomendados ya están listos.
+              </p>
+              <AdvancedSettingsSection config={config} setConfig={setConfig} />
+            </div>
+
+            {/* El camino del cliente (funnel) */}
+            <div className="border-t border-gray-100 pt-8">
+              <div className="flex items-center gap-2 mb-1">
+                <Route className="h-4 w-4 text-violet-500" />
+                <h3 className="text-base font-semibold text-gray-900">El camino del cliente</h3>
+              </div>
+              <p className="text-sm text-gray-500 mb-5">
+                Las etapas por las que tu asistente lleva a cada cliente, de la primera conversación al cierre.
+              </p>
+              <Funnel />
+            </div>
+          </div>
+        </details>
+      </section>
+
+      {/* ─── Panel de prueba (lateral) ─── */}
+      {testOpen && (
+        <>
+          <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setTestOpen(false)} />
+          <div
+            className="fixed top-0 right-0 h-full w-full max-w-md bg-gray-50 shadow-2xl z-50 flex flex-col"
+            style={{ animation: 'slideIn 0.2s ease-out' }}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-white">
+              <h3 className="font-semibold text-gray-900">Probar tu asistente</h3>
+              <button
+                onClick={() => setTestOpen(false)}
+                className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <TestChat embedded />
+            </div>
+          </div>
+          <style>{`
+            @keyframes slideIn {
+              from { transform: translateX(100%); }
+              to { transform: translateX(0); }
+            }
+          `}</style>
+        </>
       )}
     </div>
   )
