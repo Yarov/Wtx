@@ -170,11 +170,8 @@ export default function Layout() {
       const response = await businessApi.getModules()
       setModules(response.data.modules)
       setModulesLoaded(true)
-      
-      // Si no ha completado onboarding, redirigir a setup
-      if (!response.data.onboarding_completed) {
-        navigate('/setup')
-      }
+      // Onboarding wizard disabled: SaaS flow goes straight to the dashboard.
+      // Per-profile setup will live in each profile instead.
     } catch (error) {
       console.error('Error loading modules:', error)
       setModulesLoaded(true)
