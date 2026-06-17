@@ -106,16 +106,25 @@ async def marcar_respondido(telefono: str):
             CampanaDestinatario.contacto_id == contacto.id,
             CampanaDestinatario.estado == "enviado"
         ).all()
-        
+
+        if not destinatarios:
+            return
+
+        # Batch load all related campaigns in one query instead of N queries
+        campana_ids = list({dest.campana_id for dest in destinatarios})
+        campanas = db.query(Campana).filter(Campana.id.in_(campana_ids)).all()
+        campana_map = {c.id: c for c in campanas}
+
+        ahora = datetime.utcnow()
         for dest in destinatarios:
             dest.estado = "respondido"
-            dest.respondido_at = datetime.utcnow()
-            
+            dest.respondido_at = ahora
+
             # Actualizar contador de la campaña
-            campana = db.query(Campana).filter(Campana.id == dest.campana_id).first()
+            campana = campana_map.get(dest.campana_id)
             if campana:
                 campana.respondidos = (campana.respondidos or 0) + 1
-        
+
         db.commit()
         
     except Exception as e:

@@ -2,9 +2,10 @@ const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
 
 export class WebhookForwarder {
-  constructor(logger) {
+  constructor(logger, token = "") {
     this.logger = logger;
     this.webhookUrl = null;
+    this.token = token;
   }
 
   setUrl(url) {
@@ -24,9 +25,13 @@ export class WebhookForwarder {
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
+        const headers = { "Content-Type": "application/json" };
+        if (this.token) {
+          headers["X-Webhook-Token"] = this.token;
+        }
         const response = await fetch(this.webhookUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(payload),
           signal: AbortSignal.timeout(10000),
         });

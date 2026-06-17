@@ -3,7 +3,7 @@ Stats Router - Dashboard metrics and analytics
 """
 import json
 from fastapi import APIRouter, Depends
-from models import SessionLocal, Cita, Inventario, Memoria, Usuario
+from models import SessionLocal, Memoria, Usuario
 from auth import get_current_user
 
 router = APIRouter(
@@ -13,16 +13,15 @@ router = APIRouter(
 )
 
 
-@router.get("/", summary="Get dashboard stats", description="Retrieve key metrics including total conversations, appointments, products and messages.")
+@router.get("/", summary="Get dashboard stats", description="Retrieve key metrics including total conversations and messages.")
 async def get_stats(current_user: Usuario = Depends(get_current_user)):
     """Get system statistics"""
     db = SessionLocal()
     try:
-        conversations = db.query(Memoria).count()
-        appointments = db.query(Cita).count()
-        products = db.query(Inventario).count()
-        
-        memorias = db.query(Memoria).all()
+        uid = current_user.id
+        conversations = db.query(Memoria).filter(Memoria.usuario_id == uid).count()
+
+        memorias = db.query(Memoria).filter(Memoria.usuario_id == uid).all()
         total_messages = 0
         for m in memorias:
             if m.historial:
@@ -31,11 +30,9 @@ async def get_stats(current_user: Usuario = Depends(get_current_user)):
                     total_messages += len(historial)
                 except:
                     pass
-        
+
         return {
             "totalConversations": conversations,
-            "totalAppointments": appointments,
-            "totalProducts": products,
             "totalMessages": total_messages,
         }
     finally:
@@ -54,13 +51,16 @@ async def get_jobs_status(current_user: Usuario = Depends(get_current_user)):
         redis_ok = health_check()
         jobs_en_cola = contar_jobs_pendientes() if redis_ok else 0
         
-        # Jobs activos
+        # Jobs activos (scoped al tenant)
         jobs_activos = db.query(BackgroundJob).filter(
+            BackgroundJob.usuario_id == current_user.id,
             BackgroundJob.estado.in_(["pendiente", "procesando"])
         ).all()
-        
-        # Últimos 10 jobs
-        ultimos_jobs = db.query(BackgroundJob).order_by(
+
+        # Últimos 10 jobs (scoped al tenant)
+        ultimos_jobs = db.query(BackgroundJob).filter(
+            BackgroundJob.usuario_id == current_user.id
+        ).order_by(
             BackgroundJob.created_at.desc()
         ).limit(10).all()
         

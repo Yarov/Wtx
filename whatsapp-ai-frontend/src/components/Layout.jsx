@@ -4,11 +4,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { toolsApi, businessApi } from '../api/client'
 import useSecretReset from '../hooks/useSecretReset'
 import FactoryResetModal from './FactoryResetModal'
-import { 
-  LayoutDashboard, 
-  Package, 
-  Calendar,
-  Clock,
+import {
+  LayoutDashboard,
   MessagesSquare,
   Bot,
   LogOut,
@@ -16,22 +13,37 @@ import {
   Zap,
   Menu,
   X,
-  Smartphone
+  Smartphone,
+  BookOpen,
+  GitBranch,
+  FileText,
+  Settings,
+  BarChart3,
+  MessageSquare,
+  Users,
+  Send
 } from 'lucide-react'
 
-const BASE_NAVIGATION = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard, always: true },
-  { name: 'Agente IA', href: '/agent', icon: Bot, always: true },
-  { name: 'Contactos', href: '/contactos', icon: User, always: true },
-  { name: 'Campañas', href: '/campanas', icon: Zap, always: true },
-  { name: 'Inventario', href: '/inventory', icon: Package, module: 'inventory' },
-  { name: 'Citas', href: '/appointments', icon: Calendar, module: 'appointments' },
+const MAIN_NAVIGATION = [
+  { name: 'Reportes', href: '/', icon: LayoutDashboard, always: true },
   { name: 'Conversaciones', href: '/conversations', icon: MessagesSquare, always: true },
+  { name: 'Clientes', href: '/contactos', icon: User, always: true },
+  { name: 'Campañas', href: '/campanas', icon: Zap, always: true },
 ]
 
 const CONFIG_NAVIGATION = [
   { name: 'WhatsApp', href: '/whatsapp', icon: Smartphone, always: true },
-  { name: 'Horarios', href: '/schedule', icon: Clock, module: 'schedule' },
+  { name: 'Agente IA', href: '/agent', icon: Bot, always: true },
+  { name: 'Conocimiento', href: '/conocimiento', icon: BookOpen, always: true },
+  { name: 'Funnel', href: '/funnel', icon: GitBranch, always: true },
+]
+
+// Bottom nav items for mobile (5 slots: 4 primary + "Más")
+const BOTTOM_NAV_ITEMS = [
+  { name: 'Reportes', href: '/', icon: BarChart3, always: true },
+  { name: 'Chats', href: '/conversations', icon: MessageSquare, always: true },
+  { name: 'Clientes', href: '/contactos', icon: Users, always: true },
+  { name: 'Campañas', href: '/campanas', icon: Send, always: true },
 ]
 
 export default function Layout() {
@@ -40,9 +52,10 @@ export default function Layout() {
   const location = useLocation()
   const [agentEnabled, setAgentEnabled] = useState(true)
   const [agentLoading, setAgentLoading] = useState(false)
-  const [modules, setModules] = useState({ inventory: true, appointments: true, schedule: true })
+  const [modules, setModules] = useState({})
   const [modulesLoaded, setModulesLoaded] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false)
 
   // Secret factory reset: Cmd + K (solo admins)
   const [resetModalOpen, setResetModalOpen] = useSecretReset(isAdmin)
@@ -51,7 +64,18 @@ export default function Layout() {
     loadAgentStatus()
     loadModules()
     setSidebarOpen(false)
+    setMoreMenuOpen(false)
   }, [location.pathname])
+
+  // Lock body scroll when more menu is open
+  useEffect(() => {
+    if (moreMenuOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [moreMenuOpen])
 
   useEffect(() => {
     const handleModulesChanged = () => loadModules()
@@ -85,13 +109,30 @@ export default function Layout() {
   }
 
   // Filtrar navegación según módulos activos
-  const mainNavigation = BASE_NAVIGATION.filter(item => 
+  const mainNavigation = MAIN_NAVIGATION.filter(item => 
     item.always || (item.module && modules[item.module])
   )
   
   const configNavigation = CONFIG_NAVIGATION.filter(item => 
     item.always || (item.module && modules[item.module])
   )
+
+  // Items shown in the "Más" overlay — everything not in bottom nav
+  const moreMenuMain = mainNavigation.filter(
+    item => !BOTTOM_NAV_ITEMS.some(bn => bn.href === item.href)
+  )
+
+  // Check if any "more menu" item is currently active (to highlight the "Más" icon)
+  const moreMenuAllItems = [...moreMenuMain, ...configNavigation]
+  const isMoreActive = moreMenuAllItems.some(item => {
+    if (item.href === '/') return location.pathname === '/'
+    return location.pathname.startsWith(item.href)
+  })
+
+  const isPathActive = (href) => {
+    if (href === '/') return location.pathname === '/'
+    return location.pathname.startsWith(href)
+  }
 
   const toggleAgent = async () => {
     setAgentLoading(true)

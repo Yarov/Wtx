@@ -18,7 +18,10 @@ const logger = pino({
 });
 
 // --- Webhook forwarder ---
-const webhook = new WebhookForwarder(logger.child({ module: "webhook" }));
+const webhook = new WebhookForwarder(
+  logger.child({ module: "webhook" }),
+  process.env.WEBHOOK_TOKEN || ""
+);
 
 // --- Session ---
 const session = new Session(

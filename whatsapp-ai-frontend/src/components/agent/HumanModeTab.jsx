@@ -53,7 +53,7 @@ export default function HumanModeTab({ config, setConfig, onSave }) {
           Triggers automáticos
         </label>
         <p className="text-xs text-gray-500 mb-3">
-          La IA activará el modo humano cuando detecte estas situaciones:
+          Cuando un cliente usa estas palabras, se activa la atención humana y el agente deja de responder
         </p>
         <div className="grid grid-cols-2 gap-3">
           {TRIGGERS.map((trigger) => (
@@ -144,8 +144,8 @@ export default function HumanModeTab({ config, setConfig, onSave }) {
             Enter para agregar
           </span>
         </div>
-        <p className="text-xs text-gray-500 mt-2">
-          Si el cliente menciona alguna de estas palabras, se activará el modo humano.
+        <p className="text-xs text-gray-400 mt-2">
+          Palabras adicionales que activan modo humano. El sistema usa IA para evitar falsos positivos
         </p>
       </div>
 

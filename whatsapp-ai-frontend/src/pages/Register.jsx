@@ -125,16 +125,6 @@ export default function Register() {
             <p className="text-gray-500">Comienza tu prueba gratuita hoy</p>
           </div>
 
-          {/* Admin notice */}
-          <div className="mb-6 p-3 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center gap-3">
-            <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
-              <Shield className="h-4 w-4 text-indigo-600" />
-            </div>
-            <p className="text-sm text-indigo-700">
-              El primer usuario será <strong>administrador</strong>
-            </p>
-          </div>
-
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />

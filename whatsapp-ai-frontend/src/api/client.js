@@ -38,6 +38,9 @@ export const configApi = {
   updateApiKeys: (data) => api.put('/config/api-keys', data),
   getHumanModeConfig: () => api.get('/config/human-mode'),
   updateHumanModeConfig: (data) => api.put('/config/human-mode', data),
+  testChat: (mensaje, reset = false) => api.post('/config/test-chat', { mensaje, reset }),
+  agentHealth: () => api.get('/config/agent-health'),
+  getSkillsStatus: () => api.get('/config/skills-status'),
 }
 
 export const whatsappApi = {
@@ -118,36 +121,47 @@ export const promptApi = {
   improvePrompt: (data) => api.post('/config/prompt/improve', data),
 }
 
-export const inventoryApi = {
-  getProducts: () => api.get('/inventory'),
-  createProduct: (data) => api.post('/inventory', data),
-  updateProduct: (id, data) => api.put(`/inventory/${id}`, data),
-  deleteProduct: (id) => api.delete(`/inventory/${id}`),
-  uploadInventory: (formData) => api.post('/inventory/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }),
-  confirmImport: (data) => api.post('/inventory/import', data),
-}
-
-export const appointmentsApi = {
-  getAppointments: () => api.get('/appointments'),
-  updateStatus: (id, estado) => api.patch(`/appointments/${id}/status`, { estado }),
-  deleteAppointment: (id) => api.delete(`/appointments/${id}`),
-}
-
-export const availabilityApi = {
-  getAvailability: () => api.get('/appointments/availability'),
-  updateAvailability: (id, data) => api.put(`/appointments/availability/${id}`, data),
-  getBlockedSlots: () => api.get('/appointments/blocked-slots'),
-  addBlockedSlot: (data) => api.post('/appointments/blocked-slots', data),
-  deleteBlockedSlot: (id) => api.delete(`/appointments/blocked-slots/${id}`),
-  getAvailableSlots: (fecha) => api.get(`/appointments/available-slots/${fecha}`),
-}
-
 export const conversationsApi = {
   getConversations: () => api.get('/conversations'),
-  getConversation: (phone) => api.get(`/conversations/${phone}`),
+  getConversation: (phone, params = {}) => api.get(`/conversations/${phone}`, { params }),
   deleteConversation: (phone) => api.delete(`/conversations/${phone}`),
+  sendMessage: (phone, message) => api.post(`/conversations/${phone}/send`, { message }),
+  markAsRead: (phone) => api.post(`/conversations/${phone}/read`),
+}
+
+export const conocimientoApi = {
+  list: () => api.get('/conocimiento'),
+  get: (id) => api.get(`/conocimiento/${id}`),
+  create: (data) => api.post('/conocimiento', data),
+  update: (id, data) => api.put(`/conocimiento/${id}`, data),
+  delete: (id) => api.delete(`/conocimiento/${id}`),
+  stats: () => api.get('/conocimiento/stats'),
+  categories: () => api.get('/conocimiento/categories'),
+  search: (q) => api.get('/conocimiento/search', { params: { q } }),
+  sync: () => api.post('/conocimiento/sync'),
+}
+
+export const funnelApi = {
+  getSteps: () => api.get('/funnel/steps'),
+  getStep: (id) => api.get(`/funnel/steps/${id}`),
+  createStep: (data) => api.post('/funnel/steps', data),
+  updateStep: (id, data) => api.put(`/funnel/steps/${id}`, data),
+  deleteStep: (id) => api.delete(`/funnel/steps/${id}`),
+  advanceContact: (telefono) => api.post(`/funnel/contacts/${telefono}/advance`),
+  setContactStep: (telefono, stepName) => api.put(`/funnel/contacts/${telefono}/step`, null, { params: { step_name: stepName } }),
+  stats: () => api.get('/funnel/stats'),
+}
+
+export const captureApi = {
+  getFields: () => api.get('/capture/fields'),
+  createField: (data) => api.post('/capture/fields', data),
+  updateField: (id, data) => api.put(`/capture/fields/${id}`, data),
+  deleteField: (id) => api.delete(`/capture/fields/${id}`),
+}
+
+export const agentConfigApi = {
+  get: () => api.get('/config/agent-config'),
+  update: (data) => api.put('/config/agent-config', data),
 }
 
 export const statsApi = {
@@ -156,8 +170,12 @@ export const statsApi = {
 
 export const dashboardApi = {
   getStats: () => api.get('/dashboard/stats'),
-  getActivity: (limit = 20) => api.get('/dashboard/activity', { params: { limit } }),
   getAlerts: () => api.get('/dashboard/alerts'),
+  getHotLeads: () => api.get('/dashboard/hot-leads'),
+  getCampaigns: () => api.get('/dashboard/campaigns-summary'),
+  getTrend: () => api.get('/dashboard/trend'),
+  // Legacy
+  getActivity: (limit = 20) => api.get('/dashboard/activity', { params: { limit } }),
   getInsights: () => api.get('/dashboard/insights'),
 }
 

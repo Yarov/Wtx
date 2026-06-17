@@ -6,15 +6,14 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import Agent from './pages/Agent'
-import Inventory from './pages/Inventory'
-import Appointments from './pages/Appointments'
 import Conversations from './pages/Conversations'
-import Schedule from './pages/Schedule'
 import Contactos from './pages/Contactos'
 import Campanas from './pages/Campanas'
 import CampanaNueva from './pages/CampanaNueva'
 import Setup from './pages/Setup'
 import WhatsAppConfig from './pages/WhatsAppConfig'
+import Conocimiento from './pages/Conocimiento'
+import Funnel from './pages/Funnel'
 
 function App() {
   return (
@@ -28,14 +27,13 @@ function App() {
           <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="agent" element={<Agent />} />
-            <Route path="inventory" element={<Inventory />} />
-            <Route path="appointments" element={<Appointments />} />
             <Route path="conversations" element={<Conversations />} />
             <Route path="contactos" element={<Contactos />} />
             <Route path="campanas" element={<Campanas />} />
             <Route path="campanas/nueva" element={<CampanaNueva />} />
-            <Route path="schedule" element={<Schedule />} />
             <Route path="whatsapp" element={<WhatsAppConfig />} />
+            <Route path="conocimiento" element={<Conocimiento />} />
+            <Route path="funnel" element={<Funnel />} />
           </Route>
         </Routes>
       </AuthProvider>

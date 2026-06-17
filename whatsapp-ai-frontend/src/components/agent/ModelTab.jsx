@@ -33,6 +33,8 @@ const MODELS = [
   },
 ]
 
+import Toggle from '../Toggle'
+
 export default function ModelTab({ config, setConfig }) {
   const selectedModel = MODELS.find(m => m.value === config.model) || MODELS[0]
 
@@ -101,7 +103,7 @@ export default function ModelTab({ config, setConfig }) {
               </div>
               <span className="text-2xl font-bold text-orange-600">{config.temperature}</span>
             </div>
-            
+
             <input
               type="range"
               min="0"
@@ -111,11 +113,12 @@ export default function ModelTab({ config, setConfig }) {
               onChange={(e) => setConfig({ ...config, temperature: parseFloat(e.target.value) })}
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500"
             />
-            
+
             <div className="flex justify-between mt-2 text-xs text-gray-500">
               <span>Preciso (0.0)</span>
               <span>Creativo (1.0)</span>
             </div>
+            <p className="text-xs text-gray-400 mt-2">Controla qué tan creativo es el agente. Más bajo = más predecible, más alto = más variado</p>
           </div>
 
           {/* Max Tokens */}
@@ -127,7 +130,7 @@ export default function ModelTab({ config, setConfig }) {
               </div>
               <span className="text-2xl font-bold text-blue-600">{config.max_tokens}</span>
             </div>
-            
+
             <input
               type="range"
               min="100"
@@ -137,11 +140,12 @@ export default function ModelTab({ config, setConfig }) {
               onChange={(e) => setConfig({ ...config, max_tokens: parseInt(e.target.value) })}
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
             />
-            
+
             <div className="flex justify-between mt-2 text-xs text-gray-500">
               <span>Corto (~75 palabras)</span>
               <span>Largo (~1500 palabras)</span>
             </div>
+            <p className="text-xs text-gray-400 mt-2">Largo máximo de respuesta. 300-500 para respuestas cortas, 500-800 para detalladas</p>
           </div>
 
           {/* Delay */}
@@ -188,6 +192,37 @@ export default function ModelTab({ config, setConfig }) {
                 {selectedModel.value.includes('mini') || selectedModel.value.includes('3.5') ? '1-2' : '2-4'}s
               </p>
               <p className="text-xs text-indigo-600">+ {config.response_delay || 3}s de espera</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Orchestrator Mode */}
+      <section>
+        <div className="bg-gradient-to-r from-violet-50 to-indigo-50 rounded-xl border border-violet-200 p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-semibold text-gray-900">Modo Orquestador</h3>
+                <span className="px-2 py-0.5 text-xs font-medium bg-violet-100 text-violet-700 rounded-full">
+                  Beta
+                </span>
+              </div>
+              <p className="text-sm text-gray-600 mb-2">
+                Clasificación inteligente de intención antes de responder. El agente detecta qué quiere el cliente
+                y ejecuta la acción de forma determinística antes de generar la respuesta.
+              </p>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="px-2 py-1 bg-green-100 text-green-700 rounded-md">Respuestas más precisas</span>
+                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md">Menos errores con tools</span>
+                <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-md">1 sola llamada a IA</span>
+              </div>
+            </div>
+            <div className="ml-4">
+              <Toggle
+                enabled={config.orchestrator_mode || false}
+                onChange={() => setConfig({ ...config, orchestrator_mode: !config.orchestrator_mode })}
+              />
             </div>
           </div>
         </div>

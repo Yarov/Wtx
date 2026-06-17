@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     libxrandr2 \
     xdg-utils \
     curl \
+    gosu \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
@@ -32,9 +33,11 @@ RUN npm ci --omit=dev 2>/dev/null || npm install --omit=dev
 
 COPY . .
 
-RUN mkdir -p /app/auth_data && chown -R node:node /app /app/auth_data
+RUN mkdir -p /app/auth_data /app/uploads/received && chown -R node:node /app
 
-USER node
+# Entrypoint: fix volume permissions at runtime, then drop to node user
+RUN printf '#!/bin/sh\nmkdir -p /app/uploads/received\nchown -R node:node /app/uploads 2>/dev/null || true\nexec gosu node "$@"\n' > /app/entrypoint.sh && \
+    chmod +x /app/entrypoint.sh
 
 ENV NODE_ENV=production
 ENV PORT=3080
@@ -45,4 +48,5 @@ EXPOSE 3080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD curl -f http://localhost:3080/health || exit 1
 
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["node", "src/index.js"]

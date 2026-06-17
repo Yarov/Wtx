@@ -13,6 +13,22 @@ const ESTADOS = [
   { value: 'modo_humano', label: 'Modo Humano' },
 ]
 
+const LEAD_STATES = [
+  { value: '', label: 'Todos', color: '' },
+  { value: 'nuevo', label: 'Nuevos', color: 'bg-blue-100 text-blue-700' },
+  { value: 'contactado', label: 'Contactados', color: 'bg-yellow-100 text-yellow-700' },
+  { value: 'calificado', label: 'Calificados', color: 'bg-orange-100 text-orange-700' },
+  { value: 'interesado', label: 'Interesados', color: 'bg-green-100 text-green-700' },
+  { value: 'negociacion', label: 'Negociacion', color: 'bg-purple-100 text-purple-700' },
+  { value: 'cerrado', label: 'Cerrados', color: 'bg-emerald-100 text-emerald-700' },
+  { value: 'perdido', label: 'Perdidos', color: 'bg-red-100 text-red-700' },
+]
+
+function getLeadColor(estado) {
+  const found = LEAD_STATES.find(s => s.value === estado)
+  return found?.color || 'bg-gray-100 text-gray-700'
+}
+
 export default function Contactos() {
   const { user } = useAuth()
   const [contactos, setContactos] = useState([])
@@ -26,6 +42,7 @@ export default function Contactos() {
   // Filtros
   const [buscar, setBuscar] = useState('')
   const [estado, setEstado] = useState('')
+  const [estadoLead, setEstadoLead] = useState('')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   
@@ -265,12 +282,12 @@ export default function Contactos() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Contactos</h1>
-          <p className="text-gray-500 text-sm">Gestiona tus contactos de WhatsApp</p>
+          <h1 className="text-2xl font-bold text-gray-900">CRM de Clientes</h1>
+          <p className="text-gray-500 mt-1">Gestiona y visualiza todos tus contactos en un solo lugar</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary" onClick={handleExport}>
@@ -292,16 +309,14 @@ export default function Contactos() {
             <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
             Sincronizar
           </Button>
-          {user?.is_admin && (
-            <Button 
-              variant="secondary" 
-              onClick={() => setShowDeleteAllConfirm(true)}
-              className="text-red-600 hover:bg-red-50"
-            >
-              <AlertTriangle className="h-4 w-4 mr-2" />
-              Eliminar todos
-            </Button>
-          )}
+          <Button
+            variant="secondary"
+            onClick={() => setShowDeleteAllConfirm(true)}
+            className="text-red-600 hover:bg-red-50"
+          >
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            Eliminar todos
+          </Button>
           <Button onClick={openCreateModal}>
             <Plus className="h-4 w-4 mr-2" />
             Agregar
@@ -364,24 +379,36 @@ export default function Contactos() {
         </div>
       )}
 
-      {/* Stats */}
+      {/* Pipeline Stats */}
       <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-          <p className="text-sm text-gray-500">Total</p>
+          <p className="text-sm text-gray-500">Total contactos</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <p className="text-2xl font-bold text-indigo-600">{stats.activos}</p>
           <p className="text-sm text-gray-500">Activos</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <p className="text-2xl font-bold text-amber-600">{stats.inactivos}</p>
           <p className="text-sm text-gray-500">Inactivos</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-2xl font-bold text-red-600">{stats.sin_actividad_30d || 0}</p>
-          <p className="text-sm text-gray-500">Sin actividad 30d</p>
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <p className="text-2xl font-bold text-red-600">{stats.modo_humano || 0}</p>
+          <p className="text-sm text-gray-500">Modo humano</p>
         </div>
+      </div>
+
+      {/* Lead State Filter Tabs */}
+      <div className="flex gap-2">
+        {LEAD_STATES.map(ls => (
+          <button key={ls.value} onClick={() => setEstadoLead(ls.value)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              estadoLead === ls.value ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}>
+            {ls.label}
+          </button>
+        ))}
       </div>
 
       {/* Filters */}
@@ -393,13 +420,13 @@ export default function Contactos() {
             placeholder="Buscar por teléfono o nombre..."
             value={buscar}
             onChange={(e) => setBuscar(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
         <select
           value={estado}
           onChange={(e) => { setEstado(e.target.value); setPage(1) }}
-          className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+          className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           {ESTADOS.map((e) => (
             <option key={e.value} value={e.value}>{e.label}</option>
@@ -408,10 +435,10 @@ export default function Contactos() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 text-violet-500 animate-spin" />
+            <Loader2 className="h-8 w-8 text-indigo-500 animate-spin" />
           </div>
         ) : contactos.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
@@ -423,53 +450,59 @@ export default function Contactos() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Cliente</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Contacto</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Último mensaje</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Mensajes</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Estado</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Lead Score</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Bot</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {contactos.map((contact) => (
+              {contactos.filter(c => !estadoLead || (c.estado_lead || 'nuevo') === estadoLead).map((contact) => (
                 <tr key={contact.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center">
+                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-700 font-semibold">
                         {contact.foto_url ? (
                           <img src={contact.foto_url} alt="" className="w-10 h-10 rounded-full object-cover" />
                         ) : (
-                          <User className="h-5 w-5 text-violet-600" />
+                          (contact.nombre || contact.telefono || '?')[0]?.toUpperCase()
                         )}
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">{contact.nombre || 'Sin nombre'}</p>
-                        <p className="text-sm text-gray-500">{contact.telefono}</p>
+                        <p className="text-xs text-gray-400">{contact.email || ''}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
-                    {formatDate(contact.ultimo_mensaje)}
+                    {contact.telefono}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {contact.total_mensajes || 0}
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getLeadColor(contact.estado_lead)}`}>
+                      {(contact.estado_lead || 'nuevo').charAt(0).toUpperCase() + (contact.estado_lead || 'nuevo').slice(1)}
+                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        contact.estado === 'activo' ? 'bg-indigo-100 text-indigo-700' :
-                        contact.estado === 'inactivo' ? 'bg-amber-100 text-amber-700' :
-                        'bg-red-100 text-red-700'
-                      }`}>
-                        {contact.estado}
-                      </span>
-                      {contact.modo_humano && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
-                          <UserRound className="h-3 w-3" />
-                          Humano
-                        </span>
-                      )}
+                      <div className="w-16 bg-gray-200 rounded-full h-1.5">
+                        <div className={`h-1.5 rounded-full ${(contact.lead_score || 0) >= 50 ? 'bg-green-500' : 'bg-yellow-500'}`}
+                          style={{ width: `${contact.lead_score || 0}%` }} />
+                      </div>
+                      <span className="text-sm text-gray-600">{contact.lead_score || 0}%</span>
                     </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {contact.modo_humano ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                        <UserRound className="h-3 w-3" /> Humano
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                        Activo
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">

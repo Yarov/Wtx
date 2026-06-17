@@ -27,6 +27,55 @@ export function createRouter(session, webhook, logger) {
     }
   });
 
+  // POST /api/sendImage
+  router.post("/api/sendImage", async (req, res) => {
+    const { chatId, url, caption, viewOnce } = req.body;
+
+    if (!chatId || !url) {
+      return res.status(400).json({ error: "chatId and url are required" });
+    }
+
+    if (session.getStatus() !== "WORKING") {
+      return res
+        .status(503)
+        .json({ error: "Session not connected", status: session.getStatus() });
+    }
+
+    try {
+      const result = await session.sendImage(chatId, url, caption || "", viewOnce !== false);
+      res.json(result);
+    } catch (err) {
+      logger.error({ err, chatId, url }, "sendImage failed");
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/sendTyping - simular "escribiendo..."
+  router.post("/api/sendTyping", async (req, res) => {
+    const { chatId, duration } = req.body;
+
+    if (!chatId) {
+      return res.status(400).json({ error: "chatId is required" });
+    }
+
+    if (session.getStatus() !== "WORKING") {
+      return res.status(503).json({ error: "Session not connected" });
+    }
+
+    try {
+      await session.sendTypingState(chatId, true);
+      // Mantener typing por la duracion indicada (default 3s)
+      const ms = Math.min((duration || 3) * 1000, 10000);
+      setTimeout(async () => {
+        try { await session.sendTypingState(chatId, false); } catch {}
+      }, ms);
+      res.json({ ok: true });
+    } catch (err) {
+      logger.error({ err, chatId }, "sendTyping failed");
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/sessions/start
   router.post("/api/sessions/start", async (req, res) => {
     const { config } = req.body || {};

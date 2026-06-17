@@ -1,51 +1,17 @@
 import { useState, useEffect } from 'react'
-import { 
-  Wrench, Package, Calendar, Eye, XCircle, PenLine, UserRound,
-  MessageCircle, Brain, Zap, CheckCircle2, Send
+import {
+  Wrench, UserRound,
+  MessageCircle, Brain, Zap, CheckCircle2
 } from 'lucide-react'
 import Toggle from '../Toggle'
 
 const TOOL_META = {
-  consultar_inventario: { 
-    name: 'Consultar Inventario', 
-    icon: Package, 
-    color: 'purple',
-    trigger: 'Cliente pregunta por productos, precios o disponibilidad',
-    examples: ['¿Qué servicios tienen?', '¿Cuánto cuesta el corte?', '¿Tienen tinte disponible?']
-  },
-  agendar_cita: { 
-    name: 'Agendar Cita', 
-    icon: Calendar, 
-    color: 'blue',
-    trigger: 'Cliente quiere reservar una cita o turno',
-    examples: ['Quiero agendar para mañana', '¿Tienen espacio el viernes?', 'Reservar a las 3pm']
-  },
-  ver_citas: { 
-    name: 'Ver Citas', 
-    icon: Eye, 
-    color: 'sky',
-    trigger: 'Cliente pregunta por sus citas existentes',
-    examples: ['¿Cuándo es mi cita?', '¿Tengo algo agendado?', '¿A qué hora era mi turno?']
-  },
-  cancelar_cita: { 
-    name: 'Cancelar Cita', 
-    icon: XCircle, 
-    color: 'red',
-    trigger: 'Cliente quiere cancelar una cita',
-    examples: ['Quiero cancelar mi cita', 'Ya no puedo ir', 'Cancela mi turno']
-  },
-  modificar_cita: { 
-    name: 'Modificar Cita', 
-    icon: PenLine, 
-    color: 'amber',
-    trigger: 'Cliente quiere cambiar fecha, hora o servicio',
-    examples: ['¿Puedo cambiar mi cita?', 'Quiero agregar otro servicio', 'Cambiar a las 5pm']
-  },
-  transferir_a_humano: { 
-    name: 'Transferir a Humano', 
-    icon: UserRound, 
+  transferir_a_humano: {
+    name: 'Transferir a Humano',
+    icon: UserRound,
     color: 'indigo',
     trigger: 'Cliente frustrado, queja, solicita hablar con persona',
+    description: 'Transfiere la conversación a un asesor humano cuando el cliente lo necesite',
     examples: ['Quiero hablar con alguien', 'Estoy muy molesto', 'Esto es inaceptable']
   },
 }
@@ -291,6 +257,9 @@ export default function ToolsTab({ tools, onToggle }) {
                   <p className={`text-sm transition-colors ${tool.enabled ? 'text-gray-600' : 'text-gray-400'}`}>
                     {meta.trigger}
                   </p>
+                  {meta.description && (
+                    <p className="text-xs text-gray-400 mt-0.5">{meta.description}</p>
+                  )}
                   
                   {/* Examples - visible on hover or when active */}
                   {meta.examples && (

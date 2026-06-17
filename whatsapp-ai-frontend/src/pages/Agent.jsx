@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MessageSquare, Wrench, Settings, Brain, Zap, Loader2, RotateCcw, UserRound } from 'lucide-react'
+import { Zap, MessageSquare, Loader2, RotateCcw } from 'lucide-react'
 import Button from '../components/Button'
-import { PersonalityTab, ToolsTab, ModelTab, HumanModeTab } from '../components/agent'
+import Toggle from '../components/Toggle'
+import { PersonalityTab, SkillsTab, TestChat } from '../components/agent'
 import { toolsApi, promptApi, businessApi, configApi } from '../api/client'
 import { ConfirmDialog } from '../components/ui'
 
 const DEFAULT_SECTIONS = {
   role: 'Eres un asistente virtual profesional especializado en atención al cliente.',
-  context: 'Trabajas para un negocio que atiende clientes via WhatsApp. Tienes acceso a herramientas para agendar citas y consultar inventario.',
-  task: 'Tu objetivo es ayudar a los clientes a agendar citas, responder preguntas sobre servicios y precios, y ofrecer una experiencia de atención excepcional.',
+  context: 'Trabajas para un negocio que atiende clientes via WhatsApp.',
+  task: 'Tu objetivo es responder preguntas de los clientes, brindar información sobre el negocio y ofrecer una experiencia de atención excepcional.',
   constraints: 'No inventes información. Si no sabes algo, indícalo. No compartas datos de otros clientes. Responde siempre en español.',
   tone: 'Mantén un tono amigable, profesional y cercano. Usa emojis con moderación. Sé conciso pero cálido.',
 }
@@ -25,10 +26,11 @@ const DEFAULT_CONFIG = {
 
 export default function Agent() {
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState('personality')
+  const [activeTab, setActiveTab] = useState('skills')
   const [sections, setSections] = useState(DEFAULT_SECTIONS)
   const [config, setConfig] = useState(DEFAULT_CONFIG)
   const [tools, setTools] = useState([])
+  const [skills, setSkills] = useState({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -39,7 +41,7 @@ export default function Agent() {
     triggers: ['frustration', 'complaint', 'human_request'],
     custom_triggers: '',
   })
-  const [editMode, setEditMode] = useState('sections') // 'sections' or 'manual'
+  const [editMode, setEditMode] = useState('sections')
   const [manualPrompt, setManualPrompt] = useState('')
 
   const handleRestartOnboarding = async () => {
@@ -58,8 +60,7 @@ export default function Agent() {
 
   const loadData = async () => {
     setLoading(true)
-    
-    // Load prompt config (independent, don't block tools)
+
     try {
       const promptRes = await promptApi.getPrompt()
       if (promptRes.data) {
@@ -74,7 +75,6 @@ export default function Agent() {
           business_name: promptRes.data.business_name || DEFAULT_CONFIG.business_name,
           business_type: promptRes.data.business_type || DEFAULT_CONFIG.business_type,
         })
-        // Load edit mode and manual prompt
         if (promptRes.data.edit_mode) {
           setEditMode(promptRes.data.edit_mode)
         }
@@ -85,8 +85,7 @@ export default function Agent() {
     } catch (error) {
       console.error('Error loading prompt:', error)
     }
-    
-    // Load tools (independent)
+
     try {
       const toolsRes = await toolsApi.getTools()
       setTools(toolsRes.data.map(t => ({
@@ -97,8 +96,7 @@ export default function Agent() {
     } catch (error) {
       console.error('Error loading tools:', error)
     }
-    
-    // Load human mode config
+
     try {
       const humanRes = await configApi.getHumanModeConfig()
       if (humanRes.data) {
@@ -107,7 +105,19 @@ export default function Agent() {
     } catch (error) {
       console.error('Error loading human mode config:', error)
     }
-    
+
+    try {
+      const skillsRes = await configApi.getSkillsStatus()
+      if (skillsRes.data) {
+        setSkills(skillsRes.data.skills || {})
+        if (skillsRes.data.orchestrator_mode !== undefined) {
+          setConfig(prev => ({ ...prev, orchestrator_mode: skillsRes.data.orchestrator_mode }))
+        }
+      }
+    } catch (error) {
+      console.error('Error loading skills status:', error)
+    }
+
     setLoading(false)
   }
 
@@ -135,9 +145,8 @@ ${sections.tone}
   const handleSave = async () => {
     setSaving(true)
     try {
-      // Build the prompt based on edit mode
       const systemPrompt = editMode === 'manual' ? manualPrompt : buildFullPrompt()
-      
+
       await Promise.all([
         promptApi.updatePrompt({
           system_prompt: systemPrompt,
@@ -157,224 +166,221 @@ ${sections.tone}
     }
   }
 
-  const handleToggleTool = async (id) => {
-    const tool = tools.find(t => t.id === id)
-    const newEnabled = !tool.enabled
-    
-    // Optimistic update
-    setTools(tools.map(t => t.id === id ? { ...t, enabled: newEnabled } : t))
-    
+  const handleToggleSkill = async (skillName) => {
+    const skill = skills[skillName]
+    if (!skill) return
+
+    const newEnabled = !skill.enabled
+
+    const SKILL_TO_TOOL = {}
+
+    const toolId = SKILL_TO_TOOL[skillName]
+    if (!toolId) return
+
+    setSkills(prev => ({
+      ...prev,
+      [skillName]: { ...prev[skillName], enabled: newEnabled }
+    }))
+
     try {
-      await toolsApi.toggleTool(id, newEnabled)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
-      // Notificar al Layout que recargue los módulos
+      await toolsApi.toggleTool(toolId, newEnabled)
       window.dispatchEvent(new Event('modules-changed'))
     } catch (error) {
-      console.error('Error toggling tool:', error)
-      // Revert on error
-      setTools(tools.map(t => t.id === id ? { ...t, enabled: !newEnabled } : t))
+      console.error('Error toggling skill:', error)
+      setSkills(prev => ({
+        ...prev,
+        [skillName]: { ...prev[skillName], enabled: !newEnabled }
+      }))
     }
   }
 
-  const enabledToolsCount = tools.filter(t => t.enabled).length
-
   const tabs = [
-    { 
-      id: 'personality', 
-      label: 'Personalidad', 
-      icon: MessageSquare,
-      color: 'violet',
-      description: 'Define cómo se comporta tu agente'
-    },
-    { 
-      id: 'tools', 
-      label: 'Herramientas', 
-      icon: Wrench,
-      color: 'blue',
-      badge: enabledToolsCount,
-      description: 'Capacidades del agente'
-    },
-    { 
-      id: 'model', 
-      label: 'Modelo IA', 
-      icon: Settings,
-      color: 'emerald',
-      description: 'Configuración técnica'
-    },
-    { 
-      id: 'human_mode', 
-      label: 'Modo Humano', 
-      icon: UserRound,
-      color: 'orange',
-      description: 'Transferencia a atención humana'
-    },
+    { id: 'skills', label: 'Skills', icon: Zap },
+    { id: 'personality', label: 'Personalidad', icon: MessageSquare },
   ]
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <Loader2 className="h-10 w-10 text-violet-500 animate-spin mx-auto mb-4" />
-          <p className="text-gray-500">Cargando configuración...</p>
+          <Loader2 className="h-10 w-10 text-indigo-500 animate-spin mx-auto mb-4" />
+          <p className="text-gray-500">Cargando configuracion...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-20">
+    <div className="space-y-6 mx-auto pb-20">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Configuración del Agente</h1>
-          <p className="text-gray-500 text-sm">Define la personalidad, capacidades y comportamiento de tu IA</p>
+          <h1 className="text-2xl font-bold text-gray-900">Agente IA</h1>
+          <p className="text-gray-500 text-sm">Configura el comportamiento y capacidades de tu agente</p>
         </div>
-        <button
-          onClick={() => setShowRestartConfirm(true)}
-          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
-        >
-          <RotateCcw className="h-4 w-4" />
-          Reiniciar asistente
-        </button>
-      </div>
-
-      {/* Sticky Save Bar */}
-      <div className="fixed bottom-0 left-64 right-0 bg-white border-t border-gray-200 px-8 py-4 z-20">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <p className="text-sm text-gray-500">
-            Los cambios no se guardan automáticamente
-          </p>
-          <div className="flex items-center gap-3">
-            {saved && (
-              <span className="text-sm text-indigo-600 font-medium">
-                ✓ Guardado correctamente
-              </span>
-            )}
-            <Button onClick={handleSave} loading={saving}>
-              Guardar Cambios
-            </Button>
-          </div>
+        <div className="flex items-center gap-3">
+          {saved && (
+            <span className="text-sm text-indigo-600 font-medium">
+              Guardado
+            </span>
+          )}
+          <Button onClick={handleSave} loading={saving}>
+            {saved ? 'Guardado' : 'Guardar'}
+          </Button>
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4 hover:shadow-md transition-shadow">
-          <div className="p-3 bg-violet-100 rounded-xl">
-            <Brain className="h-6 w-6 text-violet-600" />
-          </div>
-          <div>
-            <p className="text-xl font-bold text-gray-900">{config.model.replace('gpt-', '').replace('-', ' ')}</p>
-            <p className="text-sm text-gray-500">Modelo IA</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4 hover:shadow-md transition-shadow">
-          <div className="p-3 bg-blue-100 rounded-xl">
-            <Wrench className="h-6 w-6 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-xl font-bold text-gray-900">{enabledToolsCount} de {tools.length}</p>
-            <p className="text-sm text-gray-500">Herramientas activas</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4 hover:shadow-md transition-shadow">
-          <div className="p-3 bg-indigo-100 rounded-xl">
-            <Zap className="h-6 w-6 text-indigo-600" />
-          </div>
-          <div>
-            <p className="text-xl font-bold text-gray-900">{config.temperature}</p>
-            <p className="text-sm text-gray-500">Nivel de creatividad</p>
-          </div>
-        </div>
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="flex gap-8">
+          {tabs.map(tab => {
+            const Icon = tab.icon
+            const isActive = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors ${
+                  isActive
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            )
+          })}
+        </nav>
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="border-b border-gray-200">
-          <nav className="flex">
-            {tabs.map((tab) => {
-              const Icon = tab.icon
-              const isActive = activeTab === tab.id
-              
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 text-sm font-medium transition-all relative ${
-                    isActive 
-                      ? `text-${tab.color}-600 bg-${tab.color}-50/50` 
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                  }`}
+      {/* Tab Content */}
+      {activeTab === 'skills' && (
+        <SkillsTab
+          skills={skills}
+          onToggleSkill={handleToggleSkill}
+          humanConfig={humanModeConfig}
+          setHumanConfig={setHumanModeConfig}
+        />
+      )}
+
+      {activeTab === 'personality' && (
+        <div className="space-y-8">
+          <PersonalityTab
+            sections={sections}
+            setSections={setSections}
+            config={config}
+            setConfig={setConfig}
+            manualPrompt={manualPrompt}
+            setManualPrompt={setManualPrompt}
+            editMode={editMode}
+            setEditMode={setEditMode}
+          />
+
+          {/* Model Settings Inline */}
+          <div className="border-t border-gray-200 pt-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">Modelo y Parametros</h2>
+            <p className="text-sm text-gray-500 mb-6">Configuracion tecnica del agente</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Model Selector */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Modelo</label>
+                <select
+                  value={config.model}
+                  onChange={(e) => setConfig({ ...config, model: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 >
-                  <Icon className={`h-5 w-5 ${isActive ? `text-${tab.color}-600` : ''}`} />
-                  <span>{tab.label}</span>
-                  {tab.badge !== undefined && (
-                    <span className={`px-2 py-0.5 text-xs rounded-full ${
-                      isActive 
-                        ? `bg-${tab.color}-100 text-${tab.color}-700` 
-                        : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {tab.badge}
-                    </span>
-                  )}
-                  {isActive && (
-                    <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-${tab.color}-600`} />
-                  )}
-                </button>
-              )
-            })}
-          </nav>
-        </div>
+                  <option value="gpt-4o-mini">GPT-4o Mini (rapido, economico)</option>
+                  <option value="gpt-4o">GPT-4o (mas inteligente)</option>
+                  <option value="gpt-4-turbo">GPT-4 Turbo (alta capacidad)</option>
+                  <option value="gpt-3.5-turbo">GPT-3.5 Turbo (basico)</option>
+                </select>
+              </div>
 
-        {/* Tab Content */}
-        <div className="p-6 lg:p-8">
-          {activeTab === 'personality' && (
-            <PersonalityTab
-              sections={sections}
-              setSections={setSections}
-              config={config}
-              setConfig={setConfig}
-              manualPrompt={manualPrompt}
-              setManualPrompt={setManualPrompt}
-              editMode={editMode}
-              setEditMode={setEditMode}
-            />
-          )}
-          
-          {activeTab === 'tools' && (
-            <ToolsTab
-              tools={tools}
-              onToggle={handleToggleTool}
-            />
-          )}
-          
-          {activeTab === 'model' && (
-            <ModelTab
-              config={config}
-              setConfig={setConfig}
-            />
-          )}
-          
-          {activeTab === 'human_mode' && (
-            <HumanModeTab
-              config={humanModeConfig}
-              setConfig={setHumanModeConfig}
-            />
-          )}
+              {/* Temperature */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Creatividad: {config.temperature}
+                </label>
+                <input
+                  type="range" min="0" max="1" step="0.1"
+                  value={config.temperature}
+                  onChange={(e) => setConfig({ ...config, temperature: parseFloat(e.target.value) })}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                />
+                <div className="flex justify-between mt-1 text-xs text-gray-400">
+                  <span>Preciso</span>
+                  <span>Creativo</span>
+                </div>
+              </div>
+
+              {/* Max Tokens */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Largo maximo: {config.max_tokens} tokens
+                </label>
+                <input
+                  type="range" min="100" max="2000" step="100"
+                  value={config.max_tokens}
+                  onChange={(e) => setConfig({ ...config, max_tokens: parseInt(e.target.value) })}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                />
+                <div className="flex justify-between mt-1 text-xs text-gray-400">
+                  <span>Corto</span>
+                  <span>Largo</span>
+                </div>
+              </div>
+
+              {/* Response Delay */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Espera antes de responder: {config.response_delay}s
+                </label>
+                <input
+                  type="range" min="0" max="10" step="1"
+                  value={config.response_delay || 3}
+                  onChange={(e) => setConfig({ ...config, response_delay: parseInt(e.target.value) })}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                />
+                <div className="flex justify-between mt-1 text-xs text-gray-400">
+                  <span>Inmediato</span>
+                  <span>10s</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Spacer */}
+            <div className="mt-6">
+            </div>
+          </div>
+
+          {/* Restart Onboarding */}
+          <div className="border-t border-gray-200 pt-6">
+            <button
+              onClick={() => setShowRestartConfirm(true)}
+              className="text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1.5 transition-colors"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reiniciar asistente de configuracion
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <ConfirmDialog
         isOpen={showRestartConfirm}
         onClose={() => setShowRestartConfirm(false)}
         onConfirm={handleRestartOnboarding}
-        title="¿Reiniciar configuración?"
-        message="Esto te llevará al asistente de configuración inicial. Tu configuración actual se mantendrá hasta que la modifiques."
+        title="Reiniciar configuracion?"
+        message="Esto te llevara al asistente de configuracion inicial. Tu configuracion actual se mantendra hasta que la modifiques."
         confirmText="Reiniciar"
         cancelText="Cancelar"
         variant="warning"
       />
+
+      {/* Test Chat Widget */}
+      <TestChat />
     </div>
   )
 }

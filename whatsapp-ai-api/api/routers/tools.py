@@ -24,7 +24,7 @@ class ToolToggle(BaseModel):
 @router.get("", summary="List AI tools", description="Get all available AI agent tools/functions with their enabled status.")
 async def get_tools(current_user: Usuario = Depends(get_current_user)):
     try:
-        tools = get_all_tools_config()
+        tools = get_all_tools_config(usuario_id=current_user.id)
         return [
             {"id": t["nombre"], "enabled": t["habilitado"], "description": t["descripcion"]}
             for t in tools
@@ -38,7 +38,10 @@ async def get_tools(current_user: Usuario = Depends(get_current_user)):
 async def get_tool(name: str, current_user: Usuario = Depends(get_current_user)):
     db = SessionLocal()
     try:
-        tool = db.query(ToolsConfig).filter(ToolsConfig.nombre == name).first()
+        tool = db.query(ToolsConfig).filter(
+            ToolsConfig.nombre == name,
+            ToolsConfig.usuario_id == current_user.id,
+        ).first()
         if not tool:
             raise HTTPException(status_code=404, detail=f"Tool '{name}' not found")
         return {
@@ -59,10 +62,15 @@ async def get_tool(name: str, current_user: Usuario = Depends(get_current_user))
 async def toggle_tool(name: str, data: ToolToggle, current_user: Usuario = Depends(get_current_user)):
     db = SessionLocal()
     try:
-        tool = db.query(ToolsConfig).filter(ToolsConfig.nombre == name).first()
+        tool = db.query(ToolsConfig).filter(
+            ToolsConfig.nombre == name,
+            ToolsConfig.usuario_id == current_user.id,
+        ).first()
         if not tool:
-            raise HTTPException(status_code=404, detail=f"Tool '{name}' not found")
-        tool.habilitado = data.enabled
+            tool = ToolsConfig(nombre=name, usuario_id=current_user.id, habilitado=data.enabled)
+            db.add(tool)
+        else:
+            tool.habilitado = data.enabled
         db.commit()
         return {"status": "ok", "id": name, "enabled": data.enabled}
     except HTTPException:

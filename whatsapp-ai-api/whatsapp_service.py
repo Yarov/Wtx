@@ -37,8 +37,10 @@ class WhatsAppService:
         if not self.is_configured():
             return {"success": False, "error": "WhatsApp no configurado"}
 
-        # Normalizar teléfono (quitar + y espacios)
-        phone = phone.replace("+", "").replace(" ", "").replace("-", "")
+        # Normalizar teléfono (quitar +, espacios, y sufijos LID)
+        phone = (
+            phone.replace("+", "").replace(" ", "").replace("-", "").replace("@lid", "")
+        )
 
         # Agregar sufijo @c.us si no lo tiene
         if not phone.endswith("@c.us") and not phone.endswith("@s.whatsapp.net"):
@@ -61,6 +63,39 @@ class WhatsAppService:
 
         except Exception as e:
             logger.error(f"Error enviando mensaje: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def send_image(self, phone: str, image_url: str, caption: str = "") -> dict:
+        """Enviar imagen via WhatsApp bridge"""
+        self.reload_config()
+        if not self.is_configured():
+            return {"success": False, "error": "WhatsApp no configurado"}
+
+        phone = (
+            phone.replace("+", "").replace(" ", "").replace("-", "").replace("@lid", "")
+        )
+        if not phone.endswith("@c.us") and not phone.endswith("@s.whatsapp.net"):
+            phone = f"{phone}@c.us"
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                url = f"{self.api_url}/api/sendImage"
+                payload = {
+                    "chatId": phone,
+                    "url": image_url,
+                    "caption": caption,
+                    "session": self.session,
+                }
+                response = await client.post(
+                    url, json=payload, headers=self._get_headers()
+                )
+                if response.status_code in [200, 201]:
+                    return {"success": True, "data": response.json()}
+                else:
+                    logger.error(f"Error enviando imagen: {response.text}")
+                    return {"success": False, "error": response.text}
+        except Exception as e:
+            logger.error(f"Error enviando imagen: {e}")
             return {"success": False, "error": str(e)}
 
     async def get_contacts(self) -> dict:
@@ -249,36 +284,43 @@ def parse_webhook_message(data: dict) -> dict | None:
     Parsear mensaje entrante de WAHA
     Retorna dict con: phone, message, name o None si no es mensaje válido
     """
-    # Formato WAHA
+    # Formato WAHA / Bridge
     if "payload" in data:
         payload = data.get("payload", {})
         event = data.get("event", "")
 
-        # Solo procesar mensajes de texto entrantes (no message.any para evitar duplicados)
         if event != "message":
-            return None
-
-        # Ignorar mensajes salientes
-        if payload.get("fromMe", False):
             return None
 
         phone = payload.get("from", "")
         message = payload.get("body", "")
         name = payload.get("pushName", payload.get("notifyName", ""))
+        from_me = payload.get("fromMe", False)
+        media_url = payload.get("mediaUrl", None)
+        media_type = payload.get("mediaType", None)
+        quoted_msg = payload.get("quotedMsg", None)
 
-        if phone and message:
+        if phone and (message or media_url):
             # Ignorar grupos
             if "@g.us" in phone:
                 return None
 
-            # Limpiar teléfono
-            phone_clean = phone.replace("@c.us", "").replace("@s.whatsapp.net", "")
+            # Limpiar teléfono (soporta @c.us, @s.whatsapp.net y @lid)
+            phone_clean = (
+                phone.replace("@c.us", "")
+                .replace("@s.whatsapp.net", "")
+                .replace("@lid", "")
+            )
             return {
                 "phone": f"+{phone_clean}"
                 if not phone_clean.startswith("+")
                 else phone_clean,
                 "message": message,
                 "name": name,
+                "from_me": from_me,
+                "media_url": media_url,
+                "media_type": media_type,
+                "quoted_msg": quoted_msg,
             }
 
     return None

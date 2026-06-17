@@ -56,14 +56,20 @@ def normalizar_telefono(telefono: str) -> str:
         return limpio
 
 
-def buscar_contacto_por_telefono(db: Session, telefono: str):
-    """Busca contacto por teléfono normalizado"""
+def buscar_contacto_por_telefono(db: Session, telefono: str, usuario_id: int = None):
+    """Busca contacto por teléfono normalizado. Tries with and without + prefix."""
     telefono_norm = normalizar_telefono(telefono)
-    
-    # Buscar por teléfono normalizado
-    contacto = db.query(Contacto).filter(Contacto.telefono == telefono_norm).first()
-    
-    return contacto
+    # Also try without + prefix (some contacts stored without it)
+    telefono_sin_plus = telefono_norm.lstrip("+")
+
+    from sqlalchemy import or_
+    query = db.query(Contacto).filter(
+        or_(Contacto.telefono == telefono_norm, Contacto.telefono == telefono_sin_plus)
+    )
+    if usuario_id is not None:
+        query = query.filter(Contacto.usuario_id == usuario_id)
+
+    return query.first()
 
 
 @router.get("", summary="List contacts", description="Retrieve contacts with optional filters by status, search term, tag or inactivity days. Supports pagination.")
@@ -77,8 +83,8 @@ async def listar_contactos(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    query = db.query(Contacto)
-    
+    query = db.query(Contacto).filter(Contacto.usuario_id == current_user.id)
+
     # Filtro por estado
     if estado:
         query = query.filter(Contacto.estado == estado)
@@ -127,14 +133,15 @@ async def stats_contactos(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    total = db.query(Contacto).count()
-    activos = db.query(Contacto).filter(Contacto.estado == "activo").count()
-    inactivos = db.query(Contacto).filter(Contacto.estado == "inactivo").count()
-    bloqueados = db.query(Contacto).filter(Contacto.estado == "bloqueado").count()
-    
+    base = db.query(Contacto).filter(Contacto.usuario_id == current_user.id)
+    total = base.count()
+    activos = base.filter(Contacto.estado == "activo").count()
+    inactivos = base.filter(Contacto.estado == "inactivo").count()
+    bloqueados = base.filter(Contacto.estado == "bloqueado").count()
+
     # Inactivos últimos 30 días
     fecha_30_dias = datetime.utcnow() - timedelta(days=30)
-    sin_actividad_30d = db.query(Contacto).filter(
+    sin_actividad_30d = base.filter(
         or_(
             Contacto.ultimo_mensaje < fecha_30_dias,
             Contacto.ultimo_mensaje.is_(None)
@@ -164,13 +171,13 @@ async def eliminar_todos_contactos(
         )
     
     # Count before delete
-    total = db.query(Contacto).count()
-    
+    total = db.query(Contacto).filter(Contacto.usuario_id == current_user.id).count()
+
     if total == 0:
         return {"message": "No hay contactos para eliminar", "deleted": 0}
-    
-    # Delete all contacts
-    db.query(Contacto).delete()
+
+    # Delete all contacts for this user
+    db.query(Contacto).filter(Contacto.usuario_id == current_user.id).delete()
     db.commit()
     
     return {
@@ -185,7 +192,7 @@ async def obtener_contacto(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    contacto = db.query(Contacto).filter(Contacto.id == contacto_id).first()
+    contacto = db.query(Contacto).filter(Contacto.id == contacto_id, Contacto.usuario_id == current_user.id).first()
     if not contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")
     return contacto.to_dict()
@@ -201,11 +208,11 @@ async def crear_contacto(
     if not telefono:
         raise HTTPException(status_code=400, detail="Teléfono es requerido")
     
-    # Verificar si ya existe
-    existente = db.query(Contacto).filter(Contacto.telefono == telefono).first()
+    # Verificar si ya existe for this user
+    existente = db.query(Contacto).filter(Contacto.telefono == telefono, Contacto.usuario_id == current_user.id).first()
     if existente:
         raise HTTPException(status_code=400, detail="El contacto ya existe")
-    
+
     contacto = Contacto(
         telefono=telefono,
         nombre=data.get("nombre"),
@@ -213,7 +220,8 @@ async def crear_contacto(
         estado="activo",
         tags=json.dumps(data.get("tags", [])),
         notas=data.get("notas"),
-        origen="manual"
+        origen="manual",
+        usuario_id=current_user.id
     )
     
     db.add(contacto)
@@ -230,10 +238,10 @@ async def actualizar_contacto(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    contacto = db.query(Contacto).filter(Contacto.id == contacto_id).first()
+    contacto = db.query(Contacto).filter(Contacto.id == contacto_id, Contacto.usuario_id == current_user.id).first()
     if not contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")
-    
+
     if "nombre" in data:
         contacto.nombre = data["nombre"]
     if "email" in data:
@@ -257,13 +265,13 @@ async def eliminar_contacto(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    contacto = db.query(Contacto).filter(Contacto.id == contacto_id).first()
+    contacto = db.query(Contacto).filter(Contacto.id == contacto_id, Contacto.usuario_id == current_user.id).first()
     if not contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")
-    
+
     db.delete(contacto)
     db.commit()
-    
+
     return {"status": "ok"}
 
 
@@ -294,9 +302,12 @@ async def sincronizar_contactos(
         nombre = contact_data.get("nombre", "").strip() or None
         foto_url = contact_data.get("foto_url")
         
-        # Buscar existente (con normalización)
-        existente = buscar_contacto_por_telefono(db, telefono)
-        
+        # Buscar existente (con normalización, scoped to user)
+        existente = db.query(Contacto).filter(
+            Contacto.telefono == normalizar_telefono(telefono),
+            Contacto.usuario_id == current_user.id
+        ).first()
+
         if existente:
             # Actualizar nombre si viene y el existente no tiene o tiene "Sin nombre"
             if nombre and (not existente.nombre or existente.nombre == "Sin nombre"):
@@ -311,7 +322,8 @@ async def sincronizar_contactos(
                 nombre=nombre,
                 foto_url=foto_url,
                 estado="activo",
-                origen="whatsapp_sync"
+                origen="whatsapp_sync",
+                usuario_id=current_user.id
             )
             db.add(nuevo)
             nuevos += 1
@@ -319,7 +331,7 @@ async def sincronizar_contactos(
     db.commit()
     
     # Guardar timestamp de última sincronización
-    set_config("whatsapp_last_sync", datetime.utcnow().isoformat())
+    set_config("whatsapp_last_sync", datetime.utcnow().isoformat(), usuario_id=current_user.id)
     
     return {
         "status": "ok",
@@ -334,17 +346,29 @@ async def limpiar_duplicados(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    contactos = db.query(Contacto).all()
-    
-    # Agrupar por teléfono normalizado
+    # Process in batches of 1000 to avoid loading entire table at once
+    batch_size = 1000
+    offset = 0
     grupos = {}
-    
-    for c in contactos:
-        tel_norm = normalizar_telefono(c.telefono)
-        if tel_norm not in grupos:
-            grupos[tel_norm] = []
-        grupos[tel_norm].append(c)
-    
+
+    while True:
+        batch = (
+            db.query(Contacto)
+            .filter(Contacto.usuario_id == current_user.id)
+            .order_by(Contacto.id)
+            .offset(offset)
+            .limit(batch_size)
+            .all()
+        )
+        if not batch:
+            break
+        for c in batch:
+            tel_norm = normalizar_telefono(c.telefono)
+            if tel_norm not in grupos:
+                grupos[tel_norm] = []
+            grupos[tel_norm].append(c)
+        offset += batch_size
+
     fusionados = 0
     eliminados = 0
     
@@ -413,8 +437,8 @@ async def iniciar_verificacion_activos(
             "job": job_activo.to_dict()
         }
     
-    # Contar contactos a verificar (todos los activos)
-    total = db.query(Contacto).filter(Contacto.estado == "activo").count()
+    # Contar contactos a verificar (todos los activos del usuario)
+    total = db.query(Contacto).filter(Contacto.estado == "activo", Contacto.usuario_id == current_user.id).count()
     
     if total == 0:
         return {"status": "ok", "message": "No hay contactos para verificar", "total": 0}
@@ -471,37 +495,54 @@ async def exportar_contactos(
     current_user: Usuario = Depends(get_current_user)
 ):
     from fastapi.responses import StreamingResponse
-    
-    contactos = db.query(Contacto).all()
-    
-    output = io.StringIO()
-    writer = csv.writer(output)
-    
-    # Header
-    writer.writerow(["telefono", "nombre", "email", "estado", "tags", "ultimo_mensaje", "total_mensajes"])
-    
-    # Data
-    for c in contactos:
-        writer.writerow([
-            c.telefono,
-            c.nombre or "",
-            c.email or "",
-            c.estado,
-            c.tags or "[]",
-            c.ultimo_mensaje.isoformat() if c.ultimo_mensaje else "",
-            c.total_mensajes
-        ])
-    
-    output.seek(0)
-    
+
+    def generate_csv():
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # Header
+        writer.writerow(["telefono", "nombre", "email", "estado", "tags", "ultimo_mensaje", "total_mensajes"])
+        yield output.getvalue()
+        output.seek(0)
+        output.truncate(0)
+
+        # Stream data in batches
+        batch_size = 500
+        offset = 0
+        while True:
+            batch = (
+                db.query(Contacto)
+                .filter(Contacto.usuario_id == current_user.id)
+                .order_by(Contacto.id)
+                .offset(offset)
+                .limit(batch_size)
+                .all()
+            )
+            if not batch:
+                break
+            for c in batch:
+                writer.writerow([
+                    c.telefono,
+                    c.nombre or "",
+                    c.email or "",
+                    c.estado,
+                    c.tags or "[]",
+                    c.ultimo_mensaje.isoformat() if c.ultimo_mensaje else "",
+                    c.total_mensajes
+                ])
+            yield output.getvalue()
+            output.seek(0)
+            output.truncate(0)
+            offset += batch_size
+
     return StreamingResponse(
-        iter([output.getvalue()]),
+        generate_csv(),
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=contactos.csv"}
     )
 
 
-def guardar_contacto_mensaje(telefono: str, nombre: str = None, db: Session = None):
+def guardar_contacto_mensaje(telefono: str, nombre: str = None, db: Session = None, usuario_id: int = 1):
     """
     Guardar o actualizar contacto cuando llega un mensaje.
     Llamar desde el webhook.
@@ -522,9 +563,12 @@ def guardar_contacto_mensaje(telefono: str, nombre: str = None, db: Session = No
         telefono_norm = normalizar_telefono(telefono)
         nombre_limpio = nombre.strip() if nombre else None
         
-        # Buscar con normalización
-        contacto = buscar_contacto_por_telefono(db, telefono_norm)
-        
+        # Buscar con normalización, scoped to usuario
+        contacto = db.query(Contacto).filter(
+            Contacto.telefono == telefono_norm,
+            Contacto.usuario_id == usuario_id
+        ).first()
+
         if contacto:
             # Actualizar
             contacto.ultimo_mensaje = datetime.utcnow()
@@ -543,7 +587,8 @@ def guardar_contacto_mensaje(telefono: str, nombre: str = None, db: Session = No
                 ultimo_mensaje=datetime.utcnow(),
                 total_mensajes=1,
                 estado="activo",
-                origen="mensaje"
+                origen="mensaje",
+                usuario_id=usuario_id
             )
             db.add(contacto)
         
@@ -561,7 +606,9 @@ async def listar_contactos_modo_humano(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    contactos = db.query(Contacto).filter(Contacto.modo_humano == True).all()
+    contactos = db.query(Contacto).filter(
+        Contacto.modo_humano == True, Contacto.usuario_id == current_user.id
+    ).limit(200).all()
     return [c.to_dict() for c in contactos]
 
 
@@ -572,10 +619,10 @@ async def activar_modo_humano(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    contacto = db.query(Contacto).filter(Contacto.id == contacto_id).first()
+    contacto = db.query(Contacto).filter(Contacto.id == contacto_id, Contacto.usuario_id == current_user.id).first()
     if not contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")
-    
+
     razon = data.get("razon", "Activado manualmente") if data else "Activado manualmente"
     
     contacto.modo_humano = True
@@ -592,10 +639,10 @@ async def desactivar_modo_humano(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    contacto = db.query(Contacto).filter(Contacto.id == contacto_id).first()
+    contacto = db.query(Contacto).filter(Contacto.id == contacto_id, Contacto.usuario_id == current_user.id).first()
     if not contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")
-    
+
     contacto.modo_humano = False
     contacto.modo_humano_desde = None
     contacto.modo_humano_razon = None
@@ -604,19 +651,26 @@ async def desactivar_modo_humano(
     return {"status": "ok", "contacto": contacto.to_dict()}
 
 
-def activar_modo_humano_por_telefono(telefono: str, razon: str, db: Session = None):
+def activar_modo_humano_por_telefono(telefono: str, razon: str, db: Session = None, usuario_id: int = None):
     """Función auxiliar para activar modo humano por teléfono (usado por el tool de IA)"""
     from models import SessionLocal
-    
+
     should_close = False
     if db is None:
         db = SessionLocal()
         should_close = True
-    
+
     try:
         telefono_norm = normalizar_telefono(telefono)
-        contacto = buscar_contacto_por_telefono(db, telefono_norm)
-        
+        contacto = buscar_contacto_por_telefono(db, telefono_norm, usuario_id=usuario_id)
+
+        # Fallback: try exact match if normalization didn't find it (e.g. test numbers)
+        if not contacto:
+            contacto = db.query(Contacto).filter(
+                Contacto.telefono == telefono,
+                Contacto.usuario_id == usuario_id,
+            ).first()
+
         if contacto:
             contacto.modo_humano = True
             contacto.modo_humano_desde = datetime.utcnow()
@@ -629,19 +683,19 @@ def activar_modo_humano_por_telefono(telefono: str, razon: str, db: Session = No
             db.close()
 
 
-def verificar_modo_humano(telefono: str, db: Session = None) -> bool:
+def verificar_modo_humano(telefono: str, db: Session = None, usuario_id: int = None) -> bool:
     """Verificar si un contacto está en modo humano"""
     from models import SessionLocal
     from database import get_config
-    
+
     should_close = False
     if db is None:
         db = SessionLocal()
         should_close = True
-    
+
     try:
         telefono_norm = normalizar_telefono(telefono)
-        contacto = buscar_contacto_por_telefono(db, telefono_norm)
+        contacto = buscar_contacto_por_telefono(db, telefono_norm, usuario_id=usuario_id)
         
         if not contacto or not contacto.modo_humano:
             return False
@@ -664,18 +718,18 @@ def verificar_modo_humano(telefono: str, db: Session = None) -> bool:
             db.close()
 
 
-def desactivar_modo_humano_por_telefono(telefono: str, db: Session = None) -> bool:
+def desactivar_modo_humano_por_telefono(telefono: str, db: Session = None, usuario_id: int = None) -> bool:
     """Desactivar modo humano por teléfono (usado por comando #reactivar)"""
     from models import SessionLocal
-    
+
     should_close = False
     if db is None:
         db = SessionLocal()
         should_close = True
-    
+
     try:
         telefono_norm = normalizar_telefono(telefono)
-        contacto = buscar_contacto_por_telefono(db, telefono_norm)
+        contacto = buscar_contacto_por_telefono(db, telefono_norm, usuario_id=usuario_id)
         
         if contacto and contacto.modo_humano:
             contacto.modo_humano = False

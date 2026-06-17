@@ -55,7 +55,15 @@ async def register(user_data: UserCreate):
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
-        
+
+        # Crear datos por defecto para el nuevo usuario
+        from database import create_user_defaults
+        try:
+            create_user_defaults(db, new_user.id)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Error creating user defaults: {e}")
+
         return new_user.to_dict()
     finally:
         db.close()
