@@ -49,6 +49,7 @@ async def get_stats(
             MensajeConversacion.perfil_id == pid,
             MensajeConversacion.created_at >= today,
             MensajeConversacion.tipo_evento == None,
+            ~MensajeConversacion.telefono.like("test%"),  # Excluir prueba (test-chat)
         )
         .count()
     )
@@ -60,6 +61,7 @@ async def get_stats(
             MensajeConversacion.created_at >= yesterday,
             MensajeConversacion.created_at < today,
             MensajeConversacion.tipo_evento == None,
+            ~MensajeConversacion.telefono.like("test%"),  # Excluir prueba (test-chat)
         )
         .count()
     )
@@ -73,6 +75,7 @@ async def get_stats(
             MensajeConversacion.created_at >= week_ago,
             MensajeConversacion.rol == "assistant",
             MensajeConversacion.tipo_evento == None,
+            ~MensajeConversacion.telefono.like("test%"),  # Excluir prueba (test-chat)
         )
         .count()
     )
@@ -84,6 +87,7 @@ async def get_stats(
             MensajeConversacion.created_at >= week_ago,
             MensajeConversacion.rol == "user",
             MensajeConversacion.tipo_evento == None,
+            ~MensajeConversacion.telefono.like("test%"),  # Excluir prueba (test-chat)
         )
         .count()
     )
@@ -96,17 +100,19 @@ async def get_stats(
             MensajeConversacion.perfil_id == pid,
             MensajeConversacion.tipo_evento != None,
             MensajeConversacion.created_at >= week_ago,
+            ~MensajeConversacion.telefono.like("test%"),  # Excluir prueba (test-chat)
         )
         .group_by(MensajeConversacion.tipo_evento)
         .all()
     )
     ai_actions = {ev: cnt for ev, cnt in events}
 
-    # Contactos
-    total_contacts = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.perfil_id == pid).count()
-    new_today = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.perfil_id == pid, Contacto.created_at >= today).count()
-    new_week = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.perfil_id == pid, Contacto.created_at >= week_ago).count()
-    human_mode = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.perfil_id == pid, Contacto.modo_humano == True).count()
+    # Contactos (excluir contactos de prueba test-chat)
+    not_test = ~Contacto.telefono.like("test%")
+    total_contacts = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.perfil_id == pid, not_test).count()
+    new_today = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.perfil_id == pid, not_test, Contacto.created_at >= today).count()
+    new_week = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.perfil_id == pid, not_test, Contacto.created_at >= week_ago).count()
+    human_mode = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.perfil_id == pid, not_test, Contacto.modo_humano == True).count()
 
     # Datos capturados
     con_datos = (
@@ -114,6 +120,7 @@ async def get_stats(
         .filter(
             Contacto.usuario_id == uid,
             Contacto.perfil_id == pid,
+            not_test,
             Contacto.datos_capturados != "{}",
             Contacto.datos_capturados != None,
             Contacto.datos_capturados != "",
@@ -136,6 +143,7 @@ async def get_stats(
             .filter(
                 Contacto.usuario_id == uid,
                 Contacto.perfil_id == pid,
+                not_test,
                 Contacto.paso_funnel.in_(paso_nombres),
             )
             .group_by(Contacto.paso_funnel)
@@ -188,6 +196,7 @@ async def get_hot_leads(
             Contacto.perfil_id == perfil.id,
             Contacto.lead_score >= 20,
             Contacto.estado_lead.notin_(["cerrado", "perdido"]),
+            ~Contacto.telefono.like("test%"),  # Excluir prueba (test-chat)
         )
         .order_by(desc(Contacto.lead_score))
         .limit(7)
@@ -300,6 +309,7 @@ async def get_trend(
             MensajeConversacion.usuario_id == uid,
             MensajeConversacion.perfil_id == pid,
             MensajeConversacion.created_at >= start_date,
+            ~MensajeConversacion.telefono.like("test%"),  # Excluir prueba (test-chat)
         )
         .group_by(func.date(MensajeConversacion.created_at))
         .all()
@@ -315,6 +325,7 @@ async def get_trend(
             Contacto.usuario_id == uid,
             Contacto.perfil_id == pid,
             Contacto.created_at >= start_date,
+            ~Contacto.telefono.like("test%"),  # Excluir prueba (test-chat)
         )
         .group_by(func.date(Contacto.created_at))
         .all()

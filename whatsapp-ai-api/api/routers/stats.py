@@ -24,9 +24,15 @@ async def get_stats(
     try:
         uid = current_user.id
         pid = perfil.id
-        conversations = db.query(Memoria).filter(Memoria.usuario_id == uid, Memoria.perfil_id == pid).count()
+        conversations = db.query(Memoria).filter(
+            Memoria.usuario_id == uid, Memoria.perfil_id == pid,
+            ~Memoria.telefono.like("test%"),  # Excluir prueba (test-chat)
+        ).count()
 
-        memorias = db.query(Memoria).filter(Memoria.usuario_id == uid, Memoria.perfil_id == pid).all()
+        memorias = db.query(Memoria).filter(
+            Memoria.usuario_id == uid, Memoria.perfil_id == pid,
+            ~Memoria.telefono.like("test%"),  # Excluir prueba (test-chat)
+        ).all()
         total_messages = 0
         for m in memorias:
             if m.historial:

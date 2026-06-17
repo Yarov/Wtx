@@ -123,6 +123,8 @@ class MessageService:
             MensajeConversacion.telefono,
             func.max(MensajeConversacion.created_at).label("last_at"),
             func.count(MensajeConversacion.id).label("msg_count"),
+        ).filter(
+            ~MensajeConversacion.telefono.like("test%"),  # Excluir prueba (test-chat)
         )
         if usuario_id is not None:
             msg_query = msg_query.filter(MensajeConversacion.usuario_id == usuario_id)
