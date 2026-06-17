@@ -316,8 +316,15 @@ async def update_whatsapp_config(
 )
 async def test_whatsapp_connection(current_user: Usuario = Depends(get_current_user)):
     from whatsapp_service import whatsapp_service
+    from api.routers.perfiles import get_perfil_activo_id
 
-    result = await whatsapp_service.test_connection()
+    db = SessionLocal()
+    try:
+        perfil_id = get_perfil_activo_id(db, current_user.id)
+    finally:
+        db.close()
+    session = f"perfil_{perfil_id}" if perfil_id else "default"
+    result = await whatsapp_service.test_connection(session=session)
     return result
 
 

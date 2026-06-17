@@ -30,8 +30,8 @@ class WhatsAppService:
         """Headers para WAHA API"""
         return {"X-Api-Key": self.api_key, "Content-Type": "application/json"}
 
-    async def send_message(self, phone: str, message: str) -> dict:
-        """Enviar mensaje de texto via WAHA"""
+    async def send_message(self, phone: str, message: str, session: str = "default") -> dict:
+        """Enviar mensaje de texto via el bridge (sesión por perfil)"""
         self.reload_config()
 
         if not self.is_configured():
@@ -49,7 +49,7 @@ class WhatsAppService:
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 url = f"{self.api_url}/api/sendText"
-                payload = {"chatId": phone, "text": message, "session": self.session}
+                payload = {"chatId": phone, "text": message, "session": session}
 
                 response = await client.post(
                     url, json=payload, headers=self._get_headers()
@@ -65,8 +65,8 @@ class WhatsAppService:
             logger.error(f"Error enviando mensaje: {e}")
             return {"success": False, "error": str(e)}
 
-    async def send_image(self, phone: str, image_url: str, caption: str = "") -> dict:
-        """Enviar imagen via WhatsApp bridge"""
+    async def send_image(self, phone: str, image_url: str, caption: str = "", session: str = "default") -> dict:
+        """Enviar imagen via el bridge (sesión por perfil)"""
         self.reload_config()
         if not self.is_configured():
             return {"success": False, "error": "WhatsApp no configurado"}
@@ -84,7 +84,7 @@ class WhatsAppService:
                     "chatId": phone,
                     "url": image_url,
                     "caption": caption,
-                    "session": self.session,
+                    "session": session,
                 }
                 response = await client.post(
                     url, json=payload, headers=self._get_headers()
@@ -98,8 +98,8 @@ class WhatsAppService:
             logger.error(f"Error enviando imagen: {e}")
             return {"success": False, "error": str(e)}
 
-    async def get_contacts(self) -> dict:
-        """Obtener contactos desde WAHA"""
+    async def get_contacts(self, session: str = "default") -> dict:
+        """Obtener contactos desde el bridge (sesión por perfil)"""
         self.reload_config()
 
         if not self.is_configured():
@@ -111,7 +111,7 @@ class WhatsAppService:
 
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
-                url = f"{self.api_url}/api/contacts/all?session={self.session}"
+                url = f"{self.api_url}/api/contacts/all?session={session}"
                 response = await client.get(url, headers=self._get_headers())
 
                 if response.status_code == 200:
@@ -196,8 +196,8 @@ class WhatsAppService:
         logger.info(f"✅ {len(contacts)} contactos normalizados")
         return contacts
 
-    async def test_connection(self) -> dict:
-        """Test connection to the WhatsApp API (WAHA session status)"""
+    async def test_connection(self, session: str = "default") -> dict:
+        """Test connection to the WhatsApp bridge (session status)"""
         self.reload_config()
 
         if not self.is_configured():
@@ -205,7 +205,7 @@ class WhatsAppService:
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                url = f"{self.api_url}/api/sessions/{self.session}"
+                url = f"{self.api_url}/api/sessions/{session}"
                 response = await client.get(url, headers=self._get_headers())
 
                 if response.status_code == 200:
@@ -233,8 +233,8 @@ class WhatsAppService:
             logger.error(f"WhatsApp API connection error: {e}")
             return {"connected": False, "status": f"error: {str(e)}"}
 
-    async def check_number_exists(self, phone: str) -> dict:
-        """Verificar si un número está registrado en WhatsApp"""
+    async def check_number_exists(self, phone: str, session: str = "default") -> dict:
+        """Verificar si un número está registrado en WhatsApp (sesión por perfil)"""
         if not self.is_configured():
             return {"exists": False, "error": "WhatsApp no configurado"}
 
@@ -243,7 +243,7 @@ class WhatsAppService:
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 url = f"{self.api_url}/api/contacts/check-exists"
-                params = {"phone": phone_clean, "session": self.session}
+                params = {"phone": phone_clean, "session": session}
                 response = await client.get(
                     url, headers=self._get_headers(), params=params
                 )
@@ -261,14 +261,14 @@ class WhatsAppService:
             logger.error(f"Error verificando número {phone}: {e}")
             return {"exists": False, "error": str(e)}
 
-    async def check_numbers_batch(self, phones: list, delay: float = 0.5) -> dict:
-        """Verificar múltiples números"""
+    async def check_numbers_batch(self, phones: list, delay: float = 0.5, session: str = "default") -> dict:
+        """Verificar múltiples números (sesión por perfil)"""
         import asyncio
 
         results = {}
 
         for phone in phones:
-            result = await self.check_number_exists(phone)
+            result = await self.check_number_exists(phone, session=session)
             results[phone] = result
             await asyncio.sleep(delay)
 

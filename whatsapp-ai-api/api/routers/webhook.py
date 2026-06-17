@@ -277,11 +277,15 @@ async def whatsapp_webhook(request: Request):
         from models import SessionLocal as _SessionLocal, MensajeConversacion
         from datetime import datetime, timedelta
         from tenant import resolver_usuario_por_telefono
+        from api.routers.perfiles import get_perfil_activo_id
 
         _db = _SessionLocal()
+        perfil_id = None
         try:
             # Resolver usuario_id (multi-tenancy)
             usuario_id = resolver_usuario_por_telefono(from_number, _db)
+            # Resolver perfil del usuario para usar la sesión del bridge correcta
+            perfil_id = get_perfil_activo_id(_db, usuario_id)
 
             logger.info(
                 f"{'Outgoing' if is_from_me else 'Message from'} {from_number} ({contact_name}) [user:{usuario_id}]: {incoming_msg[:80]}"
@@ -444,9 +448,10 @@ async def whatsapp_webhook(request: Request):
         except Exception as e:
             logger.warning(f"Error detectando triggers: {e}")
 
-        # Enviar respuesta
+        # Enviar respuesta usando la sesión del perfil
         if whatsapp_service.is_configured():
-            result = await whatsapp_service.send_message(from_number, respuesta)
+            session = f"perfil_{perfil_id}" if perfil_id else "default"
+            result = await whatsapp_service.send_message(from_number, respuesta, session=session)
             if result["success"]:
                 logger.info(f"Mensaje enviado a {from_number}")
             else:

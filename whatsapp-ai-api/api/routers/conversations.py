@@ -247,7 +247,9 @@ async def send_message(
     if not whatsapp_service.is_configured():
         raise HTTPException(status_code=503, detail="WhatsApp service not configured")
 
-    result = await whatsapp_service.send_message(phone, data.message)
+    result = await whatsapp_service.send_message(
+        phone, data.message, session=f"perfil_{perfil.id}"
+    )
 
     if not result.get("success"):
         raise HTTPException(

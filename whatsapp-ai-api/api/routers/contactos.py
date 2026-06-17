@@ -320,8 +320,8 @@ async def sincronizar_contactos(
 ):
     from whatsapp_service import whatsapp_service
     from database import set_config
-    
-    result = await whatsapp_service.get_contacts()
+
+    result = await whatsapp_service.get_contacts(session=f"perfil_{perfil.id}")
     
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result.get("error", "Error de sincronización"))

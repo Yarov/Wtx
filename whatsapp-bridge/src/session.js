@@ -7,10 +7,11 @@ import { existsSync } from "fs";
 const MAX_RECONNECT_RETRIES = 5;
 
 export class Session {
-  constructor(logger, authStateDir, onMessage) {
+  constructor(logger, authStateDir, onMessage, sessionId = "default") {
     this.logger = logger;
     this.authStateDir = authStateDir;
     this.onMessage = onMessage;
+    this.sessionId = sessionId;
 
     this.client = null;
     this.status = "STOPPED";
@@ -50,17 +51,15 @@ export class Session {
       this.client = null;
     }
 
-    // Kill any orphaned Chromium processes from previous runs
-    await this._killOrphanedChromium();
-
     try {
       await fs.mkdir(this.authStateDir, { recursive: true });
 
       // Clean stale Chromium lock files from previous container runs
+      // (scoped to this session's clientId only — never touches other sessions)
       await this._cleanChromiumLocks();
 
       this.client = new Client({
-        authStrategy: new LocalAuth({ dataPath: this.authStateDir }),
+        authStrategy: new LocalAuth({ clientId: this.sessionId, dataPath: this.authStateDir }),
         puppeteer: {
           headless: true,
           args: [
@@ -226,7 +225,7 @@ export class Session {
 
         this.onMessage({
           event: "message_revoked",
-          session: "default",
+          session: this.sessionId,
           payload: {
             from: phone,
             fromMe: after.fromMe || false,
@@ -262,7 +261,7 @@ export class Session {
     // Enviar al webhook como evento de typing
     this.onMessage({
       event: "typing",
-      session: "default",
+      session: this.sessionId,
       payload: { from: chatId, typing: true },
     });
   }
@@ -366,7 +365,7 @@ export class Session {
 
       const payload = {
         event: "message",
-        session: "default",
+        session: this.sessionId,
         payload: {
           from: fromPhone,
           body: text,
@@ -545,23 +544,17 @@ export class Session {
     this.status = "STOPPED";
   }
 
-  async _killOrphanedChromium() {
-    try {
-      const { execSync } = await import("child_process");
-      // Kill any chromium/chrome processes not owned by this session
-      execSync("pkill -f chromium || pkill -f chrome || true", { stdio: "ignore" });
-      // Small delay to let processes fully exit
-      await new Promise((r) => setTimeout(r, 500));
-      this.logger.info("Killed orphaned Chromium processes (if any)");
-    } catch {
-      // ignore — pkill may not find anything
-    }
+  // Directory that holds this session's auth/profile state.
+  // whatsapp-web.js's LocalAuth stores each clientId under `session-<clientId>`.
+  get _sessionDir() {
+    return `${this.authStateDir}/session-${this.sessionId}`;
   }
 
   async _cleanChromiumLocks() {
     try {
       const lockNames = ["SingletonLock", "SingletonCookie", "SingletonSocket"];
-      const queue = [this.authStateDir];
+      // Only clean locks within THIS session's own profile dir — never touch others.
+      const queue = [this._sessionDir];
 
       while (queue.length > 0) {
         const dir = queue.shift();
@@ -588,14 +581,11 @@ export class Session {
 
   async _clearAuthState() {
     try {
-      if (existsSync(this.authStateDir)) {
-        const entries = await fs.readdir(this.authStateDir);
-        await Promise.all(
-          entries.map((entry) =>
-            fs.rm(`${this.authStateDir}/${entry}`, { recursive: true, force: true })
-          )
-        );
-        this.logger.info("Auth state cleared");
+      // Only remove THIS session's own profile dir — never touch other sessions.
+      const dir = this._sessionDir;
+      if (existsSync(dir)) {
+        await fs.rm(dir, { recursive: true, force: true });
+        this.logger.info({ dir }, "Auth state cleared");
       }
     } catch (err) {
       this.logger.error({ err }, "Failed to clear auth state");

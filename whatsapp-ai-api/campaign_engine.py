@@ -66,9 +66,10 @@ async def procesar_campana(campana: Campana, db: Session):
         # Preparar mensaje con variables
         mensaje = reemplazar_variables(campana.mensaje, contacto)
         
-        # Enviar mensaje
+        # Enviar mensaje usando la sesión del perfil de la campaña
         logger.info(f"Enviando a {contacto.telefono}...")
-        result = await whatsapp_service.send_message(contacto.telefono, mensaje)
+        session = f"perfil_{campana.perfil_id}" if campana.perfil_id else "default"
+        result = await whatsapp_service.send_message(contacto.telefono, mensaje, session=session)
         
         # Actualizar estado
         if result["success"]:

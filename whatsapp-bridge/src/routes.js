@@ -1,28 +1,43 @@
 import { Router } from "express";
 import QRCode from "qrcode";
 
-export function createRouter(session, webhook, logger) {
+const DEFAULT_SESSION = "default";
+
+export function createRouter(manager, webhook, logger) {
   const router = Router();
+
+  // Resolve the session name from (in order): route param `:name`,
+  // body.session, query.session — falling back to "default" for back-compat.
+  function resolveName(req) {
+    return (
+      req.params?.name ||
+      req.body?.session ||
+      req.query?.session ||
+      DEFAULT_SESSION
+    );
+  }
 
   // POST /api/sendText
   router.post("/api/sendText", async (req, res) => {
     const { chatId, text } = req.body;
+    const name = resolveName(req);
 
     if (!chatId || !text) {
       return res.status(400).json({ error: "chatId and text are required" });
     }
 
-    if (session.getStatus() !== "WORKING") {
+    const session = manager.get(name);
+    if (!session || session.getStatus() !== "WORKING") {
       return res
         .status(503)
-        .json({ error: "Session not connected", status: session.getStatus() });
+        .json({ error: "Session not connected", status: manager.status(name) });
     }
 
     try {
       const result = await session.sendText(chatId, text);
       res.json(result);
     } catch (err) {
-      logger.error({ err, chatId }, "sendText failed");
+      logger.error({ err, chatId, name }, "sendText failed");
       res.status(500).json({ error: err.message });
     }
   });
@@ -30,22 +45,24 @@ export function createRouter(session, webhook, logger) {
   // POST /api/sendImage
   router.post("/api/sendImage", async (req, res) => {
     const { chatId, url, caption, viewOnce } = req.body;
+    const name = resolveName(req);
 
     if (!chatId || !url) {
       return res.status(400).json({ error: "chatId and url are required" });
     }
 
-    if (session.getStatus() !== "WORKING") {
+    const session = manager.get(name);
+    if (!session || session.getStatus() !== "WORKING") {
       return res
         .status(503)
-        .json({ error: "Session not connected", status: session.getStatus() });
+        .json({ error: "Session not connected", status: manager.status(name) });
     }
 
     try {
       const result = await session.sendImage(chatId, url, caption || "", viewOnce !== false);
       res.json(result);
     } catch (err) {
-      logger.error({ err, chatId, url }, "sendImage failed");
+      logger.error({ err, chatId, url, name }, "sendImage failed");
       res.status(500).json({ error: err.message });
     }
   });
@@ -53,13 +70,15 @@ export function createRouter(session, webhook, logger) {
   // POST /api/sendTyping - simular "escribiendo..."
   router.post("/api/sendTyping", async (req, res) => {
     const { chatId, duration } = req.body;
+    const name = resolveName(req);
 
     if (!chatId) {
       return res.status(400).json({ error: "chatId is required" });
     }
 
-    if (session.getStatus() !== "WORKING") {
-      return res.status(503).json({ error: "Session not connected" });
+    const session = manager.get(name);
+    if (!session || session.getStatus() !== "WORKING") {
+      return res.status(503).json({ error: "Session not connected", status: manager.status(name) });
     }
 
     try {
@@ -71,48 +90,78 @@ export function createRouter(session, webhook, logger) {
       }, ms);
       res.json({ ok: true });
     } catch (err) {
-      logger.error({ err, chatId }, "sendTyping failed");
+      logger.error({ err, chatId, name }, "sendTyping failed");
       res.status(500).json({ error: err.message });
     }
   });
 
   // POST /api/sessions/start
   router.post("/api/sessions/start", async (req, res) => {
-    const { config } = req.body || {};
+    const { name: bodyName, config } = req.body || {};
+    const name = bodyName || DEFAULT_SESSION;
 
-    // Extract webhook URL from config if provided
+    // Extract webhook URL from config if provided (shared global forwarder)
+    let webhookUrl = null;
     if (config?.webhooks?.length > 0) {
-      const whUrl = config.webhooks[0].url;
-      if (whUrl) webhook.setUrl(whUrl);
+      webhookUrl = config.webhooks[0].url;
+      if (webhookUrl) webhook.setUrl(webhookUrl);
     }
 
     try {
-      await session.start();
-
-      const status = session.getStatus();
+      const status = await manager.start(name, webhookUrl);
+      const session = manager.get(name);
       const response = { status };
 
-      if (status === "SCAN_QR_CODE" && session.getQR()) {
+      if (status === "SCAN_QR_CODE" && session?.getQR()) {
         response.qr = await QRCode.toDataURL(session.getQR());
       }
 
       res.json(response);
     } catch (err) {
-      logger.error({ err }, "Session start failed");
+      logger.error({ err, name }, "Session start failed");
       res.status(500).json({ error: err.message, status: "FAILED" });
     }
   });
 
-  // GET /api/sessions/default
-  router.get("/api/sessions/default", (req, res) => {
-    res.json({ status: session.getStatus() });
+  // GET /api/sessions/:name
+  router.get("/api/sessions/:name", (req, res) => {
+    const name = resolveName(req);
+    res.json({ status: manager.status(name) });
   });
 
-  // GET /api/default/auth/qr
-  router.get("/api/default/auth/qr", async (req, res) => {
-    const qrString = session.getQR();
+  // POST /api/sessions/:name/logout
+  router.post("/api/sessions/:name/logout", async (req, res) => {
+    const name = resolveName(req);
+    try {
+      const status = await manager.logout(name);
+      res.json({ status, message: "Logged out successfully" });
+    } catch (err) {
+      logger.error({ err, name }, "Logout failed");
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PUT /api/sessions/:name
+  router.put("/api/sessions/:name", (req, res) => {
+    const name = resolveName(req);
+    const { config } = req.body || {};
+
+    if (config?.webhooks?.length > 0) {
+      const whUrl = config.webhooks[0].url;
+      if (whUrl) webhook.setUrl(whUrl);
+    }
+
+    res.json({ status: manager.status(name), webhook: webhook.getUrl() });
+  });
+
+  // GET /api/:name/auth/qr
+  router.get("/api/:name/auth/qr", async (req, res) => {
+    const name = resolveName(req);
+    const session = manager.get(name);
+    const qrString = session?.getQR();
+
     if (!qrString) {
-      const status = session.getStatus();
+      const status = manager.status(name);
       if (status === "WORKING") {
         return res
           .status(200)
@@ -130,47 +179,27 @@ export function createRouter(session, webhook, logger) {
       }
       res.json({ data: base64, mimetype: "image/png" });
     } catch (err) {
-      logger.error({ err }, "QR generation failed");
+      logger.error({ err, name }, "QR generation failed");
       res.status(500).json({ error: "Failed to generate QR code" });
     }
   });
 
-  // POST /api/sessions/default/logout
-  router.post("/api/sessions/default/logout", async (req, res) => {
-    try {
-      await session.logout();
-      res.json({ status: "STOPPED", message: "Logged out successfully" });
-    } catch (err) {
-      logger.error({ err }, "Logout failed");
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // PUT /api/sessions/default
-  router.put("/api/sessions/default", (req, res) => {
-    const { config } = req.body || {};
-
-    if (config?.webhooks?.length > 0) {
-      const whUrl = config.webhooks[0].url;
-      if (whUrl) webhook.setUrl(whUrl);
-    }
-
-    res.json({ status: session.getStatus(), webhook: webhook.getUrl() });
-  });
-
   // GET /api/contacts/all
   router.get("/api/contacts/all", async (req, res) => {
-    if (session.getStatus() !== "WORKING") {
+    const name = resolveName(req);
+    const session = manager.get(name);
+
+    if (!session || session.getStatus() !== "WORKING") {
       return res
         .status(503)
-        .json({ error: "Session not connected", status: session.getStatus() });
+        .json({ error: "Session not connected", status: manager.status(name) });
     }
 
     try {
       const contacts = await session.getContacts();
       res.json(contacts);
     } catch (err) {
-      logger.error({ err }, "Get contacts failed");
+      logger.error({ err, name }, "Get contacts failed");
       res.status(500).json({ error: err.message });
     }
   });
@@ -178,6 +207,7 @@ export function createRouter(session, webhook, logger) {
   // GET /api/contacts/check-exists
   router.get("/api/contacts/check-exists", async (req, res) => {
     const { phone } = req.query;
+    const name = resolveName(req);
 
     if (!phone) {
       return res
@@ -185,17 +215,18 @@ export function createRouter(session, webhook, logger) {
         .json({ error: "phone query parameter is required" });
     }
 
-    if (session.getStatus() !== "WORKING") {
+    const session = manager.get(name);
+    if (!session || session.getStatus() !== "WORKING") {
       return res
         .status(503)
-        .json({ error: "Session not connected", status: session.getStatus() });
+        .json({ error: "Session not connected", status: manager.status(name) });
     }
 
     try {
       const result = await session.checkNumberExists(phone);
       res.json(result);
     } catch (err) {
-      logger.error({ err, phone }, "Check number failed");
+      logger.error({ err, phone, name }, "Check number failed");
       res.status(500).json({ error: err.message });
     }
   });
@@ -204,7 +235,7 @@ export function createRouter(session, webhook, logger) {
   router.get("/health", (req, res) => {
     res.json({
       status: "ok",
-      session: session.getStatus(),
+      sessions: manager.list(),
       uptime: process.uptime(),
     });
   });

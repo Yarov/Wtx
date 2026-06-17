@@ -631,8 +631,10 @@ async def enviar_mensaje_prueba(
             mensaje_final = mensaje_final.replace("{nombre}", "Cliente")
             mensaje_final = mensaje_final.replace("{telefono}", telefono)
         
-        # Enviar
-        result = await whatsapp_service.send_message(telefono, mensaje_final)
+        # Enviar usando la sesión del perfil actual
+        result = await whatsapp_service.send_message(
+            telefono, mensaje_final, session=f"perfil_{perfil.id}"
+        )
         
         resultados.append({
             "telefono": telefono,

@@ -1,6 +1,6 @@
 import express from "express";
 import pino from "pino";
-import { Session } from "./session.js";
+import { SessionManager } from "./session-manager.js";
 import { WebhookForwarder } from "./webhook.js";
 import { createRouter } from "./routes.js";
 
@@ -23,8 +23,8 @@ const webhook = new WebhookForwarder(
   process.env.WEBHOOK_TOKEN || ""
 );
 
-// --- Session ---
-const session = new Session(
+// --- Session manager (multi-session) ---
+const manager = new SessionManager(
   logger.child({ module: "whatsapp-web.js" }),
   AUTH_STATE_DIR,
   (payload) => webhook.forward(payload)
@@ -46,7 +46,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(createRouter(session, webhook, logger));
+app.use(createRouter(manager, webhook, logger));
 
 // 404 fallback
 app.use((req, res) => {
@@ -72,8 +72,8 @@ async function shutdown(signal) {
     logger.info("HTTP server closed");
   });
 
-  await session.shutdown();
-  logger.info("Session closed");
+  await manager.shutdownAll();
+  logger.info("All sessions closed");
   process.exit(0);
 }
 

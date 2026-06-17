@@ -39,9 +39,11 @@ async def procesar_verificacion_contactos(job: BackgroundJob, db):
     job.mensaje = "Verificando contactos..."
     db.commit()
 
+    session = f"perfil_{job.perfil_id}" if job.perfil_id else "default"
+
     for i, contacto in enumerate(contactos):
         try:
-            result = await whatsapp_service.check_number_exists(contacto.telefono)
+            result = await whatsapp_service.check_number_exists(contacto.telefono, session=session)
 
             contacto.ultima_verificacion = datetime.utcnow()
 
@@ -71,8 +73,10 @@ async def procesar_sync_contactos(job: BackgroundJob, db):
     job.mensaje = "Obteniendo contactos de WhatsApp..."
     db.commit()
 
+    session = f"perfil_{job.perfil_id}" if job.perfil_id else "default"
+
     try:
-        result = await whatsapp_service.get_contacts()
+        result = await whatsapp_service.get_contacts(session=session)
 
         if not result.get("success"):
             raise Exception(
@@ -139,6 +143,8 @@ async def procesar_campana_masiva(job: BackgroundJob, db):
 
     job.total = len(destinatarios)
 
+    session = f"perfil_{campana.perfil_id}" if campana.perfil_id else "default"
+
     for i, dest in enumerate(destinatarios):
         contacto = db.query(Contacto).filter(Contacto.id == dest.contacto_id).first()
         if not contacto:
@@ -151,7 +157,7 @@ async def procesar_campana_masiva(job: BackgroundJob, db):
         mensaje = mensaje.replace("{nombre}", contacto.nombre or "Cliente")
         mensaje = mensaje.replace("{telefono}", contacto.telefono)
 
-        result = await whatsapp_service.send_message(contacto.telefono, mensaje)
+        result = await whatsapp_service.send_message(contacto.telefono, mensaje, session=session)
 
         if result.get("success"):
             dest.estado = "enviado"

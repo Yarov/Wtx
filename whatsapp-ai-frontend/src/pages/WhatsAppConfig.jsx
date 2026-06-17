@@ -3,8 +3,10 @@ import { Loader2, Smartphone, RefreshCw, LogOut, CheckCircle, AlertCircle } from
 import Card from '../components/Card'
 import Button from '../components/Button'
 import { whatsappApi } from '../api/client'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function WhatsAppConfig() {
+  const { perfilActivo } = useAuth()
   const [loading, setLoading] = useState(true)
   const [connecting, setConnecting] = useState(false)
   const [status, setStatus] = useState('LOADING')
@@ -12,8 +14,9 @@ export default function WhatsAppConfig() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    // Reconectar cuando cambia el perfil activo (cada perfil = su propia sesión)
     connect()
-  }, [])
+  }, [perfilActivo?.id])
 
   useEffect(() => {
     if (status === 'SCAN_QR_CODE' || status === 'STARTING') {
@@ -83,6 +86,15 @@ export default function WhatsAppConfig() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">WhatsApp</h1>
         <p className="text-gray-500 mt-1">Vincula tu cuenta de WhatsApp para enviar y recibir mensajes</p>
+        {perfilActivo && (
+          <p className="text-sm text-gray-400 mt-1">
+            Esta conexión pertenece al perfil{' '}
+            <span className="font-medium text-gray-600">
+              {perfilActivo.emoji} {perfilActivo.nombre}
+            </span>
+            {perfilActivo.numero_whatsapp ? ` (${perfilActivo.numero_whatsapp})` : ''}
+          </p>
+        )}
       </div>
 
       {error && (
