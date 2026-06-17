@@ -2,10 +2,20 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: whatsapp-ai-db
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c work_mem=8MB
+      -c maintenance_work_mem=128MB
+      -c effective_cache_size=512MB
+      -c random_page_cost=1.1
+      -c max_connections=100
+      -c log_min_duration_statement=500
+      -c idle_in_transaction_session_timeout=60000
     environment:
-      POSTGRES_USER: whatsapp
-      POSTGRES_PASSWORD: whatsapp_secret
-      POSTGRES_DB: whatsapp_agent
+      POSTGRES_USER: ${POSTGRES_USER:-whatsapp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required (see .env)}
+      POSTGRES_DB: ${POSTGRES_DB:-whatsapp_agent}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -40,8 +50,9 @@ services:
       - "3000:3000"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - DATABASE_URL=postgresql://whatsapp:whatsapp_secret@postgres:5432/whatsapp_agent
-      - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-whatsapp}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-whatsapp_agent}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY required (see .env)}
+      - WEBHOOK_TOKEN=${WEBHOOK_TOKEN:-}
       - WHATSAPP_API_URL=${WHATSAPP_API_URL}
       - WHATSAPP_API_KEY=${WHATSAPP_API_KEY}
       - REDIS_URL=redis://redis:6379/0
@@ -50,9 +61,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - media_uploads:/app/uploads
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:3000/').status==200 else sys.exit(1)"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -66,8 +79,8 @@ services:
     command: python worker.py
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - DATABASE_URL=postgresql://whatsapp:whatsapp_secret@postgres:5432/whatsapp_agent
-      - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-whatsapp}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-whatsapp_agent}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY required (see .env)}
       - WHATSAPP_API_URL=${WHATSAPP_API_URL}
       - WHATSAPP_API_KEY=${WHATSAPP_API_KEY}
       - REDIS_URL=redis://redis:6379/0
@@ -89,8 +102,40 @@ services:
       - api
     restart: unless-stopped
 
+  whatsapp-bridge:
+    build:
+      context: ./whatsapp-bridge
+      dockerfile: Dockerfile
+    container_name: whatsapp-bridge
+    hostname: whatsapp-bridge
+    ports:
+      - "3080:3080"
+    environment:
+      - PORT=3080
+      - API_KEY=${WHATSAPP_API_KEY}
+      - WEBHOOK_TOKEN=${WEBHOOK_TOKEN:-}
+      - LOG_LEVEL=info
+      - AUTH_STATE_DIR=/app/auth_data
+      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+    volumes:
+      - whatsapp_auth:/app/auth_data
+      - media_uploads:/app/uploads
+    shm_size: '256m'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  whatsapp_auth:
+    driver: local
+  media_uploads:
     driver: local

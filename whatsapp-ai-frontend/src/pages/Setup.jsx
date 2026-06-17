@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Send, Loader2, Check, Edit2, Sparkles, ArrowRight } from 'lucide-react'
+import { Send, Loader2, Check, Sparkles, ArrowRight, MessageCircle, Bot, Zap } from 'lucide-react'
 import { businessApi } from '../api/client'
 
 export default function Setup() {
@@ -15,7 +15,6 @@ export default function Setup() {
   const [applying, setApplying] = useState(false)
   const [configuring, setConfiguring] = useState(false)
   const [configStep, setConfigStep] = useState(0)
-  const [editingConfig, setEditingConfig] = useState(false)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -32,7 +31,7 @@ export default function Setup() {
     setMessages([
       { 
         role: 'assistant', 
-        content: '¡Hola! 👋 Cuéntame, ¿qué tipo de negocio tienes?' 
+        content: '¡Hola! Cuéntame, ¿qué tipo de negocio tienes?'
       }
     ])
   }
@@ -117,10 +116,6 @@ export default function Setup() {
     }
   }
 
-  const toggleModule = (key) => {
-    setConfig(prev => ({ ...prev, [key]: !prev[key] }))
-  }
-
   // Configuring screen
   if (configuring) {
     return (
@@ -203,15 +198,15 @@ export default function Setup() {
           {/* Features */}
           <div className="grid grid-cols-3 gap-4 mb-10">
             <div className="bg-white/5 backdrop-blur rounded-2xl p-4 border border-white/10">
-              <div className="text-2xl mb-2">💬</div>
+              <MessageCircle className="h-7 w-7 text-violet-400 mb-2 mx-auto" />
               <p className="text-sm text-slate-300">Solo conversa</p>
             </div>
             <div className="bg-white/5 backdrop-blur rounded-2xl p-4 border border-white/10">
-              <div className="text-2xl mb-2">🤖</div>
+              <Bot className="h-7 w-7 text-fuchsia-400 mb-2 mx-auto" />
               <p className="text-sm text-slate-300">IA configura</p>
             </div>
             <div className="bg-white/5 backdrop-blur rounded-2xl p-4 border border-white/10">
-              <div className="text-2xl mb-2">✨</div>
+              <Zap className="h-7 w-7 text-amber-400 mb-2 mx-auto" />
               <p className="text-sm text-slate-300">Listo en segundos</p>
             </div>
           </div>
@@ -317,59 +312,17 @@ export default function Setup() {
                     </div>
                     <span className="font-medium text-slate-900">Configuración lista</span>
                   </div>
-                  <button 
-                    onClick={() => setEditingConfig(!editingConfig)}
-                    className="text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </button>
                 </div>
-                
+
                 <div className="space-y-3">
                   <div className="flex justify-between items-center py-2 border-b border-slate-100">
                     <span className="text-slate-500 text-sm">Negocio</span>
                     <span className="font-medium text-slate-900">{config.business_name}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                  <div className="flex justify-between items-center py-2">
                     <span className="text-slate-500 text-sm">Tipo</span>
                     <span className="font-medium text-slate-900">{config.business_type}</span>
                   </div>
-                  
-                  {editingConfig ? (
-                    <div className="pt-2 space-y-3">
-                      {[
-                        { key: 'has_inventory', label: 'Catálogo de productos' },
-                        { key: 'has_appointments', label: 'Sistema de citas' },
-                        { key: 'has_schedule', label: 'Horarios de atención' }
-                      ].map(({ key, label }) => (
-                        <div key={key} className="flex items-center justify-between">
-                          <span className="text-sm text-slate-600">{label}</span>
-                          <button
-                            onClick={() => toggleModule(key)}
-                            className={`w-11 h-6 rounded-full transition-colors relative ${
-                              config[key] ? 'bg-violet-500' : 'bg-slate-200'
-                            }`}
-                          >
-                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${
-                              config[key] ? 'left-6' : 'left-1'
-                            }`} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      {config.has_inventory && (
-                        <span className="px-3 py-1.5 bg-violet-50 text-violet-700 rounded-full text-xs font-medium">Inventario</span>
-                      )}
-                      {config.has_appointments && (
-                        <span className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">Citas</span>
-                      )}
-                      {config.has_schedule && (
-                        <span className="px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full text-xs font-medium">Horarios</span>
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
             )}

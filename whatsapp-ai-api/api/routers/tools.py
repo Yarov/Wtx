@@ -1,14 +1,18 @@
 """
 Tools Router - AI agent capabilities management
 """
-from fastapi import APIRouter, Depends
+import logging
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from database import get_all_tools_config, set_tool_enabled
-from models import Usuario
+from models import SessionLocal, ToolsConfig, Usuario, Perfil
 from auth import get_current_user
+from api.routers.perfiles import get_current_perfil
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/tools", 
+    prefix="/tools",
     tags=["AI Tools"],
     responses={401: {"description": "Not authenticated"}}
 )
@@ -19,15 +23,78 @@ class ToolToggle(BaseModel):
 
 
 @router.get("", summary="List AI tools", description="Get all available AI agent tools/functions with their enabled status.")
-async def get_tools(current_user: Usuario = Depends(get_current_user)):
-    tools = get_all_tools_config()
-    return [
-        {"id": t["nombre"], "enabled": t["habilitado"], "description": t["descripcion"]}
-        for t in tools
-    ]
+async def get_tools(
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
+    try:
+        tools = get_all_tools_config(usuario_id=current_user.id, perfil_id=perfil.id)
+        return [
+            {"id": t["nombre"], "enabled": t["habilitado"], "description": t["descripcion"]}
+            for t in tools
+        ]
+    except Exception as e:
+        logger.error(f"Error listing tools: {e}")
+        raise HTTPException(status_code=500, detail="Error loading tools")
 
 
-@router.patch("/{name}", summary="Toggle tool", description="Enable or disable a specific AI tool. Disabled tools won't be available to the agent.")
-async def toggle_tool(name: str, data: ToolToggle, current_user: Usuario = Depends(get_current_user)):
-    set_tool_enabled(name, data.enabled)
-    return {"status": "ok"}
+@router.get("/{name}", summary="Get tool details", description="Get details and status of a specific AI tool.")
+async def get_tool(
+    name: str,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
+    db = SessionLocal()
+    try:
+        # Resolve via cascade: perfil -> usuario -> global
+        tool = None
+        for uid, pid in [(current_user.id, perfil.id), (current_user.id, 0), (0, 0)]:
+            tool = db.query(ToolsConfig).filter(
+                ToolsConfig.nombre == name,
+                ToolsConfig.usuario_id == uid,
+                ToolsConfig.perfil_id == pid,
+            ).first()
+            if tool:
+                break
+        if not tool:
+            raise HTTPException(status_code=404, detail=f"Tool '{name}' not found")
+        return {
+            "id": tool.nombre,
+            "enabled": tool.habilitado,
+            "description": tool.descripcion,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting tool {name}: {e}")
+        raise HTTPException(status_code=500, detail="Error loading tool")
+    finally:
+        db.close()
+
+
+@router.put("/{name}", summary="Toggle tool", description="Enable or disable a specific AI tool. Disabled tools won't be available to the agent.")
+async def toggle_tool(
+    name: str,
+    data: ToolToggle,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
+    try:
+        set_tool_enabled(name, data.enabled, usuario_id=current_user.id, perfil_id=perfil.id)
+        return {"status": "ok", "id": name, "enabled": data.enabled}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error toggling tool {name}: {e}")
+        raise HTTPException(status_code=500, detail="Error updating tool")
+
+
+@router.patch("/{name}", summary="Toggle tool (PATCH)", description="Enable or disable a specific AI tool. Disabled tools won't be available to the agent.")
+async def toggle_tool_patch(
+    name: str,
+    data: ToolToggle,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
+    """PATCH alias for backwards compatibility."""
+    return await toggle_tool(name, data, current_user, perfil)

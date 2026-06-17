@@ -8,14 +8,16 @@ from typing import Optional
 from datetime import datetime
 
 from models import (
-    get_db, BusinessConfig, ToolsConfig, Configuracion, Inventario, Disponibilidad,
-    Cita, Memoria, HorarioBloqueado, Contacto, Campana, CampanaDestinatario, BackgroundJob, Usuario
+    get_db, BusinessConfig, ToolsConfig, Configuracion,
+    Memoria, Contacto, Campana, CampanaDestinatario, BackgroundJob, Usuario
 )
 from api.routers.auth import get_current_user
+from api.routers.perfiles import get_current_perfil
 from database import get_config, set_config
+from models import Perfil
 
 router = APIRouter(
-    prefix="/business", 
+    prefix="/business",
     tags=["Business"],
     responses={401: {"description": "Not authenticated"}}
 )
@@ -25,16 +27,15 @@ class BusinessConfigModel(BaseModel):
     business_name: str
     business_type: str
     business_description: Optional[str] = ""
-    has_inventory: bool = True
-    has_appointments: bool = True
-    has_schedule: bool = True
 
 
-def get_or_create_business_config(db: Session) -> BusinessConfig:
-    """Obtener o crear configuración del negocio"""
-    config = db.query(BusinessConfig).first()
+def get_or_create_business_config(db: Session, usuario_id: int) -> BusinessConfig:
+    """Obtener o crear configuracion del negocio para un usuario"""
+    config = db.query(BusinessConfig).filter(
+        BusinessConfig.usuario_id == usuario_id
+    ).first()
     if not config:
-        config = BusinessConfig()
+        config = BusinessConfig(usuario_id=usuario_id)
         db.add(config)
         db.commit()
         db.refresh(config)
@@ -46,7 +47,7 @@ async def get_business_config(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    config = get_or_create_business_config(db)
+    config = get_or_create_business_config(db, current_user.id)
     return config.to_dict()
 
 
@@ -54,71 +55,60 @@ async def get_business_config(
 async def update_business_config(
     data: BusinessConfigModel,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    config = get_or_create_business_config(db)
-    
+    config = get_or_create_business_config(db, current_user.id)
+
     config.business_name = data.business_name
     config.business_type = data.business_type
     config.business_description = data.business_description
-    config.has_inventory = data.has_inventory
-    config.has_appointments = data.has_appointments
-    config.has_schedule = data.has_schedule
     config.updated_at = datetime.utcnow()
-    
-    # Actualizar también en configuración general para compatibilidad
-    set_config("business_name", data.business_name)
-    set_config("business_type", data.business_type)
-    
+
+    # Actualizar tambien en configuracion general para compatibilidad (por perfil)
+    set_config("business_name", data.business_name, usuario_id=current_user.id, perfil_id=perfil.id)
+    set_config("business_type", data.business_type, usuario_id=current_user.id, perfil_id=perfil.id)
+    set_config("business_description", data.business_description or "", usuario_id=current_user.id, perfil_id=perfil.id)
+
     db.commit()
-    
+
     return {"status": "ok", "config": config.to_dict()}
 
 
-@router.get("/modules", summary="Get active modules", description="Get enabled modules for dynamic menu rendering (inventory, appointments, schedule).")
+@router.get("/modules", summary="Get active modules", description="Get enabled modules for dynamic menu rendering.")
 async def get_active_modules(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    from models import ToolsConfig
-    
-    config = get_or_create_business_config(db)
-    
-    # Los módulos están activos si los tools correspondientes están habilitados
-    inventory_tool = db.query(ToolsConfig).filter(ToolsConfig.nombre == "consultar_inventario").first()
-    appointment_tools = db.query(ToolsConfig).filter(ToolsConfig.nombre.in_(["agendar_cita", "ver_citas"])).all()
-    
-    has_inventory = inventory_tool.habilitado if inventory_tool else False
-    has_appointments = any(t.habilitado for t in appointment_tools)
-    
+    config = get_or_create_business_config(db, current_user.id)
+
     return {
-        "modules": {
-            "inventory": has_inventory,
-            "appointments": has_appointments,
-            "schedule": config.has_schedule,
-        },
+        "modules": {},
         "onboarding_completed": config.onboarding_completed
     }
 
 
-@router.get("/onboarding-status", summary="Get onboarding status", description="Check if initial setup wizard is completed. No auth required for redirect logic.")
+@router.get("/onboarding-status", summary="Get onboarding status", description="Check if the authenticated user's setup wizard is completed.")
 async def get_onboarding_status(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
 ):
-    config = db.query(BusinessConfig).first()
-    
+    config = db.query(BusinessConfig).filter(
+        BusinessConfig.usuario_id == current_user.id
+    ).first()
+
     if not config:
         return {"onboarding_completed": False}
-    
+
     return {"onboarding_completed": config.onboarding_completed}
 
 
-def init_all_default_data(db: Session):
+def init_all_default_data(db: Session, usuario_id: int = 0):
     """Inicializar todos los datos por defecto si no existen"""
     initialized = []
-    
-    # Configuración por defecto
-    if db.query(Configuracion).count() == 0:
+
+    # Configuracion por defecto
+    if db.query(Configuracion).filter(Configuracion.usuario_id == usuario_id).count() == 0:
         default_config = [
             ("system_prompt", """Eres un asistente de WhatsApp profesional.
 Ofreces servicios, agendas citas y consultas inventario.
@@ -131,53 +121,18 @@ Siempre saluda al cliente y ofrece ayuda."""),
             ("business_type", "servicios"),
         ]
         for clave, valor in default_config:
-            db.add(Configuracion(clave=clave, valor=valor))
+            db.add(Configuracion(clave=clave, usuario_id=usuario_id, valor=valor))
         initialized.append("configuracion")
-    
+
     # Herramientas por defecto
-    if db.query(ToolsConfig).count() == 0:
+    if db.query(ToolsConfig).filter(ToolsConfig.usuario_id == usuario_id).count() == 0:
         default_tools = [
-            ("consultar_inventario", True, "Consultar servicios y productos disponibles"),
-            ("agendar_cita", True, "Agendar citas para clientes"),
-            ("ver_citas", True, "Ver citas programadas del cliente"),
-            ("cancelar_cita", True, "Cancelar citas existentes"),
-            ("modificar_cita", True, "Modificar citas o agregar servicios"),
+            ("transferir_a_humano", True, "Transferir conversación a atención humana"),
         ]
         for nombre, habilitado, descripcion in default_tools:
-            db.add(ToolsConfig(nombre=nombre, habilitado=habilitado, descripcion=descripcion))
+            db.add(ToolsConfig(nombre=nombre, usuario_id=usuario_id, habilitado=habilitado, descripcion=descripcion))
         initialized.append("tools")
-    
-    # Inventario por defecto
-    if db.query(Inventario).count() == 0:
-        default_inventory = [
-            ("Servicio básico", 99, 100.0),
-            ("Servicio premium", 99, 200.0),
-            ("Producto ejemplo", 50, 150.0),
-        ]
-        for producto, stock, precio in default_inventory:
-            db.add(Inventario(producto=producto, stock=stock, precio=precio))
-        initialized.append("inventario")
-    
-    # Disponibilidad por defecto (Lun-Vie 9-18, Sab 9-14, Dom cerrado)
-    if db.query(Disponibilidad).count() == 0:
-        dias_config = [
-            (0, "09:00", "18:00", True),   # Lunes
-            (1, "09:00", "18:00", True),   # Martes
-            (2, "09:00", "18:00", True),   # Miércoles
-            (3, "09:00", "18:00", True),   # Jueves
-            (4, "09:00", "18:00", True),   # Viernes
-            (5, "09:00", "14:00", True),   # Sábado
-            (6, "00:00", "00:00", False),  # Domingo
-        ]
-        for dia_semana, hora_inicio, hora_fin, activo in dias_config:
-            db.add(Disponibilidad(
-                dia_semana=dia_semana,
-                hora_inicio=hora_inicio,
-                hora_fin=hora_fin,
-                activo=activo
-            ))
-        initialized.append("disponibilidad")
-    
+
     return initialized
 
 
@@ -186,35 +141,30 @@ async def skip_onboarding(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    config = get_or_create_business_config(db)
+    config = get_or_create_business_config(db, current_user.id)
     config.onboarding_completed = True
-    config.has_inventory = True
-    config.has_appointments = True
-    config.has_schedule = True
     config.updated_at = datetime.utcnow()
-    
+
     # Inicializar todos los datos por defecto
-    initialized = init_all_default_data(db)
-    
+    initialized = init_all_default_data(db, usuario_id=current_user.id)
+
     # SIEMPRE activar todos los tools cuando se salta el onboarding
     all_tools = [
-        ("consultar_inventario", "Consultar servicios y productos disponibles"),
-        ("agendar_cita", "Agendar citas para clientes"),
-        ("ver_citas", "Ver citas programadas del cliente"),
-        ("cancelar_cita", "Cancelar citas existentes"),
-        ("modificar_cita", "Modificar citas o agregar servicios"),
+        ("transferir_a_humano", "Transferir conversación a atención humana"),
     ]
     for tool_name, descripcion in all_tools:
-        tool = db.query(ToolsConfig).filter(ToolsConfig.nombre == tool_name).first()
+        tool = db.query(ToolsConfig).filter(
+            ToolsConfig.nombre == tool_name,
+            ToolsConfig.usuario_id == current_user.id,
+        ).first()
         if tool:
             tool.habilitado = True
         else:
-            db.add(ToolsConfig(nombre=tool_name, habilitado=True, descripcion=descripcion))
-    
-    # Asegurar que exista configuración básica
+            db.add(ToolsConfig(nombre=tool_name, usuario_id=current_user.id, habilitado=True, descripcion=descripcion))
+
+    # Asegurar que exista configuracion basica
     default_configs = {
         "system_prompt": """Eres un asistente de WhatsApp profesional.
-Ofreces servicios, agendas citas y consultas inventario.
 Responde claro, corto y amable.
 Siempre saluda al cliente y ofrece ayuda.""",
         "model": "gpt-4o-mini",
@@ -224,13 +174,16 @@ Siempre saluda al cliente y ofrece ayuda.""",
         "business_type": "servicios",
     }
     for clave, valor in default_configs.items():
-        existing = db.query(Configuracion).filter(Configuracion.clave == clave).first()
+        existing = db.query(Configuracion).filter(
+            Configuracion.clave == clave,
+            Configuracion.usuario_id == current_user.id,
+        ).first()
         if not existing:
-            db.add(Configuracion(clave=clave, valor=valor))
+            db.add(Configuracion(clave=clave, usuario_id=current_user.id, valor=valor))
             initialized.append(f"config:{clave}")
-    
+
     db.commit()
-    
+
     return {"status": "ok", "message": "Onboarding saltado, todo activado", "initialized": initialized}
 
 
@@ -239,11 +192,11 @@ async def restart_onboarding(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    config = get_or_create_business_config(db)
+    config = get_or_create_business_config(db, current_user.id)
     config.onboarding_completed = False
     config.updated_at = datetime.utcnow()
     db.commit()
-    
+
     return {"status": "ok", "message": "Onboarding reiniciado"}
 
 
@@ -258,39 +211,37 @@ async def setup_chat(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
-    import os
-    from openai import OpenAI
     import json
-    
-    openai_key = os.getenv("OPENAI_API_KEY")
-    if not openai_key:
+    from agent import get_openai_client
+
+    try:
+        client = get_openai_client()
+    except ValueError:
         return {
-            "response": "La API key de OpenAI no está configurada. Contacta al administrador.",
+            "response": "La API key de OpenAI no esta configurada. Ve a Configuracion > API Keys para agregarla.",
             "config_ready": False,
             "needs_api_key": True
         }
-    
-    client = OpenAI(api_key=openai_key)
-    
-    system_prompt = """Eres un amigo que ayuda a configurar un asistente de WhatsApp. Habla como si estuvieras en un café platicando.
+
+    system_prompt = """Eres un amigo que ayuda a configurar un asistente de WhatsApp. Habla como si estuvieras en un cafe platicando.
 
 TU PERSONALIDAD:
-- Eres cálido, genuino y te emociona ayudar
+- Eres calido, genuino y te emociona ayudar
 - Usas lenguaje natural, no corporativo
-- Celebras lo que hace el usuario ("¡Qué padre!", "Me encanta eso")
+- Celebras lo que hace el usuario ("Que padre!", "Me encanta eso")
 - Haces comentarios sobre lo que te cuenta antes de preguntar
-- Usas emojis con moderación (1-2 por mensaje máximo)
+- Usas emojis con moderacion (1-2 por mensaje maximo)
 
-CÓMO CONVERSAR:
+COMO CONVERSAR:
 - Primero CONECTA con lo que dijo, luego pregunta
 - Ejemplo: "Ah, unas y pestanas, que buen negocio! Como se llama tu local?"
 - NO hagas preguntas tipo encuesta, hazlas naturales
-- Una pregunta a la vez, máximo 2 líneas
+- Una pregunta a la vez, maximo 2 lineas
 
 LO QUE NECESITAS SABER (pregunta natural, no como lista):
-1. Nombre del negocio (si no lo mencionó)
-2. Qué servicios ofrece (si no quedó claro)
-3. Cómo quiere que suene el asistente (casual/formal)
+1. Nombre del negocio (si no lo menciono)
+2. Que servicios ofrece (si no quedo claro)
+3. Como quiere que suene el asistente (casual/formal)
 4. Si hay algo que el asistente NO deba hacer
 
 EJEMPLOS DE COMO HABLAR:
@@ -302,9 +253,8 @@ NO digas: "Que servicios ofreces?" (muy frio)
 NO digas: "El asistente debe ser formal o relajado?" (muy robotico)
 
 PARA EL JSON FINAL:
-- business_name: el nombre EXACTO que dio (o descripción si no dio nombre)
-- business_type: sus palabras exactas, no categorías inventadas
-- Deduce has_inventory/has_appointments/has_schedule según el tipo de negocio
+- business_name: el nombre EXACTO que dio (o descripcion si no dio nombre)
+- business_type: sus palabras exactas, no categorias inventadas
 
 CUANDO TENGAS TODO, responde con:
 ```json
@@ -315,31 +265,28 @@ CUANDO TENGAS TODO, responde con:
     "business_type": "palabras del usuario",
     "business_description": "lo que ofrece",
     "preferred_tone": "tono elegido",
-    "restrictions": "restricciones mencionadas",
-    "has_inventory": true/false,
-    "has_appointments": true/false,
-    "has_schedule": true/false
+    "restrictions": "restricciones mencionadas"
   },
   "prompts": {
     "role": "Rol del agente (2-3 oraciones)",
     "context": "Contexto del negocio (2-3 oraciones)",
     "task": "Objetivo principal (2-3 oraciones)",
     "constraints": "Restricciones (2-3 oraciones)",
-    "tone": "Tono de comunicación (1-2 oraciones)"
+    "tone": "Tono de comunicacion (1-2 oraciones)"
   },
   "summary": "Resumen amigable"
 }
 ```"""
 
     messages = [{"role": "system", "content": system_prompt}]
-    
+
     # Agregar historial
     for msg in data.history:
         messages.append({"role": msg["role"], "content": msg["content"]})
-    
+
     # Agregar mensaje actual
     messages.append({"role": "user", "content": data.message})
-    
+
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -347,17 +294,17 @@ CUANDO TENGAS TODO, responde con:
             temperature=0.7,
             max_tokens=1200
         )
-        
+
         ai_response = response.choices[0].message.content.strip()
-        
-        # Verificar si la IA devolvió configuración
+
+        # Verificar si la IA devolvio configuracion
         if "```json" in ai_response and '"ready": true' in ai_response:
             # Extraer JSON
             json_str = ai_response.split("```json")[1].split("```")[0].strip()
             config_data = json.loads(json_str)
-            
+
             return {
-                "response": config_data.get("summary", "Configuración lista"),
+                "response": config_data.get("summary", "Configuracion lista"),
                 "config_ready": True,
                 "config": config_data.get("config"),
                 "prompts": config_data.get("prompts"),
@@ -366,7 +313,7 @@ CUANDO TENGAS TODO, responde con:
                     {"role": "assistant", "content": ai_response}
                 ]
             }
-        
+
         return {
             "response": ai_response,
             "config_ready": False,
@@ -375,7 +322,7 @@ CUANDO TENGAS TODO, responde con:
                 {"role": "assistant", "content": ai_response}
             ]
         }
-        
+
     except Exception as e:
         return {
             "response": f"Error: {str(e)}",
@@ -388,31 +335,30 @@ CUANDO TENGAS TODO, responde con:
 async def apply_setup_config(
     data: dict,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     config_data = data.get("config", {})
     prompts_data = data.get("prompts", {})
-    
-    config = get_or_create_business_config(db)
-    
+    pid = perfil.id
+
+    config = get_or_create_business_config(db, current_user.id)
+
     config.business_name = config_data.get("business_name", "Mi Negocio")
     config.business_type = config_data.get("business_type", "general")
     config.business_description = config_data.get("business_description", "")
-    config.has_inventory = config_data.get("has_inventory", True)
-    config.has_appointments = config_data.get("has_appointments", True)
-    config.has_schedule = config_data.get("has_schedule", True)
     config.onboarding_completed = True
     config.updated_at = datetime.utcnow()
-    
-    # Guardar en config general
-    set_config("business_name", config.business_name)
-    set_config("business_type", config.business_type)
-    
+
+    # Guardar en config general (por perfil)
+    set_config("business_name", config.business_name, usuario_id=current_user.id, perfil_id=pid)
+    set_config("business_type", config.business_type, usuario_id=current_user.id, perfil_id=pid)
+
     # Guardar prompts generados por la IA del chat
     if prompts_data:
         import json
-        
-        # Guardar como prompt_sections (formato que usa la página de Agent)
+
+        # Guardar como prompt_sections (formato que usa la pagina de Agent)
         prompt_sections = {
             "role": prompts_data.get("role", ""),
             "context": prompts_data.get("context", ""),
@@ -420,15 +366,15 @@ async def apply_setup_config(
             "constraints": prompts_data.get("constraints", ""),
             "tone": prompts_data.get("tone", "")
         }
-        set_config("prompt_sections", json.dumps(prompt_sections))
-        
-        # También guardar individualmente para compatibilidad
-        set_config("prompt_role", prompts_data.get("role", ""))
-        set_config("prompt_context", prompts_data.get("context", ""))
-        set_config("prompt_task", prompts_data.get("task", ""))
-        set_config("prompt_constraints", prompts_data.get("constraints", ""))
-        set_config("prompt_tone", prompts_data.get("tone", ""))
-        
+        set_config("prompt_sections", json.dumps(prompt_sections), usuario_id=current_user.id, perfil_id=pid)
+
+        # Tambien guardar individualmente para compatibilidad
+        set_config("prompt_role", prompts_data.get("role", ""), usuario_id=current_user.id, perfil_id=pid)
+        set_config("prompt_context", prompts_data.get("context", ""), usuario_id=current_user.id, perfil_id=pid)
+        set_config("prompt_task", prompts_data.get("task", ""), usuario_id=current_user.id, perfil_id=pid)
+        set_config("prompt_constraints", prompts_data.get("constraints", ""), usuario_id=current_user.id, perfil_id=pid)
+        set_config("prompt_tone", prompts_data.get("tone", ""), usuario_id=current_user.id, perfil_id=pid)
+
         # Construir system_prompt completo
         full_prompt = f"""## ROL
 {prompts_data.get('role', '')}
@@ -444,62 +390,43 @@ async def apply_setup_config(
 
 ## TONO
 {prompts_data.get('tone', '')}"""
-        
-        set_config("system_prompt", full_prompt)
+
+        set_config("system_prompt", full_prompt, usuario_id=current_user.id, perfil_id=pid)
     else:
         # Si no hay prompts del chat, generarlos
-        await generate_prompts_from_config(config_data, db)
-    
-    # Activar/desactivar tools
-    from models import ToolsConfig
-    inventory_tools = ["consultar_inventario"]
-    appointment_tools = ["agendar_cita", "ver_citas", "cancelar_cita", "modificar_cita"]
-    
-    for tool in db.query(ToolsConfig).all():
-        if tool.nombre in inventory_tools:
-            tool.habilitado = config.has_inventory
-        elif tool.nombre in appointment_tools:
-            tool.habilitado = config.has_appointments
-    
+        await generate_prompts_from_config(config_data, db, current_user.id, perfil_id=pid)
+
     db.commit()
-    
+
     return {"status": "ok", "config": config.to_dict()}
 
 
-async def generate_prompts_from_config(config_data: dict, db):
-    """Genera prompts personalizados basados en la configuración"""
-    import os
-    from openai import OpenAI
+async def generate_prompts_from_config(config_data: dict, db, usuario_id: int = 0, perfil_id: int = None):
+    """Genera prompts personalizados basados en la configuracion"""
     import json
-    
-    openai_key = os.getenv("OPENAI_API_KEY")
-    if not openai_key:
+    from agent import get_openai_client
+
+    try:
+        client = get_openai_client()
+    except ValueError:
         return
-    
-    client = OpenAI(api_key=openai_key)
-    
+
     modules = []
-    if config_data.get("has_inventory"):
-        modules.append("catálogo de productos/servicios")
-    if config_data.get("has_appointments"):
-        modules.append("sistema de citas")
-    if config_data.get("has_schedule"):
-        modules.append("horarios de atención")
-    
+
     prompt = f"""Genera la personalidad para un agente de WhatsApp:
 
 Negocio: {config_data.get('business_name')}
 Tipo: {config_data.get('business_type')}
-Descripción: {config_data.get('business_description')}
+Descripcion: {config_data.get('business_description')}
 Funcionalidades: {', '.join(modules) if modules else 'solo chat'}
 
 Responde SOLO con JSON:
 {{
-  "role": "descripción del rol (1-2 oraciones)",
+  "role": "descripcion del rol (1-2 oraciones)",
   "context": "contexto del negocio (1-2 oraciones)",
   "task": "objetivo principal (1-2 oraciones)",
   "constraints": "restricciones (1-2 oraciones)",
-  "tone": "tono de comunicación (1 oración)"
+  "tone": "tono de comunicacion (1 oracion)"
 }}"""
 
     try:
@@ -509,17 +436,17 @@ Responde SOLO con JSON:
             temperature=0.7,
             max_tokens=400
         )
-        
+
         content = response.choices[0].message.content.strip()
         if content.startswith("```"):
             content = content.split("```")[1]
             if content.startswith("json"):
                 content = content[4:]
         content = content.strip()
-        
+
         sections = json.loads(content)
-        
-        # Guardar como prompt_sections (formato que usa la página de Agent)
+
+        # Guardar como prompt_sections (formato que usa la pagina de Agent)
         prompt_sections = {
             "role": sections.get("role", ""),
             "context": sections.get("context", ""),
@@ -527,15 +454,15 @@ Responde SOLO con JSON:
             "constraints": sections.get("constraints", ""),
             "tone": sections.get("tone", "")
         }
-        set_config("prompt_sections", json.dumps(prompt_sections))
-        
-        # También guardar individualmente para compatibilidad
-        set_config("prompt_role", sections.get("role", ""))
-        set_config("prompt_context", sections.get("context", ""))
-        set_config("prompt_task", sections.get("task", ""))
-        set_config("prompt_constraints", sections.get("constraints", ""))
-        set_config("prompt_tone", sections.get("tone", ""))
-        
+        set_config("prompt_sections", json.dumps(prompt_sections), usuario_id=usuario_id, perfil_id=perfil_id)
+
+        # Tambien guardar individualmente para compatibilidad
+        set_config("prompt_role", sections.get("role", ""), usuario_id=usuario_id, perfil_id=perfil_id)
+        set_config("prompt_context", sections.get("context", ""), usuario_id=usuario_id, perfil_id=perfil_id)
+        set_config("prompt_task", sections.get("task", ""), usuario_id=usuario_id, perfil_id=perfil_id)
+        set_config("prompt_constraints", sections.get("constraints", ""), usuario_id=usuario_id, perfil_id=perfil_id)
+        set_config("prompt_tone", sections.get("tone", ""), usuario_id=usuario_id, perfil_id=perfil_id)
+
         full_prompt = f"""## ROL
 {sections.get('role', '')}
 
@@ -550,15 +477,15 @@ Responde SOLO con JSON:
 
 ## TONO
 {sections.get('tone', '')}"""
-        
-        set_config("system_prompt", full_prompt)
-        
+
+        set_config("system_prompt", full_prompt, usuario_id=usuario_id, perfil_id=perfil_id)
+
     except Exception as e:
         print(f"Error generating prompts: {e}")
 
 
 class FactoryResetRequest(BaseModel):
-    sections: list = []  # Lista de secciones a resetear, vacía = todo
+    sections: list = []  # Lista de secciones a resetear, vacia = todo
 
 
 @router.post("/factory-reset", summary="Factory reset", description="Reset selected or all data to factory defaults.")
@@ -570,72 +497,67 @@ async def factory_reset(
     """
     Reset selectivo o completo de la base de datos.
     sections puede incluir: contactos, citas, campanas, inventario, conversaciones, configuracion, horarios
-    Si sections está vacío, se borra todo.
+    Si sections esta vacio, se borra todo.
     Solo usuarios admin pueden ejecutar esto.
     """
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Solo administradores pueden ejecutar factory reset")
-    
+
     sections = data.sections if data.sections else [
-        'contactos', 'citas', 'campanas', 'inventario', 
+        'contactos', 'citas', 'campanas', 'inventario',
         'conversaciones', 'configuracion', 'horarios', 'usuarios'
     ]
-    
+
     deleted = {}
-    
+
     try:
-        # Campañas (incluye destinatarios)
+        uid = current_user.id
+
+        # Campanas (incluye destinatarios)
         if 'campanas' in sections:
-            deleted["campana_destinatarios"] = db.query(CampanaDestinatario).delete()
-            deleted["campanas"] = db.query(Campana).delete()
-        
+            camp_ids = [c.id for c in db.query(Campana.id).filter(Campana.usuario_id == uid).all()]
+            if camp_ids:
+                deleted["campana_destinatarios"] = db.query(CampanaDestinatario).filter(
+                    CampanaDestinatario.campana_id.in_(camp_ids)
+                ).delete(synchronize_session='fetch')
+            else:
+                deleted["campana_destinatarios"] = 0
+            deleted["campanas"] = db.query(Campana).filter(Campana.usuario_id == uid).delete()
+
         # Contactos
         if 'contactos' in sections:
-            deleted["contactos"] = db.query(Contacto).delete()
-        
-        # Citas
-        if 'citas' in sections:
-            deleted["citas"] = db.query(Cita).delete()
-        
+            deleted["contactos"] = db.query(Contacto).filter(Contacto.usuario_id == uid).delete()
+
         # Conversaciones (memoria)
         if 'conversaciones' in sections:
-            deleted["memoria"] = db.query(Memoria).delete()
-        
-        # Inventario
-        if 'inventario' in sections:
-            deleted["inventario"] = db.query(Inventario).delete()
-        
-        # Horarios
-        if 'horarios' in sections:
-            deleted["horarios_bloqueados"] = db.query(HorarioBloqueado).delete()
-            deleted["disponibilidad"] = db.query(Disponibilidad).delete()
-        
-        # Configuración (incluye tools, business config, prompts)
+            deleted["memoria"] = db.query(Memoria).filter(Memoria.usuario_id == uid).delete()
+
+        # Configuracion (incluye tools, business config, prompts)
         if 'configuracion' in sections:
-            deleted["tools_config"] = db.query(ToolsConfig).delete()
-            deleted["configuracion"] = db.query(Configuracion).delete()
-            deleted["business_config"] = db.query(BusinessConfig).delete()
-        
-        # Background jobs siempre se limpian si hay campañas o contactos
+            deleted["tools_config"] = db.query(ToolsConfig).filter(ToolsConfig.usuario_id == uid).delete()
+            deleted["configuracion"] = db.query(Configuracion).filter(Configuracion.usuario_id == uid).delete()
+            deleted["business_config"] = db.query(BusinessConfig).filter(BusinessConfig.usuario_id == uid).delete()
+
+        # Background jobs siempre se limpian si hay campanas o contactos
         if 'campanas' in sections or 'contactos' in sections:
-            deleted["background_jobs"] = db.query(BackgroundJob).delete()
-        
+            deleted["background_jobs"] = db.query(BackgroundJob).filter(BackgroundJob.usuario_id == uid).delete()
+
         # Usuarios (excepto el usuario actual)
         if 'usuarios' in sections:
             deleted["usuarios"] = db.query(Usuario).filter(Usuario.id != current_user.id).delete()
-        
-        # Full reset: eliminar también al admin actual
+
+        # Full reset: eliminar tambien al admin actual
         if 'full_reset' in sections:
             deleted["usuario_admin"] = db.query(Usuario).filter(Usuario.id == current_user.id).delete()
-        
+
         db.commit()
-        
-        # Reinicializar datos por defecto según lo que se borró
+
+        # Reinicializar datos por defecto segun lo que se borro
         initialized = []
-        if 'configuracion' in sections or 'inventario' in sections or 'horarios' in sections:
-            initialized = init_all_default_data(db)
+        if 'configuracion' in sections:
+            initialized = init_all_default_data(db, usuario_id=uid)
             db.commit()
-        
+
         return {
             "status": "ok",
             "message": "Reset completado",
@@ -643,7 +565,7 @@ async def factory_reset(
             "initialized": initialized,
             "sections_reset": sections
         }
-        
+
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error en factory reset: {str(e)}")

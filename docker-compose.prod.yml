@@ -17,7 +17,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: whatsapp_agent
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme_in_production}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD required}
       POSTGRES_DB: whatsapp_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -48,14 +48,15 @@ services:
       context: ./whatsapp-ai-api
       dockerfile: Dockerfile.prod
     environment:
-      DATABASE_URL: postgresql://whatsapp_agent:${DB_PASSWORD:-changeme_in_production}@postgres:5432/whatsapp_db
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      JWT_SECRET: ${JWT_SECRET:-default_jwt_secret_change_in_production}
+      DATABASE_URL: postgresql://whatsapp_agent:${DB_PASSWORD:?DB_PASSWORD required}@postgres:5432/whatsapp_db
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY required}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required (openssl rand -hex 32)}
+      WEBHOOK_TOKEN: ${WEBHOOK_TOKEN:-}
       REDIS_URL: redis://redis:6379/0
       WHATSAPP_API_URL: ${WHATSAPP_API_URL:-}
       WHATSAPP_API_KEY: ${WHATSAPP_API_KEY:-}
       WHATSAPP_SESSION: ${WHATSAPP_SESSION:-default}
-      CORS_ORIGINS: "*"
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS required (comma-separated origins, no '*')}
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,8 +72,9 @@ services:
       dockerfile: Dockerfile.prod
     command: python worker.py
     environment:
-      DATABASE_URL: postgresql://whatsapp_agent:${DB_PASSWORD:-changeme_in_production}@postgres:5432/whatsapp_db
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      DATABASE_URL: postgresql://whatsapp_agent:${DB_PASSWORD:?DB_PASSWORD required}@postgres:5432/whatsapp_db
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY required}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required (openssl rand -hex 32)}
       REDIS_URL: redis://redis:6379/0
       WHATSAPP_API_URL: ${WHATSAPP_API_URL:-}
       WHATSAPP_API_KEY: ${WHATSAPP_API_KEY:-}

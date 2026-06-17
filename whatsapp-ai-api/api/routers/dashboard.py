@@ -1,392 +1,396 @@
 """
-Dashboard Router - Enhanced metrics, activity feed, alerts and insights
+Dashboard Router - Metricas de negocio enfocadas en resultados del bot
 """
+
 import json
 from datetime import datetime, timedelta
-from typing import List, Optional
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, desc, and_
+from fastapi import APIRouter, Depends
+from sqlalchemy import func, desc, distinct
 from sqlalchemy.orm import Session
-from models import get_db, Cita, Inventario, Memoria, Contacto, Usuario
+from models import (
+    get_db,
+    Contacto,
+    Usuario,
+    Perfil,
+    MensajeConversacion,
+    FunnelPaso,
+    Campana,
+    CampanaDestinatario,
+)
+from database import get_config
 from auth import get_current_user
+from api.routers.perfiles import get_current_perfil
 
 router = APIRouter(
     prefix="/dashboard",
     tags=["Dashboard"],
-    responses={401: {"description": "Not authenticated"}}
+    responses={401: {"description": "Not authenticated"}},
 )
 
 
-@router.get("/stats", summary="Enhanced dashboard stats with comparisons")
-async def get_enhanced_stats(
+@router.get("/stats")
+async def get_stats(
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    """Get dashboard stats with today vs yesterday comparisons"""
     now = datetime.utcnow()
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    yesterday_start = today_start - timedelta(days=1)
-    week_ago = today_start - timedelta(days=7)
-    
-    # Total counts
-    total_contacts = db.query(Contacto).count()
-    total_appointments = db.query(Cita).count()
-    total_products = db.query(Inventario).count()
-    
-    appointments_today = db.query(Cita).filter(
-        Cita.fecha >= today_start.strftime("%Y-%m-%d"),
-        Cita.fecha < (today_start + timedelta(days=1)).strftime("%Y-%m-%d")
-    ).count()
-    
-    # This week new contacts
-    new_contacts_week = db.query(Contacto).filter(
-        Contacto.created_at >= week_ago
-    ).count()
-    
-    # Calculate messages from memoria with timestamps
-    total_messages = 0
-    messages_today = 0
-    messages_yesterday = 0
-    
-    memorias = db.query(Memoria).all()
-    for m in memorias:
-        if m.historial:
-            try:
-                historial = json.loads(m.historial)
-                total_messages += len(historial)
-                
-                # Count messages by date based on memoria updated_at
-                if m.updated_at:
-                    if m.updated_at >= today_start:
-                        # Estimate today's messages from this conversation
-                        messages_today += min(len(historial), 5)  # Cap per conversation
-                    elif m.updated_at >= yesterday_start:
-                        messages_yesterday += min(len(historial), 5)
-            except:
-                pass
-    
-    # Response rate (contacts with responses / total contacts with messages)
-    contacts_with_messages = db.query(Contacto).filter(
-        Contacto.total_mensajes > 0
-    ).count()
-    
-    response_rate = 89  # Default, can be calculated from actual response tracking
-    
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    yesterday = today - timedelta(days=1)
+    week_ago = today - timedelta(days=7)
+    uid = current_user.id
+    pid = perfil.id
+
+    # Mensajes
+    msgs_today = (
+        db.query(MensajeConversacion)
+        .filter(
+            MensajeConversacion.usuario_id == uid,
+            MensajeConversacion.perfil_id == pid,
+            MensajeConversacion.created_at >= today,
+            MensajeConversacion.tipo_evento == None,
+        )
+        .count()
+    )
+    msgs_yesterday = (
+        db.query(MensajeConversacion)
+        .filter(
+            MensajeConversacion.usuario_id == uid,
+            MensajeConversacion.perfil_id == pid,
+            MensajeConversacion.created_at >= yesterday,
+            MensajeConversacion.created_at < today,
+            MensajeConversacion.tipo_evento == None,
+        )
+        .count()
+    )
+
+    # AI responses vs total
+    ai_responses = (
+        db.query(MensajeConversacion)
+        .filter(
+            MensajeConversacion.usuario_id == uid,
+            MensajeConversacion.perfil_id == pid,
+            MensajeConversacion.created_at >= week_ago,
+            MensajeConversacion.rol == "assistant",
+            MensajeConversacion.tipo_evento == None,
+        )
+        .count()
+    )
+    user_msgs = (
+        db.query(MensajeConversacion)
+        .filter(
+            MensajeConversacion.usuario_id == uid,
+            MensajeConversacion.perfil_id == pid,
+            MensajeConversacion.created_at >= week_ago,
+            MensajeConversacion.rol == "user",
+            MensajeConversacion.tipo_evento == None,
+        )
+        .count()
+    )
+
+    # Tool events (datos guardados, citas agendadas, pasos avanzados, fotos)
+    events = (
+        db.query(MensajeConversacion.tipo_evento, func.count(MensajeConversacion.id))
+        .filter(
+            MensajeConversacion.usuario_id == uid,
+            MensajeConversacion.perfil_id == pid,
+            MensajeConversacion.tipo_evento != None,
+            MensajeConversacion.created_at >= week_ago,
+        )
+        .group_by(MensajeConversacion.tipo_evento)
+        .all()
+    )
+    ai_actions = {ev: cnt for ev, cnt in events}
+
+    # Contactos
+    total_contacts = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.perfil_id == pid).count()
+    new_today = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.perfil_id == pid, Contacto.created_at >= today).count()
+    new_week = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.perfil_id == pid, Contacto.created_at >= week_ago).count()
+    human_mode = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.perfil_id == pid, Contacto.modo_humano == True).count()
+
+    # Datos capturados
+    con_datos = (
+        db.query(Contacto)
+        .filter(
+            Contacto.usuario_id == uid,
+            Contacto.perfil_id == pid,
+            Contacto.datos_capturados != "{}",
+            Contacto.datos_capturados != None,
+            Contacto.datos_capturados != "",
+        )
+        .count()
+    )
+
+    # Funnel distribution - single query with GROUP BY instead of N+1
+    funnel_dist = {}
+    pasos = (
+        db.query(FunnelPaso)
+        .filter(FunnelPaso.usuario_id == uid, FunnelPaso.perfil_id == pid, FunnelPaso.activo == True)
+        .order_by(FunnelPaso.orden)
+        .all()
+    )
+    if pasos:
+        paso_nombres = [p.nombre for p in pasos]
+        funnel_counts = (
+            db.query(Contacto.paso_funnel, func.count(Contacto.id))
+            .filter(
+                Contacto.usuario_id == uid,
+                Contacto.perfil_id == pid,
+                Contacto.paso_funnel.in_(paso_nombres),
+            )
+            .group_by(Contacto.paso_funnel)
+            .all()
+        )
+        count_map = {nombre: cnt for nombre, cnt in funnel_counts}
+        for p in pasos:
+            funnel_dist[p.nombre] = {"titulo": p.titulo, "count": count_map.get(p.nombre, 0), "orden": p.orden}
+
+    # Campanas
+    camp_activas = db.query(Campana).filter(Campana.usuario_id == uid, Campana.perfil_id == pid, Campana.estado == "enviando").count()
+    camp_completadas = db.query(Campana).filter(Campana.usuario_id == uid, Campana.perfil_id == pid, Campana.estado == "completada").count()
+    camp_total = db.query(Campana).filter(Campana.usuario_id == uid, Campana.perfil_id == pid).count()
+
     return {
-        "messages": {
-            "total": total_messages,
-            "today": messages_today,
-            "yesterday": messages_yesterday,
-            "trend": messages_today - messages_yesterday
-        },
-        "appointments": {
-            "total": total_appointments,
-            "today": appointments_today
+        "messages": {"today": msgs_today, "yesterday": msgs_yesterday},
+        "ai": {
+            "responses_week": ai_responses,
+            "user_msgs_week": user_msgs,
+            "datos_guardados": ai_actions.get("datos_guardados", 0),
+            "pasos_avanzados": ai_actions.get("paso_avanzado", 0),
+            "transferencias": ai_actions.get("intervencion_humana", 0),
         },
         "contacts": {
             "total": total_contacts,
-            "new_this_week": new_contacts_week
+            "new_today": new_today,
+            "new_week": new_week,
+            "human_mode": human_mode,
+            "con_datos": con_datos,
         },
-        "products": {
-            "total": total_products
+        "funnel": funnel_dist,
+        "campaigns": {
+            "total": camp_total,
+            "activas": camp_activas,
+            "completadas": camp_completadas,
         },
-        "response_rate": {
-            "value": response_rate,
-            "trend": 5  # Placeholder
-        }
     }
 
 
-@router.get("/activity", summary="Real-time activity feed")
-async def get_activity_feed(
-    limit: int = Query(default=20, le=50),
+@router.get("/hot-leads")
+async def get_hot_leads(
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    """Get recent activity feed for dashboard - conversations from today"""
-    now = datetime.utcnow()
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    conversations = []
-    
-    # Get conversations updated today (or recent if none today)
-    memorias = db.query(Memoria).filter(
-        Memoria.updated_at >= today_start
-    ).order_by(desc(Memoria.updated_at)).limit(limit).all()
-    
-    # If no conversations today, get most recent ones
-    if not memorias:
-        memorias = db.query(Memoria).order_by(desc(Memoria.updated_at)).limit(10).all()
-    
-    for memoria in memorias:
-        if not memoria.historial:
-            continue
-            
-        try:
-            historial = json.loads(memoria.historial)
-            if not historial:
-                continue
-                
-            # Get contact info
-            contacto = db.query(Contacto).filter(
-                Contacto.telefono == memoria.telefono
-            ).first()
-            
-            contact_name = contacto.nombre if contacto and contacto.nombre else memoria.telefono
-            
-            # Get last messages as a conversation thread
-            messages = []
-            for msg in historial[-6:]:  # Last 6 messages max
-                role = msg.get("role", "user")
-                content = msg.get("content", "")
-                
-                if role in ["user", "assistant"]:
-                    messages.append({
-                        "role": role,
-                        "content": content[:200] if len(content) > 200 else content
-                    })
-            
-            if messages:
-                conversations.append({
-                    "telefono": memoria.telefono,
-                    "contact_name": contact_name,
-                    "timestamp": memoria.updated_at.isoformat() if memoria.updated_at else None,
-                    "messages": messages
-                })
-        except:
-            continue
-    
-    return {"conversations": conversations[:limit]}
+    leads = (
+        db.query(Contacto)
+        .filter(
+            Contacto.usuario_id == current_user.id,
+            Contacto.perfil_id == perfil.id,
+            Contacto.lead_score >= 20,
+            Contacto.estado_lead.notin_(["cerrado", "perdido"]),
+        )
+        .order_by(desc(Contacto.lead_score))
+        .limit(7)
+        .all()
+    )
+    return [
+        {
+            "telefono": c.telefono,
+            "nombre": c.nombre or c.telefono,
+            "lead_score": c.lead_score,
+            "paso_funnel": c.paso_funnel,
+            "estado_lead": c.estado_lead,
+        }
+        for c in leads
+    ]
 
 
-@router.get("/alerts", summary="Important alerts requiring attention")
-async def get_alerts(
+@router.get("/campaigns-summary")
+async def get_campaigns_summary(
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    """Get alerts for dashboard - angry customers, unconfirmed appointments, etc."""
-    alerts = []
-    now = datetime.utcnow()
-    tomorrow = now + timedelta(days=1)
-    
-    # Check for potentially angry customers (contacts in human mode)
-    angry_contacts = db.query(Contacto).filter(
-        Contacto.modo_humano == True
-    ).all()
-    
-    for contact in angry_contacts:
-        alerts.append({
-            "id": f"angry_{contact.id}",
-            "type": "angry_customer",
-            "severity": "high",
-            "title": "Cliente requiere atención humana",
-            "description": contact.modo_humano_razon or "Modo humano activado",
-            "contact": {
-                "id": contact.id,
-                "nombre": contact.nombre or contact.telefono,
-                "telefono": contact.telefono
-            },
-            "timestamp": contact.modo_humano_desde.isoformat() if contact.modo_humano_desde else now.isoformat(),
-            "action": {
-                "label": "Ver conversación",
-                "link": f"/conversations?phone={contact.telefono}"
-            }
-        })
-    
-    # Check for unconfirmed appointments (tomorrow, status pending)
-    tomorrow_str = tomorrow.strftime("%Y-%m-%d")
-    pending_citas = db.query(Cita).filter(
-        Cita.fecha == tomorrow_str,
-        Cita.estado == "pendiente"
-    ).all()
-    
-    for cita in pending_citas:
-        alerts.append({
-            "id": f"cita_{cita.id}",
-            "type": "unconfirmed_appointment",
-            "severity": "medium",
-            "title": "Cita sin confirmar",
-            "description": f"{cita.servicio} - mañana {cita.hora}",
-            "contact": {
-                "nombre": cita.nombre_cliente,
-                "telefono": cita.telefono
-            },
-            "timestamp": now.isoformat(),
-            "action": {
-                "label": "Enviar recordatorio",
-                "link": f"/appointments?id={cita.id}"
-            }
-        })
-    
-    # Check for contacts without response in 24h
-    day_ago = now - timedelta(hours=24)
-    no_response = db.query(Contacto).filter(
-        Contacto.ultimo_mensaje >= day_ago,
-        Contacto.estado == "activo"
-    ).limit(5).all()
-    
-    # Detect negative sentiment in recent messages
-    recent_memorias = db.query(Memoria).order_by(desc(Memoria.updated_at)).limit(20).all()
-    
-    for memoria in recent_memorias:
-        if not memoria.historial:
-            continue
-        try:
-            historial = json.loads(memoria.historial)
-            if not historial:
-                continue
-            
-            last_msg = historial[-1] if historial else None
-            if last_msg and last_msg.get("role") == "user":
-                content = last_msg.get("content", "").lower()
-                negative_indicators = ["molesto", "enojado", "espero", "hora", "queja", "mal servicio", "pésimo", "terrible"]
-                
-                if any(word in content for word in negative_indicators):
-                    contacto = db.query(Contacto).filter(
-                        Contacto.telefono == memoria.telefono
-                    ).first()
-                    
-                    if contacto and not any(a.get("contact", {}).get("telefono") == memoria.telefono for a in alerts):
-                        alerts.append({
-                            "id": f"sentiment_{memoria.telefono}",
-                            "type": "negative_sentiment",
-                            "severity": "high",
-                            "title": "Cliente posiblemente molesto",
-                            "description": content[:80] + "...",
-                            "contact": {
-                                "nombre": contacto.nombre or memoria.telefono,
-                                "telefono": memoria.telefono
-                            },
-                            "timestamp": memoria.updated_at.isoformat() if memoria.updated_at else now.isoformat(),
-                            "action": {
-                                "label": "Ver conversación",
-                                "link": f"/conversations?phone={memoria.telefono}"
-                            }
-                        })
-        except:
-            continue
-    
-    # Sort by severity
-    severity_order = {"high": 0, "medium": 1, "low": 2}
-    alerts.sort(key=lambda x: severity_order.get(x.get("severity"), 3))
-    
-    return {"alerts": alerts[:10]}
+    from sqlalchemy import case
 
-
-@router.get("/insights", summary="AI-powered insights")
-async def get_insights(
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
-):
-    """Get AI insights - peak hours, common questions, trends"""
-    insights = []
-    
-    # Analyze peak hours from contact last message times
-    contacts = db.query(Contacto).filter(
-        Contacto.ultimo_mensaje.isnot(None)
-    ).all()
-    
-    hour_counts = {}
-    for contact in contacts:
-        if contact.ultimo_mensaje:
-            hour = contact.ultimo_mensaje.hour
-            hour_counts[hour] = hour_counts.get(hour, 0) + 1
-    
-    if hour_counts:
-        peak_hour = max(hour_counts, key=hour_counts.get)
-        peak_range = f"{peak_hour}:00 - {(peak_hour + 2) % 24}:00"
-        insights.append({
-            "type": "peak_hours",
-            "icon": "clock",
-            "label": "Horario con más actividad",
-            "value": peak_range,
-            "detail": f"{hour_counts[peak_hour]} conversaciones"
-        })
-    
-    # Analyze common questions/topics from messages
-    word_counts = {}
-    keywords = ["precio", "costo", "horario", "cita", "disponible", "reservar", "agendar", 
-                "servicio", "promoción", "descuento", "ubicación", "dirección"]
-    
-    memorias = db.query(Memoria).all()
-    for memoria in memorias:
-        if not memoria.historial:
-            continue
-        try:
-            historial = json.loads(memoria.historial)
-            for msg in historial:
-                if msg.get("role") == "user":
-                    content = msg.get("content", "").lower()
-                    for keyword in keywords:
-                        if keyword in content:
-                            word_counts[keyword] = word_counts.get(keyword, 0) + 1
-        except:
-            continue
-    
-    if word_counts:
-        top_keyword = max(word_counts, key=word_counts.get)
-        insights.append({
-            "type": "top_question",
-            "icon": "message-circle",
-            "label": "Tema más consultado",
-            "value": top_keyword.capitalize(),
-            "detail": f"Mencionado {word_counts[top_keyword]} veces"
-        })
-    
-    # Response metrics
-    total_contacts = db.query(Contacto).count()
-    active_contacts = db.query(Contacto).filter(Contacto.estado == "activo").count()
-    
-    if total_contacts > 0:
-        active_rate = round((active_contacts / total_contacts) * 100)
-        insights.append({
-            "type": "engagement",
-            "icon": "users",
-            "label": "Tasa de contactos activos",
-            "value": f"{active_rate}%",
-            "detail": f"{active_contacts} de {total_contacts} contactos"
-        })
-    
-    # Appointments trend
     now = datetime.utcnow()
     week_ago = now - timedelta(days=7)
-    two_weeks_ago = now - timedelta(days=14)
-    
-    this_week_citas = db.query(Cita).filter(
-        Cita.fecha >= week_ago.strftime("%Y-%m-%d")
-    ).count()
-    
-    last_week_citas = db.query(Cita).filter(
-        and_(
-            Cita.fecha >= two_weeks_ago.strftime("%Y-%m-%d"),
-            Cita.fecha < week_ago.strftime("%Y-%m-%d")
+    uid = current_user.id
+    pid = perfil.id
+
+    # --- Active campaigns: batch load counts with single query ---
+    campanas_activas = db.query(Campana).filter(Campana.usuario_id == uid, Campana.perfil_id == pid, Campana.estado == "enviando").all()
+    activas = []
+    if campanas_activas:
+        activas_ids = [c.id for c in campanas_activas]
+        activas_stats = (
+            db.query(
+                CampanaDestinatario.campana_id,
+                func.count(CampanaDestinatario.id).label("total"),
+                func.count(case((CampanaDestinatario.estado == "enviado", 1))).label("enviados"),
+                func.count(case((CampanaDestinatario.estado == "respondido", 1))).label("respondidos"),
+            )
+            .filter(CampanaDestinatario.campana_id.in_(activas_ids))
+            .group_by(CampanaDestinatario.campana_id)
+            .all()
         )
-    ).count()
-    
-    if last_week_citas > 0:
-        trend = round(((this_week_citas - last_week_citas) / last_week_citas) * 100)
-        trend_str = f"+{trend}%" if trend > 0 else f"{trend}%"
-    else:
-        trend_str = "+100%" if this_week_citas > 0 else "0%"
-    
-    insights.append({
-        "type": "appointments_trend",
-        "icon": "calendar",
-        "label": "Citas esta semana vs anterior",
-        "value": str(this_week_citas),
-        "detail": trend_str
-    })
-    
-    # Messages per contact average
-    contacts_with_msgs = db.query(Contacto).filter(Contacto.total_mensajes > 0).all()
-    if contacts_with_msgs:
-        avg_msgs = sum(c.total_mensajes for c in contacts_with_msgs) / len(contacts_with_msgs)
-        insights.append({
-            "type": "avg_messages",
-            "icon": "message-square",
-            "label": "Promedio de mensajes por contacto",
-            "value": f"{round(avg_msgs, 1)}",
-            "detail": "mensajes por conversación"
-        })
-    
-    return {"insights": insights}
+        stats_map = {row.campana_id: row for row in activas_stats}
+        for c in campanas_activas:
+            row = stats_map.get(c.id)
+            activas.append({
+                "nombre": c.nombre,
+                "total": row.total if row else 0,
+                "enviados": row.enviados if row else 0,
+                "respondidos": row.respondidos if row else 0,
+            })
+
+    # --- Recent completed campaigns: batch load counts with single query ---
+    campanas_recientes = (
+        db.query(Campana)
+        .filter(Campana.usuario_id == uid, Campana.perfil_id == pid, Campana.estado == "completada", Campana.updated_at >= week_ago)
+        .order_by(desc(Campana.updated_at))
+        .limit(3)
+        .all()
+    )
+    recientes = []
+    if campanas_recientes:
+        recientes_ids = [c.id for c in campanas_recientes]
+        recientes_stats = (
+            db.query(
+                CampanaDestinatario.campana_id,
+                func.count(CampanaDestinatario.id).label("total"),
+                func.count(case((CampanaDestinatario.estado == "respondido", 1))).label("respondidos"),
+            )
+            .filter(CampanaDestinatario.campana_id.in_(recientes_ids))
+            .group_by(CampanaDestinatario.campana_id)
+            .all()
+        )
+        stats_map = {row.campana_id: row for row in recientes_stats}
+        for c in campanas_recientes:
+            row = stats_map.get(c.id)
+            recientes.append({
+                "nombre": c.nombre,
+                "total": row.total if row else 0,
+                "respondidos": row.respondidos if row else 0,
+            })
+
+    return {"activas": activas, "recientes": recientes}
+
+
+@router.get("/trend")
+async def get_trend(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
+    from sqlalchemy import cast, Date
+
+    now = datetime.utcnow()
+    uid = current_user.id
+    pid = perfil.id
+    start_date = (now - timedelta(days=13)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Batch: conversations per day (2 queries instead of 28)
+    conv_rows = (
+        db.query(
+            func.date(MensajeConversacion.created_at).label("day"),
+            func.count(distinct(MensajeConversacion.telefono)),
+        )
+        .filter(
+            MensajeConversacion.usuario_id == uid,
+            MensajeConversacion.perfil_id == pid,
+            MensajeConversacion.created_at >= start_date,
+        )
+        .group_by(func.date(MensajeConversacion.created_at))
+        .all()
+    )
+    conv_map = {str(row[0]): row[1] for row in conv_rows}
+
+    contact_rows = (
+        db.query(
+            func.date(Contacto.created_at).label("day"),
+            func.count(Contacto.id),
+        )
+        .filter(
+            Contacto.usuario_id == uid,
+            Contacto.perfil_id == pid,
+            Contacto.created_at >= start_date,
+        )
+        .group_by(func.date(Contacto.created_at))
+        .all()
+    )
+    contact_map = {str(row[0]): row[1] for row in contact_rows}
+
+    days = []
+    for i in range(13, -1, -1):
+        day = (now - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
+        day_str = day.strftime("%Y-%m-%d")
+        days.append(
+            {
+                "date": day_str,
+                "day": day.strftime("%a"),
+                "conversations": conv_map.get(day_str, 0),
+                "new_contacts": contact_map.get(day_str, 0),
+            }
+        )
+    return days
+
+
+@router.get("/alerts")
+async def get_alerts(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
+    # Select only needed columns instead of loading full ORM objects
+    now = datetime.utcnow()
+    rows = (
+        db.query(
+            Contacto.id,
+            Contacto.nombre,
+            Contacto.telefono,
+            Contacto.modo_humano_razon,
+            Contacto.modo_humano_desde,
+        )
+        .filter(
+            Contacto.usuario_id == current_user.id,
+            Contacto.perfil_id == perfil.id,
+            Contacto.modo_humano == True,
+        )
+        .all()
+    )
+    alerts = []
+    for row in rows:
+        since = ""
+        if row.modo_humano_desde:
+            diff = now - row.modo_humano_desde
+            h, m = (
+                int(diff.total_seconds() / 3600),
+                int((diff.total_seconds() % 3600) / 60),
+            )
+            since = f"{h}h {m}m" if h > 0 else f"{m}m"
+        alerts.append(
+            {
+                "id": row.id,
+                "nombre": row.nombre or row.telefono,
+                "telefono": row.telefono,
+                "razon": row.modo_humano_razon or "Activado manualmente",
+                "esperando": since,
+            }
+        )
+    return alerts
+
+
+# Legacy
+@router.get("/activity")
+async def get_activity_feed(
+    db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)
+):
+    return {"conversations": []}
+
+
+@router.get("/insights")
+async def get_insights(
+    db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)
+):
+    return {"insights": []}

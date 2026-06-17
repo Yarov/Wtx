@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { 
-  AlertCircle, Loader2, Bot, MessageSquare, Zap, 
-  Calendar, BarChart3, ArrowRight, Shield
+import {
+  AlertCircle, Loader2, Bot, MessageSquare, Zap,
+  Smartphone, BarChart3, ArrowRight
 } from 'lucide-react'
 
 const FEATURES = [
-  { icon: MessageSquare, title: 'Respuestas Automáticas', desc: 'IA que atiende 24/7' },
-  { icon: Calendar, title: 'Gestión de Citas', desc: 'Agenda automáticamente' },
-  { icon: BarChart3, title: 'Analytics', desc: 'Métricas en tiempo real' },
-  { icon: Zap, title: 'Campañas', desc: 'Marketing automatizado' },
+  { icon: MessageSquare, title: 'Agente con IA', desc: 'Atiende 24/7 en español' },
+  { icon: Smartphone, title: 'Multi-número', desc: 'Un agente por cada WhatsApp' },
+  { icon: BarChart3, title: 'CRM + Reportes', desc: 'Clientes y métricas en vivo' },
+  { icon: Zap, title: 'Campañas', desc: 'Mensajería masiva' },
 ]
 
 export default function Login() {
@@ -37,7 +37,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-600 via-indigo-700 to-slate-900 p-12 flex-col justify-between relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-700 via-violet-700 to-fuchsia-900 p-12 flex-col justify-between relative overflow-hidden">
         {/* Background decoration */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/10 rounded-full blur-3xl" />
@@ -53,16 +53,16 @@ export default function Login() {
             </div>
             <span className="text-2xl font-bold text-white">Wtx</span>
           </div>
-          <p className="text-indigo-100 text-sm">WhatsApp AI Agent Platform</p>
+          <p className="text-violet-100 text-sm">Agente de WhatsApp con IA</p>
         </div>
 
         <div className="relative z-10 space-y-8">
           <div>
             <h1 className="text-4xl font-bold text-white leading-tight mb-4">
-              Tu asistente de<br />WhatsApp con IA
+              Tu WhatsApp<br />responde solo
             </h1>
-            <p className="text-indigo-100 text-lg">
-              Automatiza conversaciones, agenda citas y haz crecer tu negocio mientras duermes.
+            <p className="text-violet-100 text-lg">
+              Un agente de IA atiende a tus clientes en todos tus números, 24/7, mientras tú haces crecer tu negocio.
             </p>
           </div>
 
@@ -72,15 +72,15 @@ export default function Login() {
               <div key={i} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                 <feature.icon className="h-6 w-6 text-white mb-2" />
                 <h3 className="text-white font-semibold text-sm">{feature.title}</h3>
-                <p className="text-indigo-100 text-xs">{feature.desc}</p>
+                <p className="text-violet-100 text-xs">{feature.desc}</p>
               </div>
             ))}
           </div>
         </div>
 
         <div className="relative z-10">
-          <p className="text-indigo-100 text-sm">
-            Más de <span className="text-white font-semibold">1,000+</span> negocios confían en nosotros
+          <p className="text-violet-100 text-sm">
+            Conecta <span className="text-white font-semibold">todos tus números</span> de WhatsApp en una sola cuenta.
           </p>
         </div>
       </div>
@@ -90,7 +90,7 @@ export default function Login() {
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-gradient-to-br from-indigo-600 to-sky-500 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center">
               <Bot className="h-7 w-7 text-white" />
             </div>
             <span className="text-2xl font-bold text-gray-900">Wtx</span>
@@ -117,7 +117,7 @@ export default function Login() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
                 placeholder="tu_usuario"
                 required
                 disabled={loading}
@@ -132,7 +132,7 @@ export default function Login() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
                 placeholder="••••••••"
                 required
                 disabled={loading}
@@ -142,7 +142,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-indigo-600 to-sky-500 text-white py-3.5 rounded-xl font-semibold hover:from-indigo-700 hover:to-sky-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25"
+              className="w-full bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white py-3.5 rounded-xl font-semibold hover:from-violet-600 hover:to-fuchsia-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-violet-500/30"
             >
               {loading ? (
                 <>
@@ -161,20 +161,14 @@ export default function Login() {
           <div className="mt-8 text-center">
             <p className="text-gray-600">
               ¿No tienes cuenta?{' '}
-              <Link to="/register" className="text-indigo-600 hover:text-indigo-700 font-semibold">
+              <Link to="/register" className="text-violet-600 hover:text-fuchsia-600 font-semibold">
                 Crear cuenta gratis
               </Link>
             </p>
           </div>
 
-          {/* Trust badges */}
           <div className="mt-12 pt-8 border-t border-gray-200">
-            <div className="flex items-center justify-center gap-6 text-gray-400">
-              <div className="flex items-center gap-1.5 text-xs">
-                <Shield className="h-4 w-4" />
-                <span>256-bit SSL</span>
-              </div>
-              <div className="w-1 h-1 bg-gray-300 rounded-full" />
+            <div className="flex items-center justify-center text-gray-400">
               <div className="text-xs">Wtx v3.0</div>
             </div>
           </div>

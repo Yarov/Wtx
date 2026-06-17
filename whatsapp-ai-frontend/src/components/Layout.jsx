@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { toolsApi, businessApi } from '../api/client'
+import { toolsApi, businessApi, perfilesApi } from '../api/client'
 import useSecretReset from '../hooks/useSecretReset'
 import FactoryResetModal from './FactoryResetModal'
-import { 
-  LayoutDashboard, 
-  Package, 
-  Calendar,
-  Clock,
+import {
+  LayoutDashboard,
   MessagesSquare,
   Bot,
   LogOut,
@@ -16,22 +13,106 @@ import {
   Zap,
   Menu,
   X,
-  Smartphone
+  Smartphone,
+  FileText,
+  Settings,
+  BarChart3,
+  MessageSquare,
+  Users,
+  Send,
+  ChevronDown,
+  Plus,
+  Check
 } from 'lucide-react'
 
-const BASE_NAVIGATION = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard, always: true },
-  { name: 'Agente IA', href: '/agent', icon: Bot, always: true },
-  { name: 'Contactos', href: '/contactos', icon: User, always: true },
-  { name: 'Campañas', href: '/campanas', icon: Zap, always: true },
-  { name: 'Inventario', href: '/inventory', icon: Package, module: 'inventory' },
-  { name: 'Citas', href: '/appointments', icon: Calendar, module: 'appointments' },
+function ProfileSelector() {
+  const { perfiles, perfilActivo, cambiarPerfil, reloadPerfiles } = useAuth()
+  const [open, setOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
+
+  const handleCreate = async () => {
+    const nombre = window.prompt('Nombre del nuevo perfil de WhatsApp:')
+    if (!nombre) return
+    setCreating(true)
+    try {
+      const res = await perfilesApi.create({ nombre })
+      await reloadPerfiles()
+      setOpen(false)
+      // Switch to the freshly created profile
+      if (res?.data?.id) cambiarPerfil(res.data.id)
+    } catch {
+      alert('No se pudo crear el perfil')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  if (!perfilActivo) return null
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+      >
+        <span className="text-lg leading-none">{perfilActivo.emoji || '📱'}</span>
+        <span className="text-sm font-semibold text-gray-800 max-w-[120px] truncate">{perfilActivo.nombre}</span>
+        <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full mt-2 w-60 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden">
+            <p className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Perfiles</p>
+            {perfiles.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => p.id !== perfilActivo.id && cambiarPerfil(p.id)}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                  p.id === perfilActivo.id ? 'bg-violet-50' : ''
+                }`}
+              >
+                <span className="text-lg leading-none">{p.emoji || '📱'}</span>
+                <span className="flex-1 truncate text-gray-800">{p.nombre}</span>
+                {p.id === perfilActivo.id && <Check className="h-4 w-4 text-violet-600" />}
+              </button>
+            ))}
+            <div className="border-t border-gray-100">
+              <button
+                onClick={handleCreate}
+                disabled={creating}
+                className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-violet-600 hover:bg-violet-50 font-medium disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" />
+                {creating ? 'Creando...' : 'Nuevo perfil'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+const MAIN_NAVIGATION = [
+  { name: 'Reportes', href: '/', icon: LayoutDashboard, always: true },
   { name: 'Conversaciones', href: '/conversations', icon: MessagesSquare, always: true },
+  { name: 'Clientes', href: '/contactos', icon: User, always: true },
+  { name: 'Campañas', href: '/campanas', icon: Zap, always: true },
 ]
 
 const CONFIG_NAVIGATION = [
   { name: 'WhatsApp', href: '/whatsapp', icon: Smartphone, always: true },
-  { name: 'Horarios', href: '/schedule', icon: Clock, module: 'schedule' },
+  { name: 'Tu Agente', href: '/agent', icon: Bot, always: true },
+]
+
+// Bottom nav items for mobile (5 slots: 4 primary + "Más")
+const BOTTOM_NAV_ITEMS = [
+  { name: 'Reportes', href: '/', icon: BarChart3, always: true },
+  { name: 'Chats', href: '/conversations', icon: MessageSquare, always: true },
+  { name: 'Clientes', href: '/contactos', icon: Users, always: true },
+  { name: 'Campañas', href: '/campanas', icon: Send, always: true },
 ]
 
 export default function Layout() {
@@ -40,9 +121,10 @@ export default function Layout() {
   const location = useLocation()
   const [agentEnabled, setAgentEnabled] = useState(true)
   const [agentLoading, setAgentLoading] = useState(false)
-  const [modules, setModules] = useState({ inventory: true, appointments: true, schedule: true })
+  const [modules, setModules] = useState({})
   const [modulesLoaded, setModulesLoaded] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false)
 
   // Secret factory reset: Cmd + K (solo admins)
   const [resetModalOpen, setResetModalOpen] = useSecretReset(isAdmin)
@@ -51,7 +133,18 @@ export default function Layout() {
     loadAgentStatus()
     loadModules()
     setSidebarOpen(false)
+    setMoreMenuOpen(false)
   }, [location.pathname])
+
+  // Lock body scroll when more menu is open
+  useEffect(() => {
+    if (moreMenuOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [moreMenuOpen])
 
   useEffect(() => {
     const handleModulesChanged = () => loadModules()
@@ -73,11 +166,8 @@ export default function Layout() {
       const response = await businessApi.getModules()
       setModules(response.data.modules)
       setModulesLoaded(true)
-      
-      // Si no ha completado onboarding, redirigir a setup
-      if (!response.data.onboarding_completed) {
-        navigate('/setup')
-      }
+      // Onboarding wizard disabled: SaaS flow goes straight to the dashboard.
+      // Per-profile setup will live in each profile instead.
     } catch (error) {
       console.error('Error loading modules:', error)
       setModulesLoaded(true)
@@ -85,13 +175,30 @@ export default function Layout() {
   }
 
   // Filtrar navegación según módulos activos
-  const mainNavigation = BASE_NAVIGATION.filter(item => 
+  const mainNavigation = MAIN_NAVIGATION.filter(item => 
     item.always || (item.module && modules[item.module])
   )
   
   const configNavigation = CONFIG_NAVIGATION.filter(item => 
     item.always || (item.module && modules[item.module])
   )
+
+  // Items shown in the "Más" overlay — everything not in bottom nav
+  const moreMenuMain = mainNavigation.filter(
+    item => !BOTTOM_NAV_ITEMS.some(bn => bn.href === item.href)
+  )
+
+  // Check if any "more menu" item is currently active (to highlight the "Más" icon)
+  const moreMenuAllItems = [...moreMenuMain, ...configNavigation]
+  const isMoreActive = moreMenuAllItems.some(item => {
+    if (item.href === '/') return location.pathname === '/'
+    return location.pathname.startsWith(item.href)
+  })
+
+  const isPathActive = (href) => {
+    if (href === '/') return location.pathname === '/'
+    return location.pathname.startsWith(href)
+  }
 
   const toggleAgent = async () => {
     setAgentLoading(true)
@@ -151,7 +258,7 @@ export default function Layout() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     isActive
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20'
+                      ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-900/20'
                       : 'text-white/80 hover:bg-white/15 hover:text-white'
                   }`
                 }
@@ -175,7 +282,7 @@ export default function Layout() {
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                       isActive
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20'
+                        ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-900/20'
                         : 'text-white/80 hover:bg-white/15 hover:text-white'
                     }`
                   }
@@ -209,6 +316,9 @@ export default function Layout() {
               <Menu className="h-6 w-6" />
             </button>
 
+            {/* Profile selector (Stripe-style switcher) */}
+            <ProfileSelector />
+
             {/* Agent Status Toggle */}
             <button
               onClick={toggleAgent}
@@ -216,8 +326,8 @@ export default function Layout() {
               className={`group flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 rounded-xl transition-all ${
                 agentLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
               } ${
-                agentEnabled 
-                  ? 'bg-gradient-to-r from-indigo-600 to-sky-500 text-white shadow-lg shadow-indigo-200' 
+                agentEnabled
+                  ? 'bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-lg shadow-violet-200'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -233,7 +343,7 @@ export default function Layout() {
                 <p className={`text-sm font-semibold ${agentEnabled ? 'text-white' : 'text-gray-700'}`}>
                   {agentEnabled ? 'IA Activa' : 'IA Inactiva'}
                 </p>
-                <p className={`text-xs ${agentEnabled ? 'text-indigo-100' : 'text-gray-500'}`}>
+                <p className={`text-xs ${agentEnabled ? 'text-violet-100' : 'text-gray-500'}`}>
                   {agentLoading ? 'Cambiando...' : agentEnabled ? 'Respondiendo' : 'Click para activar'}
                 </p>
               </div>

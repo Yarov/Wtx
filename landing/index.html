@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WTX — Tu WhatsApp responde solo, en todos tus números</title>
+<meta name="description" content="WTX conecta todos tus números de WhatsApp a un agente de IA que atiende a tus clientes 24/7 en español, califica leads y te pasa la conversación cuando se pone seria." />
+<meta name="theme-color" content="#0E0A1A" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0E0A1A;            /* índigo-noche profundo */
+    --bg-2:#15102A;          /* superficie */
+    --bg-3:#1C1640;          /* superficie elevada */
+    --ink:#F4F1FF;           /* texto, tinte lila */
+    --muted:#A99FC9;         /* lila apagado */
+    --violet:#8B5CF6;        /* violet-500 (marca) */
+    --indigo:#6366F1;        /* indigo-500 */
+    --fuchsia:#D946EF;       /* fuchsia-500 */
+    --violet-deep:#7C3AED;
+    --wa:#25D366;            /* verde WhatsApp — solo en el demo de chat */
+    --line:rgba(244,241,255,.12);
+    --line-strong:rgba(244,241,255,.22);
+    --grad:linear-gradient(120deg,var(--violet) 0%,var(--fuchsia) 100%);
+    --grad-3:linear-gradient(120deg,var(--indigo),var(--violet) 50%,var(--fuchsia));
+    --glass:rgba(244,241,255,.04);
+    --shadow:0 24px 60px -28px rgba(124,58,237,.6);
+    --display:"Bricolage Grotesque",system-ui,sans-serif;
+    --body:"Hanken Grotesk",system-ui,sans-serif;
+    --mono:"Space Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg);color:var(--ink);font-family:var(--body);
+    font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden;
+    background-image:
+      radial-gradient(720px 480px at 78% -8%, rgba(217,70,239,.16), transparent 60%),
+      radial-gradient(680px 520px at 6% 4%, rgba(99,102,241,.18), transparent 60%);
+    background-attachment:fixed;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{width:min(1180px,92vw);margin:0 auto}
+  .mono{font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
+  .grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+  /* NAV */
+  nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);
+      background:color-mix(in srgb,var(--bg) 72%,transparent);border-bottom:1px solid var(--line)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .logo{display:flex;align-items:center;gap:.55rem;font-family:var(--display);font-weight:800;font-size:1.3rem;letter-spacing:-.02em}
+  .logo .mark{width:24px;height:24px;border-radius:7px;background:var(--grad);box-shadow:0 0 18px rgba(217,70,239,.5)}
+  .nav-links{display:flex;gap:2rem;align-items:center}
+  .nav-links a{font-size:.92rem;color:var(--muted);font-weight:500}
+  .nav-links a:hover{color:var(--ink)}
+  .btn{font-family:var(--body);font-weight:600;font-size:.95rem;border:none;cursor:pointer;
+       border-radius:999px;padding:.72rem 1.35rem;transition:transform .15s ease,box-shadow .25s ease,filter .2s}
+  .btn-brand{background:var(--grad);color:#fff;box-shadow:0 10px 30px -10px rgba(217,70,239,.6)}
+  .btn-brand:hover{transform:translateY(-2px);filter:brightness(1.08)}
+  .btn-ghost{background:var(--glass);border:1.5px solid var(--line-strong);color:var(--ink)}
+  .btn-ghost:hover{border-color:var(--violet);background:rgba(139,92,246,.1)}
+  @media(max-width:720px){.nav-links a:not(.btn){display:none}}
+
+  /* HERO */
+  .hero{padding:clamp(3rem,8vw,6rem) 0 4rem}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(2rem,5vw,4.5rem);align-items:center}
+  @media(max-width:920px){.hero-grid{grid-template-columns:1fr;gap:3rem}}
+  .eyebrow{display:inline-flex;align-items:center;gap:.5rem;color:#EBD9FF;
+           background:rgba(139,92,246,.16);border:1px solid rgba(139,92,246,.32);
+           padding:.35rem .85rem;border-radius:999px;margin-bottom:1.5rem}
+  .eyebrow b{font-family:var(--mono);font-size:.7rem;letter-spacing:.1em}
+  .eyebrow .pulse{width:7px;height:7px;border-radius:50%;background:var(--fuchsia);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(217,70,239,.55)}70%{box-shadow:0 0 0 8px rgba(217,70,239,0)}100%{box-shadow:0 0 0 0 rgba(217,70,239,0)}}
+  h1{font-family:var(--display);font-weight:800;line-height:.98;letter-spacing:-.035em;font-size:clamp(2.6rem,6.2vw,4.7rem)}
+  h1 .g{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lead{font-size:clamp(1.05rem,1.6vw,1.2rem);color:var(--muted);margin:1.6rem 0 2rem;max-width:32ch}
+  .cta-row{display:flex;gap:.8rem;flex-wrap:wrap;align-items:center}
+  .cta-note{font-family:var(--mono);font-size:.68rem;color:var(--muted);letter-spacing:.05em;margin-top:1.1rem}
+
+  /* PHONE / LIVE CHAT */
+  .stage{position:relative}
+  .stage::before{content:"";position:absolute;inset:-12% -8%;background:var(--grad);filter:blur(80px);opacity:.22;border-radius:50%;z-index:0}
+  .profiles{position:relative;z-index:1;display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap}
+  .chip{display:flex;align-items:center;gap:.45rem;border:1.5px solid var(--line-strong);background:var(--glass);
+        border-radius:999px;padding:.4rem .8rem;cursor:pointer;font-weight:600;font-size:.85rem;
+        transition:all .2s ease;color:var(--muted);backdrop-filter:blur(6px)}
+  .chip .em{font-size:1rem}
+  .chip[aria-selected="true"]{border-color:transparent;color:#fff;background:var(--grad);box-shadow:0 8px 22px -10px rgba(217,70,239,.7)}
+  .phone{position:relative;z-index:1;background:#FBFAF7;border-radius:30px;padding:14px;
+         box-shadow:var(--shadow);border:1px solid var(--line-strong);max-width:380px;margin-inline:auto}
+  .phone-top{display:flex;align-items:center;gap:.7rem;padding:.5rem .6rem .9rem;border-bottom:1px solid rgba(12,12,20,.08)}
+  .avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:1.1rem;background:#EDE7DD;flex-shrink:0}
+  .who{font-weight:600;font-size:.95rem;line-height:1.1;color:#12121A}
+  .who small{display:block;color:#1FA855;font-family:var(--mono);font-size:.62rem;letter-spacing:.06em;margin-top:2px}
+  .chat{height:340px;padding:1rem .4rem;display:flex;flex-direction:column;gap:.55rem;overflow:hidden;justify-content:flex-end}
+  .bubble{max-width:80%;padding:.6rem .85rem;border-radius:16px;font-size:.92rem;line-height:1.4;color:#11131A;
+          opacity:0;transform:translateY(8px) scale(.98);animation:rise .35s ease forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
+  .bubble.them{align-self:flex-start;background:#FFFFFF;border:1px solid rgba(12,12,20,.06);border-bottom-left-radius:5px}
+  .bubble.us{align-self:flex-end;background:#DCF8C6;border-bottom-right-radius:5px}
+  .bubble .tag{display:block;font-family:var(--mono);font-size:.55rem;letter-spacing:.1em;opacity:.55;margin-bottom:3px}
+  .bubble.us .tag{color:#1FA855;opacity:.9}
+  .typing{align-self:flex-end;background:#DCF8C6;padding:.7rem .9rem;border-radius:16px;border-bottom-right-radius:5px;display:flex;gap:4px}
+  .typing span{width:7px;height:7px;border-radius:50%;background:#1FA855;opacity:.6;animation:blink 1.2s infinite}
+  .typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+  .handoff{align-self:center;background:rgba(139,92,246,.14);color:var(--violet-deep);font-family:var(--mono);
+           font-size:.6rem;letter-spacing:.08em;padding:.35rem .7rem;border-radius:999px;border:1px solid rgba(139,92,246,.3)}
+
+  /* TICKER */
+  .ticker{border-block:1px solid var(--line);background:var(--bg-2);overflow:hidden;white-space:nowrap}
+  .ticker-in{display:inline-flex;gap:3.5rem;padding:.9rem 0;animation:slide 28s linear infinite;font-family:var(--mono);font-size:.78rem;letter-spacing:.04em}
+  .ticker-in span{color:var(--muted)}.ticker-in b{color:var(--ink)}.ticker-in .pip{color:var(--fuchsia)}
+  @keyframes slide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  /* SECTION SHELL */
+  section{padding:clamp(4rem,9vw,7rem) 0;position:relative}
+  .sec-head{max-width:44ch;margin-bottom:3rem}
+  .sec-head .mono{color:var(--fuchsia);margin-bottom:1rem;display:block}
+  h2{font-family:var(--display);font-weight:700;letter-spacing:-.03em;line-height:1.02;font-size:clamp(2rem,4.2vw,3.2rem)}
+  .sec-head p{color:var(--muted);margin-top:1rem;font-size:1.08rem}
+
+  /* PROBLEM */
+  .miss{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);
+        border:1px solid var(--line);border-radius:18px;overflow:hidden}
+  @media(max-width:760px){.miss{grid-template-columns:1fr}}
+  .miss div{background:var(--bg-2);padding:1.9rem}
+  .miss .num{font-family:var(--display);font-weight:800;font-size:2.7rem;letter-spacing:-.03em;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .miss .lbl{color:var(--muted);margin-top:.5rem;font-size:.98rem}
+
+  /* HOW */
+  .how{background:var(--bg-2)}
+  .steps{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+  .step{background:var(--bg);padding:2rem clamp(1.4rem,3vw,2.4rem);display:grid;grid-template-columns:auto 1fr;gap:1.6rem;align-items:start}
+  .step .idx{font-family:var(--mono);font-size:.8rem;color:#fff;width:36px;height:36px;border-radius:50%;
+             display:grid;place-items:center;flex-shrink:0;background:var(--grad)}
+  .step h3{font-family:var(--display);font-weight:700;font-size:1.3rem;letter-spacing:-.02em;margin-bottom:.35rem}
+  .step p{color:var(--muted);font-size:.98rem}
+
+  /* MULTI-NUMBER (signature) */
+  .switch-demo{display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:center}
+  @media(max-width:880px){.switch-demo{grid-template-columns:1fr;gap:4rem}}
+  .stack{position:relative;height:380px}
+  .stack::before{content:"";position:absolute;inset:6% 10%;background:var(--grad);filter:blur(70px);opacity:.25;border-radius:40px}
+  .card-num{position:absolute;width:84%;background:var(--bg-3);border:1px solid var(--line-strong);
+            border-radius:20px;padding:1.5rem;box-shadow:0 30px 60px -30px rgba(0,0,0,.7);
+            transition:all .55s cubic-bezier(.2,.7,.2,1)}
+  .card-num .em{font-size:1.7rem}
+  .card-num .name{font-family:var(--display);font-weight:700;font-size:1.2rem;margin-top:.5rem}
+  .card-num .tel{font-family:var(--mono);font-size:.8rem;color:var(--muted);margin-top:.2rem}
+  .card-num .row{display:flex;justify-content:space-between;margin-top:1.2rem;padding-top:1.2rem;border-top:1px solid var(--line)}
+  .card-num .row b{font-family:var(--display);font-size:1.5rem}
+  .card-num .row small{color:var(--muted);font-size:.7rem;display:block;font-family:var(--mono);letter-spacing:.05em;margin-top:2px}
+
+  /* FEATURES */
+  .feat{display:grid;grid-template-columns:repeat(3,1fr);gap:1.2rem}
+  @media(max-width:880px){.feat{grid-template-columns:1fr 1fr}}
+  @media(max-width:560px){.feat{grid-template-columns:1fr}}
+  .card{background:var(--bg-2);border:1px solid var(--line);border-radius:18px;padding:1.7rem;
+        transition:transform .2s ease,box-shadow .25s ease,border-color .2s;position:relative;overflow:hidden}
+  .card:hover{transform:translateY(-4px);box-shadow:var(--shadow);border-color:var(--line-strong)}
+  .card .ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:1.35rem;margin-bottom:1rem;background:rgba(139,92,246,.14);border:1px solid rgba(139,92,246,.25)}
+  .card h3{font-family:var(--display);font-weight:700;font-size:1.18rem;letter-spacing:-.02em;margin-bottom:.4rem}
+  .card p{color:var(--muted);font-size:.93rem}
+  .card.span{grid-column:span 2;background:linear-gradient(135deg,rgba(139,92,246,.18),rgba(217,70,239,.08));border-color:rgba(139,92,246,.3)}
+  @media(max-width:880px){.card.span{grid-column:span 1}}
+  .card.span .ic{background:var(--grad);border:none}
+
+  /* CTA */
+  .final{text-align:center}
+  .final .box{border-radius:28px;padding:clamp(2.5rem,6vw,5rem) 2rem;position:relative;overflow:hidden;
+              background:var(--grad-3);box-shadow:0 40px 90px -40px rgba(217,70,239,.7)}
+  .final h2{color:#fff;max-width:20ch;margin:0 auto}
+  .final .mono{color:rgba(255,255,255,.85)}
+  .final p{color:rgba(255,255,255,.88);margin:1.2rem auto 2rem;max-width:42ch}
+  .final .btn-brand{background:#fff;color:var(--violet-deep)}
+  .final .grain{position:absolute;inset:0;opacity:.5;mix-blend-mode:overlay;pointer-events:none;
+                background:radial-gradient(420px 280px at 20% 0%,rgba(255,255,255,.5),transparent 60%)}
+
+  /* FOOTER */
+  footer{padding:3rem 0 4rem;border-top:1px solid var(--line)}
+  .foot{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;color:var(--muted);font-size:.9rem}
+
+  .reveal{opacity:0;transform:translateY(24px);transition:opacity .7s ease,transform .7s ease}
+  .reveal.in{opacity:1;transform:none}
+  @media(prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+    .bubble,.reveal{opacity:1!important;transform:none!important}
+    body{background-attachment:scroll}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap nav-in">
+    <div class="logo"><span class="mark"></span>WTX</div>
+    <div class="nav-links">
+      <a href="#como">Cómo funciona</a>
+      <a href="#numeros">Multi-número</a>
+      <a href="#features">Funciones</a>
+      <a data-app="login">Entrar</a>
+      <a data-app="register" class="btn btn-brand">Empezar gratis</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow"><span class="pulse"></span><b>Agente de WhatsApp con IA</b></span>
+      <h1>Tu WhatsApp responde solo <span class="g">y suena como tú</span>.</h1>
+      <p class="lead">Conecta todos tus números a un agente que atiende a tus clientes 24/7, en español, y te avisa cuando una conversación necesita manos humanas.</p>
+      <div class="cta-row">
+        <a data-app="register" class="btn btn-brand">Conectar mi WhatsApp</a>
+        <a href="#como" class="btn btn-ghost">Ver cómo funciona</a>
+      </div>
+      <p class="cta-note">SIN TARJETA · LISTO EN MINUTOS · CANCELA CUANDO QUIERAS</p>
+    </div>
+
+    <div class="stage">
+      <div class="profiles" id="profiles" role="tablist" aria-label="Elige un negocio">
+        <button class="chip" role="tab" aria-selected="true" data-i="0"><span class="em">💇</span>Estética Lumière</button>
+        <button class="chip" role="tab" aria-selected="false" data-i="1"><span class="em">🔧</span>Taller RPM</button>
+        <button class="chip" role="tab" aria-selected="false" data-i="2"><span class="em">🏠</span>Inmobiliaria Sur</button>
+      </div>
+      <div class="phone">
+        <div class="phone-top">
+          <div class="avatar" id="ph-av">💇</div>
+          <div class="who"><span id="ph-name">Estética Lumière</span><small id="ph-tel">+52 1 55 ···· 0142 · en línea</small></div>
+        </div>
+        <div class="chat" id="chat" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- TICKER -->
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-in" id="ticker">
+    <span><b>0</b> mensajes sin responder <span class="pip">◆</span></span>
+    <span>responde en <b>&lt; 3 s</b> <span class="pip">◆</span></span>
+    <span><b>24/7</b> sin descanso <span class="pip">◆</span></span>
+    <span><b>∞</b> números, una cuenta <span class="pip">◆</span></span>
+    <span>en <b>español</b> de verdad <span class="pip">◆</span></span>
+    <span>handoff a <b>humano</b> cuando hace falta <span class="pip">◆</span></span>
+  </div>
+</div>
+
+<!-- PROBLEM -->
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="mono">El costo de tardar</span>
+      <h2>Cada mensaje sin contestar es un cliente que ya le escribió a otro.</h2>
+      <p>El 90% de la gente espera respuesta en minutos. Tú duermes, comes y atiendes el local. Tu WhatsApp, no debería.</p>
+    </div>
+    <div class="miss reveal">
+      <div><div class="num">5 h</div><div class="lbl">tarda en promedio un negocio en responder un mensaje fuera de horario.</div></div>
+      <div><div class="num">42%</div><div class="lbl">de los clientes se va con quien le contesta primero, no con el más barato.</div></div>
+      <div><div class="num">$0</div><div class="lbl">cuesta un lead que entró a las 11 p.m. y nadie vio hasta mañana. Cuesta la venta.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW -->
+<section class="how" id="como">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="mono">De cero a respondiendo</span>
+      <h2>Tres pasos. Después se cuida solo.</h2>
+    </div>
+    <div class="steps reveal">
+      <div class="step"><div class="idx">01</div>
+        <div><h3>Conecta tu número</h3><p>Escaneas un código QR con tu WhatsApp, como cuando abres WhatsApp Web. Sin cambiar de número, sin apps raras. ¿Tienes varios? Conéctalos todos.</p></div></div>
+      <div class="step"><div class="idx">02</div>
+        <div><h3>Dile cómo atiende tu negocio</h3><p>Le cuentas a qué te dedicas, tus precios y tu tono. El agente arma su personalidad y aprende de tu base de conocimiento. Cada número con la suya.</p></div></div>
+      <div class="step"><div class="idx">03</div>
+        <div><h3>Responde, califica y te avisa</h3><p>Contesta dudas, guarda los datos del cliente, lo mueve por tu embudo y, si la cosa se pone seria, te pasa la conversación al instante.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- MULTI-NUMBER (signature) -->
+<section id="numeros">
+  <div class="wrap switch-demo">
+    <div class="reveal">
+      <span class="mono" style="color:var(--fuchsia);display:block;margin-bottom:1rem">Lo que nadie más hace bien</span>
+      <h2>Todos tus números. <span class="grad-text">Un solo lugar.</span></h2>
+      <p style="color:var(--muted);margin-top:1rem;font-size:1.08rem">Cada número es un perfil con su propio agente, sus clientes y sus conversaciones — aislados de verdad. Cambias entre ellos como cambias de cuenta en Stripe: un clic y estás en otro negocio.</p>
+      <div class="cta-row" style="margin-top:1.8rem"><a data-app="register" class="btn btn-brand">Crear mi primer perfil</a></div>
+    </div>
+    <div class="stack" id="stack" aria-hidden="true"></div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="mono">Todo lo que necesita un negocio que vende por chat</span>
+      <h2>No es un bot de respuestas. Es tu equipo de atención.</h2>
+    </div>
+    <div class="feat">
+      <div class="card span reveal">
+        <div class="ic">🧠</div>
+        <h3>Agente con IA que entiende, no que repite</h3>
+        <p>Conversa en español natural, recuerda lo que ya hablaste con cada cliente y decide qué hacer en cada mensaje. Sin menús, sin "marca 1 para ventas".</p>
+      </div>
+      <div class="card reveal"><div class="ic">👥</div><h3>CRM con lead scoring</h3><p>Cada contacto se guarda, se etiqueta y se califica solo según cómo conversa.</p></div>
+      <div class="card reveal"><div class="ic">📣</div><h3>Campañas masivas</h3><p>Manda mensajes a tu base con tu ritmo, personalizados, y mide quién respondió.</p></div>
+      <div class="card reveal"><div class="ic">🤝</div><h3>Modo humano</h3><p>Cuando el cliente se frustra o pide a una persona, el agente se hace a un lado y te avisa.</p></div>
+      <div class="card reveal"><div class="ic">🪜</div><h3>Embudo de ventas</h3><p>Define los pasos de tu proceso y deja que el agente lleve a cada cliente por ellos.</p></div>
+      <div class="card reveal"><div class="ic">📚</div><h3>Base de conocimiento</h3><p>Carga tus precios, políticas y respuestas. El agente las usa para contestar bien.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="final" id="empezar">
+  <div class="wrap">
+    <div class="box reveal">
+      <div class="grain"></div>
+      <span class="mono">Empieza hoy</span>
+      <h2 style="margin-top:1rem">Deja que tu WhatsApp trabaje mientras tú vives.</h2>
+      <p>Conecta tu primer número en minutos y mira al agente responder a tu primer cliente esta misma noche.</p>
+      <a data-app="register" class="btn btn-brand">Empezar gratis →</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <div class="logo"><span class="mark"></span>WTX</div>
+    <div class="mono">Hecho para negocios que venden por WhatsApp · LATAM</div>
+  </div>
+</footer>
+
+<script>
+  /* App links: point every CTA to the real app (login/register).
+     Same host on port 3001 in local dev; change APP_URL if you deploy elsewhere. */
+  const APP_URL = `${location.protocol}//${location.hostname}:3001`;
+  document.querySelectorAll('[data-app]').forEach(a=>{
+    a.href = `${APP_URL}/${a.dataset.app}`;
+    a.style.cursor = 'pointer';
+  });
+
+  const REDUCE = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const SCRIPTS = [
+    { em:"💇", name:"Estética Lumière", tel:"+52 1 55 ···· 0142 · en línea",
+      msgs:[
+        {who:"them", t:"Hola! tienen lugar para corte y color hoy?"},
+        {who:"us", t:"¡Hola! 😊 Hoy tengo a las 4:00 y 6:30 pm. ¿Cuál te queda?"},
+        {who:"them", t:"la de 6:30 porfa"},
+        {who:"us", t:"Perfecto, te aparté las 6:30. ¿Me confirmas tu nombre para la cita?"},
+      ]},
+    { em:"🔧", name:"Taller RPM", tel:"+52 1 33 ···· 8890 · en línea",
+      msgs:[
+        {who:"them", t:"cuanto sale una afinación para un jetta 2018?"},
+        {who:"us", t:"La afinación mayor para tu Jetta va en $2,400 e incluye bujías y filtros. ¿Quieres agendar?"},
+        {who:"them", t:"y cuanto tardan"},
+        {who:"us", t:"Mismo día: lo dejas en la mañana y a las 5 está listo. Te aviso por aquí 🚗"},
+      ]},
+    { em:"🏠", name:"Inmobiliaria Sur", tel:"+52 1 81 ···· 2207 · en línea",
+      msgs:[
+        {who:"them", t:"vi el depto de 2 recámaras, sigue disponible?"},
+        {who:"us", t:"¡Sí! Sigue disponible, $14,500/mes. ¿Te late agendar una visita esta semana?"},
+        {who:"them", t:"necesito algo urgente, me pueden llamar?"},
+        {who:"handoff", t:"Conectando con un asesor humano…"},
+        {who:"us", t:"Claro, ahora mismo te comunico con Diana, una de nuestras asesoras 📞"},
+      ]},
+  ];
+
+  const chat=document.getElementById('chat'),phAv=document.getElementById('ph-av'),
+        phName=document.getElementById('ph-name'),phTel=document.getElementById('ph-tel'),
+        chips=[...document.querySelectorAll('#profiles .chip')];
+  let current=0,timer=null,rotation=null;
+
+  function bubbleEl(m){
+    if(m.who==='handoff'){const d=document.createElement('div');d.className='handoff';d.textContent='⚡ '+m.t;return d;}
+    const d=document.createElement('div');d.className='bubble '+(m.who==='them'?'them':'us');
+    const tag=document.createElement('span');tag.className='tag';tag.textContent=m.who==='them'?'CLIENTE':'AGENTE WTX';
+    d.appendChild(tag);d.appendChild(document.createTextNode(m.t));return d;
+  }
+  function typingEl(){const d=document.createElement('div');d.className='typing';d.innerHTML='<span></span><span></span><span></span>';return d;}
+  async function playScript(i){
+    clearTimeout(timer);const s=SCRIPTS[i];
+    phAv.textContent=s.em;phName.textContent=s.name;phTel.textContent=s.tel;chat.innerHTML='';
+    if(REDUCE){s.msgs.forEach(m=>chat.appendChild(bubbleEl(m)));return;}
+    let idx=0;
+    const step=()=>{
+      if(idx>=s.msgs.length){timer=setTimeout(()=>playScript(i),2600);return;}
+      const m=s.msgs[idx];
+      if(m.who==='them'||m.who==='handoff'){chat.appendChild(bubbleEl(m));idx++;timer=setTimeout(step,900);}
+      else{const t=typingEl();chat.appendChild(t);timer=setTimeout(()=>{t.remove();chat.appendChild(bubbleEl(m));idx++;timer=setTimeout(step,1100);},1200);}
+    };step();
+  }
+  function select(i,fromUser){current=i;chips.forEach((c,ci)=>c.setAttribute('aria-selected',ci===i?'true':'false'));playScript(i);if(fromUser){clearInterval(rotation);startRotation();}}
+  chips.forEach(c=>c.addEventListener('click',()=>select(+c.dataset.i,true)));
+  function startRotation(){if(REDUCE)return;rotation=setInterval(()=>select((current+1)%SCRIPTS.length,false),9000);}
+  select(0,false);startRotation();
+
+  const NUMS=[
+    {em:"💇",name:"Estética Lumière",tel:"+52 1 55 ···· 0142",a:"38",b:"4"},
+    {em:"🔧",name:"Taller RPM",tel:"+52 1 33 ···· 8890",a:"112",b:"9"},
+    {em:"🏠",name:"Inmobiliaria Sur",tel:"+52 1 81 ···· 2207",a:"67",b:"6"},
+  ];
+  const stack=document.getElementById('stack');
+  NUMS.forEach(n=>{const c=document.createElement('div');c.className='card-num';
+    c.innerHTML=`<div class="em">${n.em}</div><div class="name">${n.name}</div><div class="tel">${n.tel}</div>
+      <div class="row"><div><b class="grad-text">${n.a}</b><small>CHATS HOY</small></div>
+      <div><b class="grad-text">${n.b}</b><small>LEADS NUEVOS</small></div>
+      <div><b style="color:var(--wa)">●</b><small>CONECTADO</small></div></div>`;stack.appendChild(c);});
+  const numCards=[...stack.children];
+  function layout(active){numCards.forEach((c,i)=>{const d=(i-active+NUMS.length)%NUMS.length;
+    c.style.zIndex=10-d;c.style.top=(d*28)+'px';c.style.left=(d*5)+'%';
+    c.style.transform=`scale(${1-d*0.05})`;c.style.opacity=d>2?0:(1-d*0.16);});}
+  let act=0;layout(0);if(!REDUCE)setInterval(()=>{act=(act+1)%NUMS.length;layout(act);},2600);
+
+  const io=new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});},{threshold:.15});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>

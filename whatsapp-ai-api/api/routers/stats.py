@@ -3,8 +3,9 @@ Stats Router - Dashboard metrics and analytics
 """
 import json
 from fastapi import APIRouter, Depends
-from models import SessionLocal, Cita, Inventario, Memoria, Usuario
+from models import SessionLocal, Memoria, Usuario, Perfil
 from auth import get_current_user
+from api.routers.perfiles import get_current_perfil
 
 router = APIRouter(
     prefix="/stats", 
@@ -13,16 +14,19 @@ router = APIRouter(
 )
 
 
-@router.get("/", summary="Get dashboard stats", description="Retrieve key metrics including total conversations, appointments, products and messages.")
-async def get_stats(current_user: Usuario = Depends(get_current_user)):
+@router.get("/", summary="Get dashboard stats", description="Retrieve key metrics including total conversations and messages.")
+async def get_stats(
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     """Get system statistics"""
     db = SessionLocal()
     try:
-        conversations = db.query(Memoria).count()
-        appointments = db.query(Cita).count()
-        products = db.query(Inventario).count()
-        
-        memorias = db.query(Memoria).all()
+        uid = current_user.id
+        pid = perfil.id
+        conversations = db.query(Memoria).filter(Memoria.usuario_id == uid, Memoria.perfil_id == pid).count()
+
+        memorias = db.query(Memoria).filter(Memoria.usuario_id == uid, Memoria.perfil_id == pid).all()
         total_messages = 0
         for m in memorias:
             if m.historial:
@@ -31,11 +35,9 @@ async def get_stats(current_user: Usuario = Depends(get_current_user)):
                     total_messages += len(historial)
                 except:
                     pass
-        
+
         return {
             "totalConversations": conversations,
-            "totalAppointments": appointments,
-            "totalProducts": products,
             "totalMessages": total_messages,
         }
     finally:
@@ -43,24 +45,32 @@ async def get_stats(current_user: Usuario = Depends(get_current_user)):
 
 
 @router.get("/jobs", summary="Get jobs queue status", description="Get status of background jobs queue and recent jobs.")
-async def get_jobs_status(current_user: Usuario = Depends(get_current_user)):
+async def get_jobs_status(
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     """Get jobs queue status"""
     from models import BackgroundJob
     from redis_queue import contar_jobs_pendientes, health_check
-    
+
     db = SessionLocal()
     try:
         # Estado de Redis
         redis_ok = health_check()
         jobs_en_cola = contar_jobs_pendientes() if redis_ok else 0
-        
-        # Jobs activos
+
+        # Jobs activos (scoped al tenant/perfil)
         jobs_activos = db.query(BackgroundJob).filter(
+            BackgroundJob.usuario_id == current_user.id,
+            BackgroundJob.perfil_id == perfil.id,
             BackgroundJob.estado.in_(["pendiente", "procesando"])
         ).all()
-        
-        # Últimos 10 jobs
-        ultimos_jobs = db.query(BackgroundJob).order_by(
+
+        # Últimos 10 jobs (scoped al tenant/perfil)
+        ultimos_jobs = db.query(BackgroundJob).filter(
+            BackgroundJob.usuario_id == current_user.id,
+            BackgroundJob.perfil_id == perfil.id,
+        ).order_by(
             BackgroundJob.created_at.desc()
         ).limit(10).all()
         

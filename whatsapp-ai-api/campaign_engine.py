@@ -66,9 +66,10 @@ async def procesar_campana(campana: Campana, db: Session):
         # Preparar mensaje con variables
         mensaje = reemplazar_variables(campana.mensaje, contacto)
         
-        # Enviar mensaje
+        # Enviar mensaje usando la sesión del perfil de la campaña
         logger.info(f"Enviando a {contacto.telefono}...")
-        result = await whatsapp_service.send_message(contacto.telefono, mensaje)
+        session = f"perfil_{campana.perfil_id}" if campana.perfil_id else "default"
+        result = await whatsapp_service.send_message(contacto.telefono, mensaje, session=session)
         
         # Actualizar estado
         if result["success"]:
@@ -106,16 +107,25 @@ async def marcar_respondido(telefono: str):
             CampanaDestinatario.contacto_id == contacto.id,
             CampanaDestinatario.estado == "enviado"
         ).all()
-        
+
+        if not destinatarios:
+            return
+
+        # Batch load all related campaigns in one query instead of N queries
+        campana_ids = list({dest.campana_id for dest in destinatarios})
+        campanas = db.query(Campana).filter(Campana.id.in_(campana_ids)).all()
+        campana_map = {c.id: c for c in campanas}
+
+        ahora = datetime.utcnow()
         for dest in destinatarios:
             dest.estado = "respondido"
-            dest.respondido_at = datetime.utcnow()
-            
+            dest.respondido_at = ahora
+
             # Actualizar contador de la campaña
-            campana = db.query(Campana).filter(Campana.id == dest.campana_id).first()
+            campana = campana_map.get(dest.campana_id)
             if campana:
                 campana.respondidos = (campana.respondidos or 0) + 1
-        
+
         db.commit()
         
     except Exception as e:

@@ -1,10 +1,9 @@
-import { Clock, MessageCircle, Users, Calendar, MessageSquare, TrendingUp, Lightbulb } from 'lucide-react'
+import { Clock, MessageCircle, Users, MessageSquare, TrendingUp, Lightbulb } from 'lucide-react'
 
 const INSIGHT_ICONS = {
   peak_hours: Clock,
   top_question: MessageCircle,
   engagement: Users,
-  appointments_trend: Calendar,
   avg_messages: MessageSquare,
   response_rate: TrendingUp,
 }
@@ -13,7 +12,6 @@ const INSIGHT_COLORS = {
   peak_hours: 'text-violet-600 bg-violet-50',
   top_question: 'text-blue-600 bg-blue-50',
   engagement: 'text-indigo-600 bg-indigo-50',
-  appointments_trend: 'text-amber-600 bg-amber-50',
   avg_messages: 'text-pink-600 bg-pink-50',
   response_rate: 'text-cyan-600 bg-cyan-50',
 }

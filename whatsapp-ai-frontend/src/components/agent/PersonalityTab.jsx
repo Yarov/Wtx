@@ -1,95 +1,417 @@
-import { useState, useEffect } from 'react'
-import { 
-  User, Target, FileText, AlertTriangle, Volume2, 
-  ChevronDown, ChevronUp, Loader2, Wand2, RotateCcw,
-  Eye, EyeOff, Copy, Check, Code, LayoutTemplate
+import { useState } from 'react'
+import {
+  Bot, Sparkles, Loader2, ChevronDown, ChevronUp,
+  ClipboardList, BookOpen, UserRound, Check,
 } from 'lucide-react'
 import { promptApi } from '../../api/client'
 
-const PROMPT_SECTIONS = [
-  { 
-    key: 'role', 
-    label: 'Rol del Agente', 
-    icon: User, 
-    color: 'blue',
-    placeholder: 'Ej: Actúa como un asistente profesional de atención al cliente con 10 años de experiencia en el sector de belleza y cuidado personal...',
-    description: 'Define quién es el agente, su experiencia y especialización'
-  },
-  { 
-    key: 'context', 
-    label: 'Contexto del Negocio', 
-    icon: FileText, 
-    color: 'purple',
-    placeholder: 'Ej: Trabajas para una barbería moderna llamada "BarberShop Pro" ubicada en el centro de la ciudad. Atiendes a clientes via WhatsApp...',
-    description: 'Describe el entorno, ubicación y situación del negocio'
-  },
-  { 
-    key: 'task', 
-    label: 'Objetivos Principales', 
-    icon: Target, 
-    color: 'indigo',
-    placeholder: 'Ej: Tu objetivo principal es agendar citas, responder preguntas sobre servicios y precios, y ofrecer una experiencia excepcional...',
-    description: 'Define las metas y tareas principales del agente'
-  },
-  { 
-    key: 'constraints', 
-    label: 'Restricciones y Límites', 
-    icon: AlertTriangle, 
-    color: 'amber',
-    placeholder: 'Ej: Nunca inventes precios o servicios. No hagas promesas que no puedas cumplir. No compartas información de otros clientes...',
-    description: 'Establece qué NO debe hacer el agente'
-  },
-  { 
-    key: 'tone', 
-    label: 'Tono y Personalidad', 
-    icon: Volume2, 
-    color: 'pink',
-    placeholder: 'Ej: Mantén un tono amigable, profesional y cercano. Usa emojis con moderación. Responde de forma concisa pero cálida...',
-    description: 'Define el estilo de comunicación'
-  },
+const TONOS = [
+  { id: 'formal', label: 'Formal', desc: 'Profesional y respetuoso' },
+  { id: 'cercano', label: 'Cercano', desc: 'Amigable y natural' },
+  { id: 'divertido', label: 'Divertido', desc: 'Relajado y con chispa' },
 ]
 
-const DEFAULT_SECTIONS = {
-  role: 'Eres un asistente virtual profesional especializado en atención al cliente.',
-  context: 'Trabajas para un negocio que atiende clientes via WhatsApp. Tienes acceso a herramientas para agendar citas y consultar inventario.',
-  task: 'Tu objetivo es ayudar a los clientes a agendar citas, responder preguntas sobre servicios y precios, y ofrecer una experiencia de atención excepcional.',
-  constraints: 'No inventes información. Si no sabes algo, indícalo. No compartas datos de otros clientes. Responde siempre en español.',
-  tone: 'Mantén un tono amigable, profesional y cercano. Usa emojis con moderación. Sé conciso pero cálido.',
-}
+const TONO_TEMPERATURE = { formal: 0.4, cercano: 0.7, divertido: 0.85 }
 
-const colorClasses = {
-  blue: { bg: 'bg-blue-100', text: 'text-blue-600', border: 'border-blue-200', light: 'bg-blue-50', ring: 'ring-blue-500' },
-  purple: { bg: 'bg-purple-100', text: 'text-purple-600', border: 'border-purple-200', light: 'bg-purple-50', ring: 'ring-purple-500' },
-  indigo: { bg: 'bg-indigo-100', text: 'text-indigo-600', border: 'border-indigo-200', light: 'bg-indigo-50', ring: 'ring-indigo-500' },
-  amber: { bg: 'bg-amber-100', text: 'text-amber-600', border: 'border-amber-200', light: 'bg-amber-50', ring: 'ring-amber-500' },
-  pink: { bg: 'bg-pink-100', text: 'text-pink-600', border: 'border-pink-200', light: 'bg-pink-50', ring: 'ring-pink-500' },
-}
+const HUMAN_TRIGGERS = [
+  { id: 'frustration', label: 'Frustración', desc: 'Enojo o molestia' },
+  { id: 'complaint', label: 'Queja', desc: 'Problemas con el servicio' },
+  { id: 'human_request', label: 'Pide humano', desc: '"Quiero hablar con alguien"' },
+  { id: 'urgency', label: 'Urgencia', desc: 'Necesita atención inmediata' },
+  { id: 'complexity', label: 'Caso complejo', desc: 'La IA no puede resolver' },
+  { id: 'negotiation', label: 'Negociación', desc: 'Descuentos, precios especiales' },
+]
 
-export default function PersonalityTab({ 
-  sections, 
-  setSections, 
-  config, 
+const AUTO_SKILLS = [
+  { icon: ClipboardList, label: 'Capturar datos', desc: 'Guarda nombre, teléfono y lo que necesites del cliente' },
+  { icon: BookOpen, label: 'Usar el conocimiento', desc: 'Responde con la información de tu negocio' },
+  { icon: UserRound, label: 'Pasar a humano', desc: 'Te avisa y se aparta cuando hace falta' },
+]
+
+export default function PersonalityTab({
+  ficha,
+  setFicha,
+  config,
   setConfig,
-  manualPrompt,
-  setManualPrompt,
-  editMode,
-  setEditMode,
-  onSave 
+  humanConfig,
+  setHumanConfig,
 }) {
-  const [expandedSection, setExpandedSection] = useState('role')
-  const [improving, setImproving] = useState(null)
-  const [showPreview, setShowPreview] = useState(false)
-  const [copied, setCopied] = useState(false)
-  
-  // Sync manual prompt when switching to manual mode
-  useEffect(() => {
-    if (editMode === 'manual' && !manualPrompt) {
-      setManualPrompt(buildFullPrompt())
-    }
-  }, [editMode])
+  const [improving, setImproving] = useState(false)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
 
-  const buildFullPrompt = () => {
-    return `## ROL
+  const handleImprove = async () => {
+    if (!ficha.negocio.trim()) return
+    setImproving(true)
+    try {
+      const res = await promptApi.improvePrompt({
+        section: 'context',
+        current_content: ficha.negocio,
+        business_name: ficha.nombre || 'el negocio',
+        business_type: ficha.negocio.slice(0, 60),
+      })
+      if (res.data?.improved) {
+        setFicha({ ...ficha, negocio: res.data.improved })
+      }
+    } catch (e) {
+      console.error('Error improving description:', e)
+    } finally {
+      setImproving(false)
+    }
+  }
+
+  const selectTono = (tonoId) => {
+    setFicha({ ...ficha, tono: tonoId })
+    // Reflect the tone in temperature so the advanced override stays in sync
+    setConfig({ ...config, temperature: TONO_TEMPERATURE[tonoId] })
+  }
+
+  const toggleTrigger = (id) => {
+    const current = humanConfig.triggers || []
+    const updated = current.includes(id)
+      ? current.filter((t) => t !== id)
+      : [...current, id]
+    setHumanConfig({ ...humanConfig, triggers: updated })
+  }
+
+  return (
+    <div className="space-y-10">
+      {/* ─── Ficha simple ─── */}
+      <section>
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+            <Bot className="h-5 w-5 text-white" />
+          </div>
+          <h2 className="text-lg font-semibold text-gray-900">¿Quién es tu agente?</h2>
+        </div>
+        <p className="text-sm text-gray-500 mb-6 ml-12">
+          Cuéntale lo básico. Con esto sabrá cómo presentarse y atender a tus clientes.
+        </p>
+
+        <div className="space-y-6">
+          {/* Nombre */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Nombre del agente
+            </label>
+            <input
+              type="text"
+              value={ficha.nombre}
+              onChange={(e) => setFicha({ ...ficha, nombre: e.target.value })}
+              placeholder="Ej: Sofía"
+              className="w-full max-w-sm px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
+            />
+            <p className="text-xs text-gray-400 mt-1.5">Así se presentará con tus clientes.</p>
+          </div>
+
+          {/* Qué hace el negocio */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                ¿Qué hace tu negocio?
+              </label>
+              <button
+                onClick={handleImprove}
+                disabled={improving || !ficha.negocio.trim()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-violet-700 bg-violet-50 hover:bg-violet-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {improving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                Mejorar con IA
+              </button>
+            </div>
+            <textarea
+              value={ficha.negocio}
+              onChange={(e) => setFicha({ ...ficha, negocio: e.target.value })}
+              placeholder="Ej: Somos una barbería en el centro. Cortamos cabello y barba, atendemos con cita y aceptamos pago con tarjeta."
+              rows={4}
+              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 resize-none transition-all"
+            />
+            <p className="text-xs text-gray-400 mt-1.5">
+              Descríbelo con tus palabras. El agente lo usará para responder a tus clientes.
+            </p>
+          </div>
+
+          {/* Tono */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tono</label>
+            <div className="grid grid-cols-3 gap-3 max-w-xl">
+              {TONOS.map((tono) => {
+                const active = ficha.tono === tono.id
+                return (
+                  <button
+                    key={tono.id}
+                    type="button"
+                    onClick={() => selectTono(tono.id)}
+                    className={`text-left p-4 rounded-xl border-2 transition-all ${
+                      active
+                        ? 'border-violet-500 bg-violet-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`text-sm font-semibold ${active ? 'text-violet-700' : 'text-gray-800'}`}>
+                        {tono.label}
+                      </span>
+                      {active && <Check className="h-4 w-4 text-violet-600" />}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">{tono.desc}</p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Qué NO debe hacer */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              ¿Qué NO debe hacer? <span className="text-gray-400 font-normal">(opcional)</span>
+            </label>
+            <textarea
+              value={ficha.no_hacer}
+              onChange={(e) => setFicha({ ...ficha, no_hacer: e.target.value })}
+              placeholder="Ej: No dar precios sin confirmar disponibilidad. No prometer descuentos."
+              rows={3}
+              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 resize-none transition-all"
+            />
+            <p className="text-xs text-gray-400 mt-1.5">
+              Reglas y límites. El agente las respetará siempre.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Skills automáticos ─── */}
+      <section className="border-t border-gray-200 pt-8">
+        <h2 className="text-lg font-semibold text-gray-900">Tu agente ya sabe</h2>
+        <p className="text-sm text-gray-500 mt-1 mb-5">
+          Estas habilidades vienen activas. No tienes que configurar nada.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {AUTO_SKILLS.map((skill) => {
+            const Icon = skill.icon
+            return (
+              <div
+                key={skill.label}
+                className="rounded-xl border border-gray-200 bg-white p-5"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-9 h-9 rounded-lg bg-violet-50 flex items-center justify-center">
+                    <Icon className="h-5 w-5 text-violet-600" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900 text-sm">{skill.label}</h3>
+                </div>
+                <p className="text-xs text-gray-500 leading-relaxed">{skill.desc}</p>
+                <span className="inline-flex items-center gap-1.5 mt-3 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  Siempre activo
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* ─── Modo humano (unificado) ─── */}
+      <section className="border-t border-gray-200 pt-8">
+        <h2 className="text-lg font-semibold text-gray-900">¿Cuándo pasar a un humano?</h2>
+        <p className="text-sm text-gray-500 mt-1 mb-5">
+          Cuando el cliente exprese alguna de estas cosas, el agente deja de responder y te avisa.
+        </p>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+          {HUMAN_TRIGGERS.map((trigger) => {
+            const active = (humanConfig.triggers || []).includes(trigger.id)
+            return (
+              <button
+                key={trigger.id}
+                type="button"
+                onClick={() => toggleTrigger(trigger.id)}
+                className={`text-left p-3 rounded-xl border-2 transition-all ${
+                  active
+                    ? 'border-violet-500 bg-violet-50'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className={`text-sm font-medium ${active ? 'text-violet-700' : 'text-gray-800'}`}>
+                    {trigger.label}
+                  </span>
+                  {active && <Check className="h-4 w-4 text-violet-600" />}
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">{trigger.desc}</p>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-2xl">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Comando para reactivar la IA
+            </label>
+            <input
+              type="text"
+              value={humanConfig.reactivar_command || '#reactivar'}
+              onChange={(e) => setHumanConfig({ ...humanConfig, reactivar_command: e.target.value })}
+              placeholder="#reactivar"
+              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
+            />
+            <p className="text-xs text-gray-400 mt-1.5">
+              Envía esto desde WhatsApp para que la IA vuelva a responder.
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Reactivar sola después de (horas)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={humanConfig.expire_hours || 0}
+              onChange={(e) => setHumanConfig({ ...humanConfig, expire_hours: parseInt(e.target.value) || 0 })}
+              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
+            />
+            <p className="text-xs text-gray-400 mt-1.5">
+              0 = nunca. La IA solo vuelve manual o con el comando.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Ajustes avanzados ─── */}
+      <section className="border-t border-gray-200 pt-6">
+        <button
+          onClick={() => setAdvancedOpen(!advancedOpen)}
+          className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+        >
+          {advancedOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          Ajustes avanzados
+        </button>
+
+        {advancedOpen && (
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
+            {/* Modelo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Modelo de IA</label>
+              <select
+                value={config.model}
+                onChange={(e) => setConfig({ ...config, model: e.target.value })}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+              >
+                <option value="gpt-4o-mini">Rápido y económico (recomendado)</option>
+                <option value="gpt-4o">Más inteligente</option>
+                <option value="gpt-4-turbo">Alta capacidad</option>
+                <option value="gpt-3.5-turbo">Básico</option>
+              </select>
+              <p className="text-xs text-gray-400 mt-1.5">
+                El cerebro del agente. El recomendado funciona bien para la mayoría.
+              </p>
+            </div>
+
+            {/* Temperatura */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Creatividad de las respuestas
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range" min="0" max="1" step="0.05"
+                  value={config.temperature}
+                  onChange={(e) => setConfig({ ...config, temperature: parseFloat(e.target.value) })}
+                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-violet-600"
+                />
+                <span className="text-sm font-medium text-gray-700 w-10 text-right">{config.temperature}</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1.5">
+                Bajo = respuestas más predecibles. Alto = más variadas. El tono ya ajusta esto por ti.
+              </p>
+            </div>
+
+            {/* Max tokens */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Largo de las respuestas
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range" min="100" max="2000" step="100"
+                  value={config.max_tokens}
+                  onChange={(e) => setConfig({ ...config, max_tokens: parseInt(e.target.value) })}
+                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-violet-600"
+                />
+                <span className="text-sm font-medium text-gray-700 w-14 text-right">{config.max_tokens}</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1.5">
+                Cuánto puede extenderse. Más alto = respuestas más largas.
+              </p>
+            </div>
+
+            {/* Response delay */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Espera antes de responder
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range" min="0" max="10" step="1"
+                  value={config.response_delay ?? 3}
+                  onChange={(e) => setConfig({ ...config, response_delay: parseInt(e.target.value) })}
+                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-violet-600"
+                />
+                <span className="text-sm font-medium text-gray-700 w-10 text-right">{config.response_delay ?? 3}s</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1.5">
+                Espera unos segundos antes de responder, para que se sienta más humano.
+              </p>
+            </div>
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
+
+// Build prompt_sections (+ system_prompt helpers) from the simple ficha.
+const TONO_TEXT = {
+  formal: 'Mantén un tono formal, profesional y respetuoso. Trata al cliente de usted.',
+  cercano: 'Mantén un tono cercano, amigable y natural. Habla como una persona real, cálida y servicial.',
+  divertido: 'Mantén un tono relajado y divertido, con chispa y buen humor, sin perder profesionalismo. Usa emojis con moderación.',
+}
+
+export const TONO_TO_TEMPERATURE = TONO_TEMPERATURE
+
+export function buildSectionsFromFicha(ficha) {
+  const nombre = (ficha.nombre || 'Asistente').trim()
+  const negocio = (ficha.negocio || '').trim()
+  const noHacer = (ficha.no_hacer || '').trim()
+  const tono = ficha.tono || 'cercano'
+
+  const role = `Eres ${nombre}, el asistente virtual que atiende a los clientes de este negocio por WhatsApp.`
+
+  const context = negocio
+    ? `Esto es lo que hace el negocio:\n${negocio}`
+    : 'Trabajas para un negocio que atiende a sus clientes por WhatsApp.'
+
+  const task = `Tu objetivo es atender a los clientes: responder sus preguntas, darles información del negocio, ayudarlos en lo que necesiten y ofrecer una experiencia de atención excelente.`
+
+  const baseConstraints = 'No inventes información: si no sabes algo, dilo con honestidad. No compartas datos de otros clientes. Responde siempre en español.'
+  const constraints = noHacer
+    ? `${baseConstraints}\nAdemás, ten en cuenta estas reglas del negocio:\n${noHacer}`
+    : baseConstraints
+
+  const tone = TONO_TEXT[tono] || TONO_TEXT.cercano
+
+  // Raw ficha stored to rebuild the UI on reload.
+  const _ficha = { nombre, negocio, tono, no_hacer: noHacer }
+
+  return { role, context, task, constraints, tone, _ficha }
+}
+
+export function buildSystemPromptFromSections(sections) {
+  return `## ROL
 ${sections.role}
 
 ## CONTEXTO
@@ -102,316 +424,29 @@ ${sections.task}
 ${sections.constraints}
 
 ## TONO
-${sections.tone}
+${sections.tone}`
+}
 
-## INFORMACIÓN DEL NEGOCIO
-- Nombre: ${config.business_name}
-- Tipo: ${config.business_type}`
+// Try to reconstruct the ficha when there's no stored _ficha (legacy configs).
+export function deriveFichaFromSections(sections, config) {
+  if (!sections) return null
+  if (sections._ficha) return sections._ficha
+
+  // Derive a name from the role text if possible
+  let nombre = ''
+  const roleMatch = (sections.role || '').match(/eres\s+([A-ZÁÉÍÓÚÑ][\wáéíóúñ]*)/i)
+  if (roleMatch) nombre = roleMatch[1]
+
+  // Map temperature back to a tono
+  let tono = 'cercano'
+  const t = config?.temperature ?? 0.7
+  if (t <= 0.5) tono = 'formal'
+  else if (t >= 0.8) tono = 'divertido'
+
+  return {
+    nombre: nombre || config?.business_name || '',
+    negocio: sections.context || '',
+    tono,
+    no_hacer: sections.constraints || '',
   }
-
-  const handleImprove = async (sectionKey) => {
-    setImproving(sectionKey)
-    try {
-      const response = await promptApi.improvePrompt({
-        section: sectionKey,
-        current_content: sections[sectionKey],
-        business_name: config.business_name,
-        business_type: config.business_type,
-        all_sections: sections
-      })
-      if (response.data?.improved) {
-        setSections({ ...sections, [sectionKey]: response.data.improved })
-      }
-    } catch (error) {
-      console.error('Error improving:', error)
-    } finally {
-      setImproving(null)
-    }
-  }
-
-  const handleImproveAll = async () => {
-    setImproving('all')
-    try {
-      const response = await promptApi.improvePrompt({
-        section: 'all',
-        all_sections: sections,
-        business_name: config.business_name,
-        business_type: config.business_type
-      })
-      if (response.data?.improved_sections) {
-        setSections(response.data.improved_sections)
-      }
-    } catch (error) {
-      console.error('Error improving all:', error)
-    } finally {
-      setImproving(null)
-    }
-  }
-
-  const copyPrompt = () => {
-    navigator.clipboard.writeText(buildFullPrompt())
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const getColors = (color) => colorClasses[color] || colorClasses.blue
-
-  return (
-    <div className="space-y-8">
-      {/* Edit Mode Toggle */}
-      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
-        <div>
-          <h3 className="font-medium text-gray-900">Modo de edición</h3>
-          <p className="text-sm text-gray-500">
-            {editMode === 'sections' 
-              ? 'Edita el prompt por secciones con ayuda de IA' 
-              : 'Escribe el prompt completo manualmente'}
-          </p>
-        </div>
-        <div className="flex bg-white rounded-lg border border-gray-200 p-1">
-          <button
-            onClick={() => setEditMode('sections')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-              editMode === 'sections'
-                ? 'bg-violet-100 text-violet-700'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <LayoutTemplate className="h-4 w-4" />
-            Secciones
-          </button>
-          <button
-            onClick={() => setEditMode('manual')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-              editMode === 'manual'
-                ? 'bg-violet-100 text-violet-700'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <Code className="h-4 w-4" />
-            Manual
-          </button>
-        </div>
-      </div>
-
-      {/* Manual Mode */}
-      {editMode === 'manual' ? (
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Prompt Manual</h2>
-            <p className="text-sm text-gray-500 mb-4">
-              Escribe el prompt completo del sistema. Este texto será usado directamente como instrucciones para el agente.
-            </p>
-          </div>
-          
-          <div className="relative">
-            <textarea
-              value={manualPrompt}
-              onChange={(e) => setManualPrompt(e.target.value)}
-              placeholder="Escribe aquí el prompt completo del sistema..."
-              rows={20}
-              className="w-full px-4 py-4 bg-gray-900 text-gray-100 border border-gray-700 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none leading-relaxed"
-            />
-            <div className="absolute bottom-4 right-4 flex items-center gap-2">
-              <span className="px-2 py-1 bg-gray-800 text-gray-400 text-xs rounded">
-                {manualPrompt?.length || 0} caracteres
-              </span>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(manualPrompt)
-                  setCopied(true)
-                  setTimeout(() => setCopied(false), 2000)
-                }}
-                className="flex items-center gap-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded text-xs transition-colors"
-              >
-                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                {copied ? 'Copiado' : 'Copiar'}
-              </button>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-            <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0" />
-            <p className="text-sm text-amber-800">
-              En modo manual, el prompt se guarda tal cual lo escribas. Las secciones predefinidas no se usarán.
-            </p>
-          </div>
-        </section>
-      ) : (
-        <>
-      {/* Business Info Section */}
-      <section>
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">Información del Negocio</h2>
-        <p className="text-sm text-gray-500 mb-4">Datos básicos que el agente usará en sus respuestas</p>
-        
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nombre del negocio
-            </label>
-            <input
-              type="text"
-              value={config.business_name}
-              onChange={(e) => setConfig({ ...config, business_name: e.target.value })}
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white transition-all"
-              placeholder="Mi Barbería"
-            />
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tipo de negocio
-            </label>
-            <input
-              type="text"
-              value={config.business_type}
-              onChange={(e) => setConfig({ ...config, business_type: e.target.value })}
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:bg-white transition-all"
-              placeholder="barbería, salón de belleza, spa..."
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Personality Sections */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Personalidad del Agente</h2>
-            <p className="text-sm text-gray-500">Define cómo se comporta y comunica tu asistente</p>
-          </div>
-          
-          <button
-            onClick={handleImproveAll}
-            disabled={improving === 'all'}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-xl text-sm font-medium hover:from-violet-600 hover:to-purple-700 transition-all disabled:opacity-50 shadow-lg shadow-purple-200"
-          >
-            {improving === 'all' ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Wand2 className="h-4 w-4" />
-            )}
-            Mejorar Todo con IA
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {PROMPT_SECTIONS.map((section, index) => {
-            const colors = getColors(section.color)
-            const Icon = section.icon
-            const isExpanded = expandedSection === section.key
-            
-            return (
-              <div
-                key={section.key}
-                className={`rounded-xl border-2 transition-all duration-200 ${
-                  isExpanded 
-                    ? `${colors.border} ${colors.light} shadow-sm` 
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-                <button
-                  onClick={() => setExpandedSection(isExpanded ? null : section.key)}
-                  className="w-full flex items-center justify-between p-5"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-3">
-                      <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 text-gray-500 text-sm font-medium">
-                        {index + 1}
-                      </span>
-                      <div className={`p-2.5 rounded-xl ${isExpanded ? colors.bg : 'bg-gray-100'}`}>
-                        <Icon className={`h-5 w-5 ${isExpanded ? colors.text : 'text-gray-500'}`} />
-                      </div>
-                    </div>
-                    <div className="text-left">
-                      <h3 className="font-semibold text-gray-900">{section.label}</h3>
-                      <p className="text-sm text-gray-500">{section.description}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {sections[section.key] && (
-                      <span className="px-2.5 py-1 bg-gray-100 text-gray-500 text-xs rounded-lg font-medium">
-                        {sections[section.key].length} caracteres
-                      </span>
-                    )}
-                    <div className={`p-1 rounded-lg ${isExpanded ? colors.bg : 'bg-gray-100'}`}>
-                      {isExpanded ? (
-                        <ChevronUp className={`h-5 w-5 ${colors.text}`} />
-                      ) : (
-                        <ChevronDown className="h-5 w-5 text-gray-400" />
-                      )}
-                    </div>
-                  </div>
-                </button>
-
-                {isExpanded && (
-                  <div className="px-5 pb-5 space-y-4">
-                    <textarea
-                      value={sections[section.key]}
-                      onChange={(e) => setSections({ ...sections, [section.key]: e.target.value })}
-                      placeholder={section.placeholder}
-                      rows={4}
-                      className={`w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 ${colors.ring} resize-none transition-all`}
-                    />
-                    <div className="flex items-center justify-between">
-                      <button
-                        onClick={() => setSections({ ...sections, [section.key]: DEFAULT_SECTIONS[section.key] })}
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                        Restaurar original
-                      </button>
-                      <button
-                        onClick={() => handleImprove(section.key)}
-                        disabled={improving === section.key}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${colors.bg} ${colors.text} hover:opacity-80 disabled:opacity-50`}
-                      >
-                        {improving === section.key ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Wand2 className="h-4 w-4" />
-                        )}
-                        Mejorar con IA
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </section>
-
-      {/* Preview Section */}
-      <section>
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <button
-            onClick={() => setShowPreview(!showPreview)}
-            className="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition-colors"
-          >
-            <div>
-              <h3 className="font-semibold text-gray-900">Vista Previa del Prompt Completo</h3>
-              <p className="text-sm text-gray-500">Ve cómo se verá el prompt final que usará el agente</p>
-            </div>
-            <button
-              onClick={(e) => { e.stopPropagation(); copyPrompt(); }}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-700 transition-colors"
-            >
-              {copied ? <Check className="h-4 w-4 text-indigo-600" /> : <Copy className="h-4 w-4" />}
-              {copied ? 'Copiado!' : 'Copiar'}
-            </button>
-          </button>
-          
-          {showPreview && (
-            <div className="p-5 pt-0">
-              <pre className="p-5 bg-gray-900 text-gray-100 rounded-xl text-sm overflow-auto max-h-96 whitespace-pre-wrap font-mono leading-relaxed">
-                {buildFullPrompt()}
-              </pre>
-            </div>
-          )}
-        </div>
-      </section>
-        </>
-      )}
-    </div>
-  )
 }
