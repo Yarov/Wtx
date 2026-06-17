@@ -88,6 +88,7 @@ async def listar_contactos(
     query = db.query(Contacto).filter(
         Contacto.usuario_id == current_user.id,
         Contacto.perfil_id == perfil.id,
+        ~Contacto.telefono.like("test%"),  # Excluir contactos de prueba (test-chat)
     )
 
     # Filtro por estado
@@ -142,6 +143,7 @@ async def stats_contactos(
     base = db.query(Contacto).filter(
         Contacto.usuario_id == current_user.id,
         Contacto.perfil_id == perfil.id,
+        ~Contacto.telefono.like("test%"),  # Excluir contactos de prueba (test-chat)
     )
     total = base.count()
     activos = base.filter(Contacto.estado == "activo").count()

@@ -68,7 +68,11 @@ async def get_conversations(
         # Tambien buscar en tabla legacy Memoria (contactos no migrados) - limited
         memorias = (
             db.query(Memoria)
-            .filter(Memoria.usuario_id == current_user.id, Memoria.perfil_id == perfil.id)
+            .filter(
+                Memoria.usuario_id == current_user.id,
+                Memoria.perfil_id == perfil.id,
+                ~Memoria.telefono.like("test%"),  # Excluir prueba (test-chat)
+            )
             .order_by(Memoria.updated_at.desc())
             .limit(limit)
             .all()

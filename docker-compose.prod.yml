@@ -131,9 +131,11 @@ services:
     depends_on:
       - wtxapi
     restart: unless-stopped
+    # Solo en la red de Coolify (proxy). Coolify lo añade también a la red del
+    # proyecto, donde alcanza a wtxapi. NO en "internal": Traefik no la alcanza
+    # y enrutaría wtx.mx a esa IP -> 504.
     networks:
       - coolify
-      - internal
 
 volumes:
   postgres_data:

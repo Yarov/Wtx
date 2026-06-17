@@ -285,8 +285,6 @@ def get_all_tools_config(usuario_id: int = None, perfil_id: int = None) -> list:
 
 def create_user_defaults(db, usuario_id: int):
     """Crear datos por defecto para un usuario nuevo."""
-    env_api_key = os.getenv("OPENAI_API_KEY", "")
-
     # Default profile (one active WhatsApp profile per new user).
     # Created first so per-profile data (funnel steps, capture fields) can be
     # scoped to it from the start.
@@ -318,8 +316,9 @@ Siempre saluda al cliente y ofrece ayuda."""),
         ("business_name", "Mi Negocio"),
         ("business_type", "general"),
     ]
-    if env_api_key:
-        default_config.append(("openai_api_key", env_api_key))
+    # openai_api_key NO se siembra en la BD: se lee siempre del env
+    # (OPENAI_API_KEY) en get_openai_client, así cambiar la env basta y no
+    # queda una key "congelada" en la base.
 
     for clave, valor in default_config:
         existing = (
@@ -438,8 +437,6 @@ def init_default_data():
         if db.query(Configuracion).first():
             return
 
-        env_api_key = os.getenv("OPENAI_API_KEY", "")
-
         default_config = [
             (
                 "system_prompt",
@@ -454,8 +451,7 @@ Siempre saluda al cliente y ofrece ayuda.""",
             ("business_name", "Mi Negocio"),
             ("business_type", "barbería"),
         ]
-        if env_api_key:
-            default_config.append(("openai_api_key", env_api_key))
+        # openai_api_key NO se siembra; se lee del env (ver get_openai_client)
 
         for clave, valor in default_config:
             db.add(Configuracion(clave=clave, usuario_id=0, valor=valor))
