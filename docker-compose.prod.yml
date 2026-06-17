@@ -2,8 +2,10 @@
 #
 # En Coolify:
 #   1. Asignar dominio SOLO al servicio "frontend" (puerto 80)
-#   2. NO asignar dominio a "api", "worker", "redis" ni "postgres"
-#   3. El frontend hace proxy interno de /api -> api:3000
+#   2. NO asignar dominio a "wtxapi", "worker", "redis" ni "postgres"
+#   3. El frontend hace proxy interno de /api -> wtxapi:3000
+#   Nota: el servicio se llama "wtxapi" (no "api") para evitar colisión de
+#   nombre con otros proyectos en la red compartida de Coolify.
 #
 # Variables requeridas en Coolify:
 #   - OPENAI_API_KEY: API key de OpenAI
@@ -43,7 +45,7 @@ services:
     networks:
       - internal
 
-  api:
+  wtxapi:
     build:
       context: ./whatsapp-ai-api
       dockerfile: Dockerfile.prod
@@ -97,7 +99,7 @@ services:
       args:
         VITE_API_URL: /api
     depends_on:
-      - api
+      - wtxapi
     restart: unless-stopped
     networks:
       - coolify
