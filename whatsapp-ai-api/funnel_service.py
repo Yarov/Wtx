@@ -14,8 +14,10 @@ class FunnelService:
     """Servicio para gestionar el funnel de ventas"""
 
     @staticmethod
-    def get_all_steps(db: Session, usuario_id: int, activo_only: bool = False) -> list:
+    def get_all_steps(db: Session, usuario_id: int, activo_only: bool = False, perfil_id: int = None) -> list:
         query = db.query(FunnelPaso).filter(FunnelPaso.usuario_id == usuario_id)
+        if perfil_id is not None:
+            query = query.filter(FunnelPaso.perfil_id == perfil_id)
         if activo_only:
             query = query.filter(FunnelPaso.activo == True)
         return [p.to_dict() for p in query.order_by(FunnelPaso.orden).all()]
@@ -29,11 +31,14 @@ class FunnelService:
         return paso.to_dict() if paso else None
 
     @staticmethod
-    def get_step_by_id(db: Session, step_id: int, usuario_id: int) -> dict | None:
-        paso = db.query(FunnelPaso).filter(
+    def get_step_by_id(db: Session, step_id: int, usuario_id: int, perfil_id: int = None) -> dict | None:
+        query = db.query(FunnelPaso).filter(
             FunnelPaso.id == step_id,
             FunnelPaso.usuario_id == usuario_id,
-        ).first()
+        )
+        if perfil_id is not None:
+            query = query.filter(FunnelPaso.perfil_id == perfil_id)
+        paso = query.first()
         return paso.to_dict() if paso else None
 
     @staticmethod
@@ -46,9 +51,11 @@ class FunnelService:
         descripcion: str = "",
         instrucciones_agente: str = "",
         condiciones_avance: list = None,
+        perfil_id: int = None,
     ) -> dict:
         paso = FunnelPaso(
             usuario_id=usuario_id,
+            perfil_id=perfil_id,
             nombre=nombre,
             titulo=titulo,
             orden=orden,
@@ -62,28 +69,34 @@ class FunnelService:
         return paso.to_dict()
 
     @staticmethod
-    def update_step(db: Session, step_id: int, usuario_id: int, **kwargs) -> dict | None:
-        paso = db.query(FunnelPaso).filter(
+    def update_step(db: Session, step_id: int, usuario_id: int, perfil_id: int = None, **kwargs) -> dict | None:
+        query = db.query(FunnelPaso).filter(
             FunnelPaso.id == step_id,
             FunnelPaso.usuario_id == usuario_id,
-        ).first()
+        )
+        if perfil_id is not None:
+            query = query.filter(FunnelPaso.perfil_id == perfil_id)
+        paso = query.first()
         if not paso:
             return None
         for key, value in kwargs.items():
             if key == "condiciones_avance" and isinstance(value, list):
                 setattr(paso, key, json.dumps(value))
-            elif hasattr(paso, key):
+            elif hasattr(paso, key) and key not in ("usuario_id", "perfil_id"):
                 setattr(paso, key, value)
         db.commit()
         db.refresh(paso)
         return paso.to_dict()
 
     @staticmethod
-    def delete_step(db: Session, step_id: int, usuario_id: int) -> bool:
-        paso = db.query(FunnelPaso).filter(
+    def delete_step(db: Session, step_id: int, usuario_id: int, perfil_id: int = None) -> bool:
+        query = db.query(FunnelPaso).filter(
             FunnelPaso.id == step_id,
             FunnelPaso.usuario_id == usuario_id,
-        ).first()
+        )
+        if perfil_id is not None:
+            query = query.filter(FunnelPaso.perfil_id == perfil_id)
+        paso = query.first()
         if not paso:
             return False
         db.delete(paso)

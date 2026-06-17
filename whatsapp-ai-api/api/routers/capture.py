@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from models import SessionLocal, Usuario
+from models import SessionLocal, Usuario, Perfil
 from auth import get_current_user
+from api.routers.perfiles import get_current_perfil
 from capture_service import CaptureService
 
 logger = logging.getLogger(__name__)
@@ -35,22 +36,27 @@ class FieldUpdate(BaseModel):
 
 
 @router.get("/fields", summary="List capture fields")
-async def list_fields(current_user: Usuario = Depends(get_current_user)):
+async def list_fields(
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     db = SessionLocal()
     try:
-        return CaptureService.get_fields(db, current_user.id, activo_only=False)
+        return CaptureService.get_fields(db, current_user.id, activo_only=False, perfil_id=perfil.id)
     finally:
         db.close()
 
 
 @router.post("/fields", summary="Create capture field")
 async def create_field(
-    data: FieldCreate, current_user: Usuario = Depends(get_current_user)
+    data: FieldCreate,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     db = SessionLocal()
     try:
         return CaptureService.create_field(
-            db, current_user.id, data.nombre, data.etiqueta, data.tipo, data.obligatorio, data.orden
+            db, current_user.id, data.nombre, data.etiqueta, data.tipo, data.obligatorio, data.orden, perfil_id=perfil.id
         )
     except Exception as e:
         if "unique" in str(e).lower():
@@ -64,12 +70,15 @@ async def create_field(
 
 @router.put("/fields/{field_id}", summary="Update capture field")
 async def update_field(
-    field_id: int, data: FieldUpdate, current_user: Usuario = Depends(get_current_user)
+    field_id: int,
+    data: FieldUpdate,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     db = SessionLocal()
     try:
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-        result = CaptureService.update_field(db, field_id, current_user.id, **update_data)
+        result = CaptureService.update_field(db, field_id, current_user.id, perfil_id=perfil.id, **update_data)
         if not result:
             raise HTTPException(status_code=404, detail="Field not found")
         return result
@@ -79,11 +88,13 @@ async def update_field(
 
 @router.delete("/fields/{field_id}", summary="Delete capture field")
 async def delete_field(
-    field_id: int, current_user: Usuario = Depends(get_current_user)
+    field_id: int,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     db = SessionLocal()
     try:
-        if not CaptureService.delete_field(db, field_id, current_user.id):
+        if not CaptureService.delete_field(db, field_id, current_user.id, perfil_id=perfil.id):
             raise HTTPException(status_code=404, detail="Field not found")
         return {"status": "ok"}
     finally:

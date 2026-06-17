@@ -267,6 +267,26 @@ def create_user_defaults(db, usuario_id: int):
     """Crear datos por defecto para un usuario nuevo."""
     env_api_key = os.getenv("OPENAI_API_KEY", "")
 
+    # Default profile (one active WhatsApp profile per new user).
+    # Created first so per-profile data (funnel steps, capture fields) can be
+    # scoped to it from the start.
+    perfil = (
+        db.query(Perfil)
+        .filter(Perfil.usuario_id == usuario_id)
+        .order_by(Perfil.created_at)
+        .first()
+    )
+    if not perfil:
+        perfil = Perfil(
+            usuario_id=usuario_id,
+            nombre="Mi WhatsApp",
+            emoji="📱",
+            es_activo=True,
+        )
+        db.add(perfil)
+        db.flush()  # assign perfil.id without committing yet
+    perfil_id = perfil.id
+
     # Config
     default_config = [
         ("system_prompt", """Eres un asistente de WhatsApp.
@@ -335,6 +355,7 @@ Siempre saluda al cliente y ofrece ayuda."""),
             db.add(
                 FunnelPaso(
                     usuario_id=usuario_id,
+                    perfil_id=perfil_id,
                     nombre=nombre,
                     titulo=titulo,
                     orden=orden,
@@ -353,6 +374,7 @@ Siempre saluda al cliente y ofrece ayuda."""),
         db.add(
             CampoCaptura(
                 usuario_id=usuario_id,
+                perfil_id=perfil_id,
                 nombre="nombre",
                 etiqueta="Nombre completo",
                 tipo="texto",
@@ -364,6 +386,7 @@ Siempre saluda al cliente y ofrece ayuda."""),
         db.add(
             CampoCaptura(
                 usuario_id=usuario_id,
+                perfil_id=perfil_id,
                 nombre="email",
                 etiqueta="Correo electrónico",
                 tipo="email",
@@ -381,22 +404,6 @@ Siempre saluda al cliente y ofrece ayuda."""),
     )
     if not existing_bc:
         db.add(BusinessConfig(usuario_id=usuario_id))
-
-    # Default profile (one active WhatsApp profile per new user)
-    existing_perfil = (
-        db.query(Perfil)
-        .filter(Perfil.usuario_id == usuario_id)
-        .first()
-    )
-    if not existing_perfil:
-        db.add(
-            Perfil(
-                usuario_id=usuario_id,
-                nombre="Mi WhatsApp",
-                emoji="📱",
-                es_activo=True,
-            )
-        )
 
     db.commit()
 

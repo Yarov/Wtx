@@ -6,8 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 
-from models import SessionLocal, Usuario, Contacto
+from models import SessionLocal, Usuario, Contacto, Perfil
 from auth import get_current_user
+from api.routers.perfiles import get_current_perfil
 from funnel_service import FunnelService
 
 logger = logging.getLogger(__name__)
@@ -38,19 +39,26 @@ class StepUpdate(BaseModel):
 
 
 @router.get("/steps", summary="List all funnel steps")
-async def list_steps(current_user: Usuario = Depends(get_current_user)):
+async def list_steps(
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     db = SessionLocal()
     try:
-        return FunnelService.get_all_steps(db, current_user.id)
+        return FunnelService.get_all_steps(db, current_user.id, perfil_id=perfil.id)
     finally:
         db.close()
 
 
 @router.get("/steps/{step_id}", summary="Get step by ID")
-async def get_step(step_id: int, current_user: Usuario = Depends(get_current_user)):
+async def get_step(
+    step_id: int,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     db = SessionLocal()
     try:
-        step = FunnelService.get_step_by_id(db, step_id, current_user.id)
+        step = FunnelService.get_step_by_id(db, step_id, current_user.id, perfil_id=perfil.id)
         if not step:
             raise HTTPException(status_code=404, detail="Step not found")
         return step
@@ -60,7 +68,9 @@ async def get_step(step_id: int, current_user: Usuario = Depends(get_current_use
 
 @router.post("/steps", summary="Create funnel step")
 async def create_step(
-    data: StepCreate, current_user: Usuario = Depends(get_current_user)
+    data: StepCreate,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     db = SessionLocal()
     try:
@@ -73,6 +83,7 @@ async def create_step(
             data.descripcion,
             data.instrucciones_agente,
             data.condiciones_avance,
+            perfil_id=perfil.id,
         )
     except Exception as e:
         if "unique" in str(e).lower():
@@ -86,12 +97,15 @@ async def create_step(
 
 @router.put("/steps/{step_id}", summary="Update funnel step")
 async def update_step(
-    step_id: int, data: StepUpdate, current_user: Usuario = Depends(get_current_user)
+    step_id: int,
+    data: StepUpdate,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     db = SessionLocal()
     try:
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-        result = FunnelService.update_step(db, step_id, current_user.id, **update_data)
+        result = FunnelService.update_step(db, step_id, current_user.id, perfil_id=perfil.id, **update_data)
         if not result:
             raise HTTPException(status_code=404, detail="Step not found")
         return result
@@ -100,10 +114,14 @@ async def update_step(
 
 
 @router.delete("/steps/{step_id}", summary="Delete funnel step")
-async def delete_step(step_id: int, current_user: Usuario = Depends(get_current_user)):
+async def delete_step(
+    step_id: int,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     db = SessionLocal()
     try:
-        if not FunnelService.delete_step(db, step_id, current_user.id):
+        if not FunnelService.delete_step(db, step_id, current_user.id, perfil_id=perfil.id):
             raise HTTPException(status_code=404, detail="Step not found")
         return {"status": "ok"}
     finally:
@@ -112,7 +130,9 @@ async def delete_step(step_id: int, current_user: Usuario = Depends(get_current_
 
 @router.post("/contacts/{telefono}/advance", summary="Manually advance contact")
 async def advance_contact(
-    telefono: str, current_user: Usuario = Depends(get_current_user)
+    telefono: str,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     db = SessionLocal()
     try:
@@ -128,7 +148,9 @@ async def advance_contact(
 
 @router.put("/contacts/{telefono}/step", summary="Set contact step manually")
 async def set_contact_step(
-    telefono: str, step_name: str, current_user: Usuario = Depends(get_current_user)
+    telefono: str, step_name: str,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     db = SessionLocal()
     try:
@@ -140,16 +162,20 @@ async def set_contact_step(
 
 
 @router.get("/stats", summary="Funnel statistics")
-async def funnel_stats(current_user: Usuario = Depends(get_current_user)):
+async def funnel_stats(
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     db = SessionLocal()
     try:
-        steps = FunnelService.get_all_steps(db, current_user.id, activo_only=True)
+        steps = FunnelService.get_all_steps(db, current_user.id, activo_only=True, perfil_id=perfil.id)
         stats = []
         for step in steps:
             count = (
                 db.query(Contacto)
                 .filter(
                     Contacto.usuario_id == current_user.id,
+                    Contacto.perfil_id == perfil.id,
                     Contacto.paso_funnel == step["nombre"],
                 )
                 .count()
@@ -165,6 +191,7 @@ async def funnel_stats(current_user: Usuario = Depends(get_current_user)):
         # Sin paso asignado
         sin_paso = db.query(Contacto).filter(
             Contacto.usuario_id == current_user.id,
+            Contacto.perfil_id == perfil.id,
             Contacto.paso_funnel == None,
         ).count()
         return {"steps": stats, "sin_paso": sin_paso}

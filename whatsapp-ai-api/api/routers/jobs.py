@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Optional
 
-from models import get_db, BackgroundJob
+from models import get_db, BackgroundJob, Perfil
 from api.routers.auth import get_current_user
+from api.routers.perfiles import get_current_perfil
 from models import Usuario
 
 router = APIRouter(
@@ -22,9 +23,13 @@ async def listar_jobs(
     estado: Optional[str] = None,
     limit: int = 20,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    query = db.query(BackgroundJob).filter(BackgroundJob.usuario_id == current_user.id)
+    query = db.query(BackgroundJob).filter(
+        BackgroundJob.usuario_id == current_user.id,
+        BackgroundJob.perfil_id == perfil.id,
+    )
 
     if tipo:
         query = query.filter(BackgroundJob.tipo == tipo)
@@ -43,11 +48,13 @@ async def listar_jobs(
 async def obtener_job(
     job_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     job = db.query(BackgroundJob).filter(
         BackgroundJob.id == job_id,
         BackgroundJob.usuario_id == current_user.id,
+        BackgroundJob.perfil_id == perfil.id,
     ).first()
 
     if not job:
@@ -60,10 +67,12 @@ async def obtener_job(
 async def obtener_job_activo(
     tipo: str,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     job = db.query(BackgroundJob).filter(
         BackgroundJob.usuario_id == current_user.id,
+        BackgroundJob.perfil_id == perfil.id,
         BackgroundJob.tipo == tipo,
         BackgroundJob.estado.in_(["pendiente", "procesando"])
     ).first()
@@ -78,10 +87,12 @@ async def obtener_job_activo(
 async def obtener_ultimo_job(
     tipo: str,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     job = db.query(BackgroundJob).filter(
         BackgroundJob.usuario_id == current_user.id,
+        BackgroundJob.perfil_id == perfil.id,
         BackgroundJob.tipo == tipo
     ).order_by(BackgroundJob.created_at.desc()).first()
 
@@ -95,11 +106,13 @@ async def obtener_ultimo_job(
 async def cancelar_job(
     job_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     job = db.query(BackgroundJob).filter(
         BackgroundJob.id == job_id,
         BackgroundJob.usuario_id == current_user.id,
+        BackgroundJob.perfil_id == perfil.id,
     ).first()
 
     if not job:

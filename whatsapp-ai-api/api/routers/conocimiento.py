@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from models import SessionLocal, Usuario
+from models import SessionLocal, Usuario, Perfil
 from auth import get_current_user
+from api.routers.perfiles import get_current_perfil
 from knowledge_service import KnowledgeService
 
 logger = logging.getLogger(__name__)
@@ -32,46 +33,63 @@ class DocumentoUpdate(BaseModel):
 
 
 @router.get("", summary="List knowledge documents")
-async def list_documents(current_user: Usuario = Depends(get_current_user)):
+async def list_documents(
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     db = SessionLocal()
     try:
-        return KnowledgeService.get_all(db, current_user.id)
+        return KnowledgeService.get_all(db, current_user.id, perfil_id=perfil.id)
     finally:
         db.close()
 
 
 @router.get("/stats", summary="Knowledge base stats")
-async def get_stats(current_user: Usuario = Depends(get_current_user)):
+async def get_stats(
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     db = SessionLocal()
     try:
-        return KnowledgeService.get_stats(db, current_user.id)
+        return KnowledgeService.get_stats(db, current_user.id, perfil_id=perfil.id)
     finally:
         db.close()
 
 
 @router.get("/categories", summary="List categories")
-async def get_categories(current_user: Usuario = Depends(get_current_user)):
+async def get_categories(
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     db = SessionLocal()
     try:
-        return KnowledgeService.get_categories(db, current_user.id)
+        return KnowledgeService.get_categories(db, current_user.id, perfil_id=perfil.id)
     finally:
         db.close()
 
 
 @router.get("/search", summary="Search knowledge base")
-async def search_knowledge(q: str, current_user: Usuario = Depends(get_current_user)):
+async def search_knowledge(
+    q: str,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     db = SessionLocal()
     try:
-        return KnowledgeService.search(db, current_user.id, q)
+        return KnowledgeService.search(db, current_user.id, q, perfil_id=perfil.id)
     finally:
         db.close()
 
 
 @router.get("/{doc_id}", summary="Get document by ID")
-async def get_document(doc_id: int, current_user: Usuario = Depends(get_current_user)):
+async def get_document(
+    doc_id: int,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     db = SessionLocal()
     try:
-        doc = KnowledgeService.get_by_id(db, doc_id, current_user.id)
+        doc = KnowledgeService.get_by_id(db, doc_id, current_user.id, perfil_id=perfil.id)
         if not doc:
             raise HTTPException(status_code=404, detail="Document not found")
         return doc
@@ -81,11 +99,13 @@ async def get_document(doc_id: int, current_user: Usuario = Depends(get_current_
 
 @router.post("", summary="Create document")
 async def create_document(
-    data: DocumentoCreate, current_user: Usuario = Depends(get_current_user)
+    data: DocumentoCreate,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     db = SessionLocal()
     try:
-        return KnowledgeService.create(db, current_user.id, data.titulo, data.contenido, data.categoria)
+        return KnowledgeService.create(db, current_user.id, data.titulo, data.contenido, data.categoria, perfil_id=perfil.id)
     finally:
         db.close()
 
@@ -95,11 +115,12 @@ async def update_document(
     doc_id: int,
     data: DocumentoUpdate,
     current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     db = SessionLocal()
     try:
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-        result = KnowledgeService.update(db, doc_id, current_user.id, **update_data)
+        result = KnowledgeService.update(db, doc_id, current_user.id, perfil_id=perfil.id, **update_data)
         if not result:
             raise HTTPException(status_code=404, detail="Document not found")
         return result
@@ -109,11 +130,13 @@ async def update_document(
 
 @router.delete("/{doc_id}", summary="Delete document")
 async def delete_document(
-    doc_id: int, current_user: Usuario = Depends(get_current_user)
+    doc_id: int,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     db = SessionLocal()
     try:
-        if not KnowledgeService.delete(db, doc_id, current_user.id):
+        if not KnowledgeService.delete(db, doc_id, current_user.id, perfil_id=perfil.id):
             raise HTTPException(status_code=404, detail="Document not found")
         return {"status": "ok"}
     finally:
@@ -121,10 +144,13 @@ async def delete_document(
 
 
 @router.post("/sync", summary="Sync all documents")
-async def sync_documents(current_user: Usuario = Depends(get_current_user)):
+async def sync_documents(
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     db = SessionLocal()
     try:
-        KnowledgeService.sync_all(db, current_user.id)
+        KnowledgeService.sync_all(db, current_user.id, perfil_id=perfil.id)
         return {"status": "ok"}
     finally:
         db.close()

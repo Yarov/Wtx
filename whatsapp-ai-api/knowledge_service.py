@@ -10,14 +10,22 @@ from models import DocumentoConocimiento
 logger = logging.getLogger(__name__)
 
 
+def _scope(query, perfil_id):
+    """Apply perfil_id filter when provided (per-profile data isolation)."""
+    if perfil_id is not None:
+        query = query.filter(DocumentoConocimiento.perfil_id == perfil_id)
+    return query
+
+
 class KnowledgeService:
     """Servicio para gestionar la base de conocimiento"""
 
     @staticmethod
-    def get_all(db: Session, usuario_id: int, activo_only: bool = False) -> list:
+    def get_all(db: Session, usuario_id: int, activo_only: bool = False, perfil_id: int = None) -> list:
         query = db.query(DocumentoConocimiento).filter(
             DocumentoConocimiento.usuario_id == usuario_id
         )
+        query = _scope(query, perfil_id)
         if activo_only:
             query = query.filter(DocumentoConocimiento.activo == True)
         return [
@@ -25,15 +33,12 @@ class KnowledgeService:
         ]
 
     @staticmethod
-    def get_by_id(db: Session, doc_id: int, usuario_id: int) -> dict | None:
-        doc = (
-            db.query(DocumentoConocimiento)
-            .filter(
-                DocumentoConocimiento.id == doc_id,
-                DocumentoConocimiento.usuario_id == usuario_id,
-            )
-            .first()
+    def get_by_id(db: Session, doc_id: int, usuario_id: int, perfil_id: int = None) -> dict | None:
+        query = db.query(DocumentoConocimiento).filter(
+            DocumentoConocimiento.id == doc_id,
+            DocumentoConocimiento.usuario_id == usuario_id,
         )
+        doc = _scope(query, perfil_id).first()
         return doc.to_dict() if doc else None
 
     @staticmethod
@@ -43,9 +48,11 @@ class KnowledgeService:
         titulo: str,
         contenido: str,
         categoria: str = "general",
+        perfil_id: int = None,
     ) -> dict:
         doc = DocumentoConocimiento(
             usuario_id=usuario_id,
+            perfil_id=perfil_id,
             titulo=titulo,
             contenido=contenido,
             categoria=categoria,
@@ -58,19 +65,16 @@ class KnowledgeService:
         return doc.to_dict()
 
     @staticmethod
-    def update(db: Session, doc_id: int, usuario_id: int, **kwargs) -> dict | None:
-        doc = (
-            db.query(DocumentoConocimiento)
-            .filter(
-                DocumentoConocimiento.id == doc_id,
-                DocumentoConocimiento.usuario_id == usuario_id,
-            )
-            .first()
+    def update(db: Session, doc_id: int, usuario_id: int, perfil_id: int = None, **kwargs) -> dict | None:
+        query = db.query(DocumentoConocimiento).filter(
+            DocumentoConocimiento.id == doc_id,
+            DocumentoConocimiento.usuario_id == usuario_id,
         )
+        doc = _scope(query, perfil_id).first()
         if not doc:
             return None
         for key, value in kwargs.items():
-            if hasattr(doc, key) and key != "usuario_id":
+            if hasattr(doc, key) and key not in ("usuario_id", "perfil_id"):
                 setattr(doc, key, value)
         doc.sincronizado = False
         db.commit()
@@ -78,15 +82,12 @@ class KnowledgeService:
         return doc.to_dict()
 
     @staticmethod
-    def delete(db: Session, doc_id: int, usuario_id: int) -> bool:
-        doc = (
-            db.query(DocumentoConocimiento)
-            .filter(
-                DocumentoConocimiento.id == doc_id,
-                DocumentoConocimiento.usuario_id == usuario_id,
-            )
-            .first()
+    def delete(db: Session, doc_id: int, usuario_id: int, perfil_id: int = None) -> bool:
+        query = db.query(DocumentoConocimiento).filter(
+            DocumentoConocimiento.id == doc_id,
+            DocumentoConocimiento.usuario_id == usuario_id,
         )
+        doc = _scope(query, perfil_id).first()
         if not doc:
             return False
         db.delete(doc)
@@ -94,36 +95,37 @@ class KnowledgeService:
         return True
 
     @staticmethod
-    def sync_all(db: Session, usuario_id: int):
+    def sync_all(db: Session, usuario_id: int, perfil_id: int = None):
         """Marcar todos los documentos como sincronizados"""
-        db.query(DocumentoConocimiento).filter(
+        query = db.query(DocumentoConocimiento).filter(
             DocumentoConocimiento.activo == True,
             DocumentoConocimiento.usuario_id == usuario_id,
-        ).update({"sincronizado": True})
+        )
+        _scope(query, perfil_id).update({"sincronizado": True})
         db.commit()
 
     @staticmethod
-    def get_categories(db: Session, usuario_id: int) -> list:
+    def get_categories(db: Session, usuario_id: int, perfil_id: int = None) -> list:
         """Obtener lista de categorias unicas"""
-        cats = (
+        query = (
             db.query(DocumentoConocimiento.categoria)
             .filter(DocumentoConocimiento.usuario_id == usuario_id)
-            .distinct()
-            .all()
         )
+        cats = _scope(query, perfil_id).distinct().all()
         return [c[0] for c in cats if c[0]]
 
     @staticmethod
-    def get_stats(db: Session, usuario_id: int) -> dict:
+    def get_stats(db: Session, usuario_id: int, perfil_id: int = None) -> dict:
         base = db.query(DocumentoConocimiento).filter(
             DocumentoConocimiento.usuario_id == usuario_id
         )
+        base = _scope(base, perfil_id)
         total = base.count()
         sincronizados = base.filter(
             DocumentoConocimiento.sincronizado == True
         ).count()
         pendientes = total - sincronizados
-        categorias = len(KnowledgeService.get_categories(db, usuario_id))
+        categorias = len(KnowledgeService.get_categories(db, usuario_id, perfil_id=perfil_id))
         return {
             "total": total,
             "sincronizados": sincronizados,
@@ -132,10 +134,10 @@ class KnowledgeService:
         }
 
     @staticmethod
-    def search(db: Session, usuario_id: int, query: str) -> list:
+    def search(db: Session, usuario_id: int, query: str, perfil_id: int = None) -> list:
         """Busqueda simple por titulo o contenido (case-insensitive)"""
         pattern = f"%{query}%"
-        docs = (
+        q = (
             db.query(DocumentoConocimiento)
             .filter(
                 DocumentoConocimiento.usuario_id == usuario_id,
@@ -145,22 +147,21 @@ class KnowledgeService:
                     | DocumentoConocimiento.contenido.ilike(pattern)
                 ),
             )
-            .all()
         )
+        docs = _scope(q, perfil_id).all()
         return [d.to_dict() for d in docs]
 
     @staticmethod
-    def get_context_for_agent(db: Session, usuario_id: int) -> str:
+    def get_context_for_agent(db: Session, usuario_id: int, perfil_id: int = None) -> str:
         """Obtener todo el conocimiento activo como contexto para el agente"""
-        docs = (
+        query = (
             db.query(DocumentoConocimiento)
             .filter(
                 DocumentoConocimiento.usuario_id == usuario_id,
                 DocumentoConocimiento.activo == True,
             )
-            .order_by(DocumentoConocimiento.categoria)
-            .all()
         )
+        docs = _scope(query, perfil_id).order_by(DocumentoConocimiento.categoria).all()
 
         if not docs:
             return ""

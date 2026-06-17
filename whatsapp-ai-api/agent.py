@@ -453,15 +453,26 @@ def _sync_to_legacy_memoria(db, telefono: str, usuario_id: int = 1):
     from message_service import MessageService
     from datetime import datetime
 
+    # Resolver perfil activo del usuario (background, sin header HTTP)
+    perfil_id = None
+    try:
+        from api.routers.perfiles import get_perfil_activo_id
+        perfil_id = get_perfil_activo_id(db, usuario_id)
+    except Exception:
+        perfil_id = None
+
     msgs = MessageService.get_messages_for_ai(db, telefono, usuario_id=usuario_id, limit=20)
     memoria = db.query(Memoria).filter(Memoria.telefono == telefono).first()
     if memoria:
         memoria.historial = json.dumps(msgs, ensure_ascii=False)
         memoria.updated_at = datetime.utcnow()
+        if memoria.perfil_id is None and perfil_id is not None:
+            memoria.perfil_id = perfil_id
     else:
         memoria = Memoria(
             telefono=telefono,
             usuario_id=usuario_id,
+            perfil_id=perfil_id,
             historial=json.dumps(msgs, ensure_ascii=False),
         )
         db.add(memoria)

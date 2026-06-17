@@ -11,6 +11,7 @@ from models import (
     get_db,
     Contacto,
     Usuario,
+    Perfil,
     MensajeConversacion,
     FunnelPaso,
     Campana,
@@ -18,6 +19,7 @@ from models import (
 )
 from database import get_config
 from auth import get_current_user
+from api.routers.perfiles import get_current_perfil
 
 router = APIRouter(
     prefix="/dashboard",
@@ -28,19 +30,23 @@ router = APIRouter(
 
 @router.get("/stats")
 async def get_stats(
-    db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     now = datetime.utcnow()
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     yesterday = today - timedelta(days=1)
     week_ago = today - timedelta(days=7)
     uid = current_user.id
+    pid = perfil.id
 
     # Mensajes
     msgs_today = (
         db.query(MensajeConversacion)
         .filter(
             MensajeConversacion.usuario_id == uid,
+            MensajeConversacion.perfil_id == pid,
             MensajeConversacion.created_at >= today,
             MensajeConversacion.tipo_evento == None,
         )
@@ -50,6 +56,7 @@ async def get_stats(
         db.query(MensajeConversacion)
         .filter(
             MensajeConversacion.usuario_id == uid,
+            MensajeConversacion.perfil_id == pid,
             MensajeConversacion.created_at >= yesterday,
             MensajeConversacion.created_at < today,
             MensajeConversacion.tipo_evento == None,
@@ -62,6 +69,7 @@ async def get_stats(
         db.query(MensajeConversacion)
         .filter(
             MensajeConversacion.usuario_id == uid,
+            MensajeConversacion.perfil_id == pid,
             MensajeConversacion.created_at >= week_ago,
             MensajeConversacion.rol == "assistant",
             MensajeConversacion.tipo_evento == None,
@@ -72,6 +80,7 @@ async def get_stats(
         db.query(MensajeConversacion)
         .filter(
             MensajeConversacion.usuario_id == uid,
+            MensajeConversacion.perfil_id == pid,
             MensajeConversacion.created_at >= week_ago,
             MensajeConversacion.rol == "user",
             MensajeConversacion.tipo_evento == None,
@@ -84,6 +93,7 @@ async def get_stats(
         db.query(MensajeConversacion.tipo_evento, func.count(MensajeConversacion.id))
         .filter(
             MensajeConversacion.usuario_id == uid,
+            MensajeConversacion.perfil_id == pid,
             MensajeConversacion.tipo_evento != None,
             MensajeConversacion.created_at >= week_ago,
         )
@@ -93,16 +103,17 @@ async def get_stats(
     ai_actions = {ev: cnt for ev, cnt in events}
 
     # Contactos
-    total_contacts = db.query(Contacto).filter(Contacto.usuario_id == uid).count()
-    new_today = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.created_at >= today).count()
-    new_week = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.created_at >= week_ago).count()
-    human_mode = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.modo_humano == True).count()
+    total_contacts = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.perfil_id == pid).count()
+    new_today = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.perfil_id == pid, Contacto.created_at >= today).count()
+    new_week = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.perfil_id == pid, Contacto.created_at >= week_ago).count()
+    human_mode = db.query(Contacto).filter(Contacto.usuario_id == uid, Contacto.perfil_id == pid, Contacto.modo_humano == True).count()
 
     # Datos capturados
     con_datos = (
         db.query(Contacto)
         .filter(
             Contacto.usuario_id == uid,
+            Contacto.perfil_id == pid,
             Contacto.datos_capturados != "{}",
             Contacto.datos_capturados != None,
             Contacto.datos_capturados != "",
@@ -114,7 +125,7 @@ async def get_stats(
     funnel_dist = {}
     pasos = (
         db.query(FunnelPaso)
-        .filter(FunnelPaso.usuario_id == uid, FunnelPaso.activo == True)
+        .filter(FunnelPaso.usuario_id == uid, FunnelPaso.perfil_id == pid, FunnelPaso.activo == True)
         .order_by(FunnelPaso.orden)
         .all()
     )
@@ -124,6 +135,7 @@ async def get_stats(
             db.query(Contacto.paso_funnel, func.count(Contacto.id))
             .filter(
                 Contacto.usuario_id == uid,
+                Contacto.perfil_id == pid,
                 Contacto.paso_funnel.in_(paso_nombres),
             )
             .group_by(Contacto.paso_funnel)
@@ -134,9 +146,9 @@ async def get_stats(
             funnel_dist[p.nombre] = {"titulo": p.titulo, "count": count_map.get(p.nombre, 0), "orden": p.orden}
 
     # Campanas
-    camp_activas = db.query(Campana).filter(Campana.usuario_id == uid, Campana.estado == "enviando").count()
-    camp_completadas = db.query(Campana).filter(Campana.usuario_id == uid, Campana.estado == "completada").count()
-    camp_total = db.query(Campana).filter(Campana.usuario_id == uid).count()
+    camp_activas = db.query(Campana).filter(Campana.usuario_id == uid, Campana.perfil_id == pid, Campana.estado == "enviando").count()
+    camp_completadas = db.query(Campana).filter(Campana.usuario_id == uid, Campana.perfil_id == pid, Campana.estado == "completada").count()
+    camp_total = db.query(Campana).filter(Campana.usuario_id == uid, Campana.perfil_id == pid).count()
 
     return {
         "messages": {"today": msgs_today, "yesterday": msgs_yesterday},
@@ -165,12 +177,15 @@ async def get_stats(
 
 @router.get("/hot-leads")
 async def get_hot_leads(
-    db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     leads = (
         db.query(Contacto)
         .filter(
             Contacto.usuario_id == current_user.id,
+            Contacto.perfil_id == perfil.id,
             Contacto.lead_score >= 20,
             Contacto.estado_lead.notin_(["cerrado", "perdido"]),
         )
@@ -192,16 +207,19 @@ async def get_hot_leads(
 
 @router.get("/campaigns-summary")
 async def get_campaigns_summary(
-    db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     from sqlalchemy import case
 
     now = datetime.utcnow()
     week_ago = now - timedelta(days=7)
     uid = current_user.id
+    pid = perfil.id
 
     # --- Active campaigns: batch load counts with single query ---
-    campanas_activas = db.query(Campana).filter(Campana.usuario_id == uid, Campana.estado == "enviando").all()
+    campanas_activas = db.query(Campana).filter(Campana.usuario_id == uid, Campana.perfil_id == pid, Campana.estado == "enviando").all()
     activas = []
     if campanas_activas:
         activas_ids = [c.id for c in campanas_activas]
@@ -229,7 +247,7 @@ async def get_campaigns_summary(
     # --- Recent completed campaigns: batch load counts with single query ---
     campanas_recientes = (
         db.query(Campana)
-        .filter(Campana.usuario_id == uid, Campana.estado == "completada", Campana.updated_at >= week_ago)
+        .filter(Campana.usuario_id == uid, Campana.perfil_id == pid, Campana.estado == "completada", Campana.updated_at >= week_ago)
         .order_by(desc(Campana.updated_at))
         .limit(3)
         .all()
@@ -261,12 +279,15 @@ async def get_campaigns_summary(
 
 @router.get("/trend")
 async def get_trend(
-    db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     from sqlalchemy import cast, Date
 
     now = datetime.utcnow()
     uid = current_user.id
+    pid = perfil.id
     start_date = (now - timedelta(days=13)).replace(hour=0, minute=0, second=0, microsecond=0)
 
     # Batch: conversations per day (2 queries instead of 28)
@@ -277,6 +298,7 @@ async def get_trend(
         )
         .filter(
             MensajeConversacion.usuario_id == uid,
+            MensajeConversacion.perfil_id == pid,
             MensajeConversacion.created_at >= start_date,
         )
         .group_by(func.date(MensajeConversacion.created_at))
@@ -291,6 +313,7 @@ async def get_trend(
         )
         .filter(
             Contacto.usuario_id == uid,
+            Contacto.perfil_id == pid,
             Contacto.created_at >= start_date,
         )
         .group_by(func.date(Contacto.created_at))
@@ -315,7 +338,9 @@ async def get_trend(
 
 @router.get("/alerts")
 async def get_alerts(
-    db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     # Select only needed columns instead of loading full ORM objects
     now = datetime.utcnow()
@@ -329,6 +354,7 @@ async def get_alerts(
         )
         .filter(
             Contacto.usuario_id == current_user.id,
+            Contacto.perfil_id == perfil.id,
             Contacto.modo_humano == True,
         )
         .all()

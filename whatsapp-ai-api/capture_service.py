@@ -14,8 +14,10 @@ class CaptureService:
     """Servicio para captura de datos durante conversaciones"""
 
     @staticmethod
-    def get_fields(db: Session, usuario_id: int, activo_only: bool = True) -> list:
+    def get_fields(db: Session, usuario_id: int, activo_only: bool = True, perfil_id: int = None) -> list:
         query = db.query(CampoCaptura).filter(CampoCaptura.usuario_id == usuario_id)
+        if perfil_id is not None:
+            query = query.filter(CampoCaptura.perfil_id == perfil_id)
         if activo_only:
             query = query.filter(CampoCaptura.activo == True)
         return [c.to_dict() for c in query.order_by(CampoCaptura.orden).all()]
@@ -29,9 +31,11 @@ class CaptureService:
         tipo: str = "texto",
         obligatorio: bool = False,
         orden: int = 0,
+        perfil_id: int = None,
     ) -> dict:
         campo = CampoCaptura(
             usuario_id=usuario_id,
+            perfil_id=perfil_id,
             nombre=nombre,
             etiqueta=etiqueta,
             tipo=tipo,
@@ -45,26 +49,32 @@ class CaptureService:
         return campo.to_dict()
 
     @staticmethod
-    def update_field(db: Session, field_id: int, usuario_id: int, **kwargs) -> dict | None:
-        campo = db.query(CampoCaptura).filter(
+    def update_field(db: Session, field_id: int, usuario_id: int, perfil_id: int = None, **kwargs) -> dict | None:
+        query = db.query(CampoCaptura).filter(
             CampoCaptura.id == field_id,
             CampoCaptura.usuario_id == usuario_id,
-        ).first()
+        )
+        if perfil_id is not None:
+            query = query.filter(CampoCaptura.perfil_id == perfil_id)
+        campo = query.first()
         if not campo:
             return None
         for key, value in kwargs.items():
-            if hasattr(campo, key):
+            if hasattr(campo, key) and key not in ("usuario_id", "perfil_id"):
                 setattr(campo, key, value)
         db.commit()
         db.refresh(campo)
         return campo.to_dict()
 
     @staticmethod
-    def delete_field(db: Session, field_id: int, usuario_id: int) -> bool:
-        campo = db.query(CampoCaptura).filter(
+    def delete_field(db: Session, field_id: int, usuario_id: int, perfil_id: int = None) -> bool:
+        query = db.query(CampoCaptura).filter(
             CampoCaptura.id == field_id,
             CampoCaptura.usuario_id == usuario_id,
-        ).first()
+        )
+        if perfil_id is not None:
+            query = query.filter(CampoCaptura.perfil_id == perfil_id)
+        campo = query.first()
         if not campo:
             return False
         db.delete(campo)
@@ -79,9 +89,17 @@ class CaptureService:
             Contacto.telefono == telefono,
         ).first()
         if not contacto:
+            # Resolver perfil activo (background, sin header HTTP)
+            perfil_id = None
+            try:
+                from api.routers.perfiles import get_perfil_activo_id
+                perfil_id = get_perfil_activo_id(db, usuario_id)
+            except Exception:
+                perfil_id = None
             # Crear contacto si no existe
             contacto = Contacto(
                 usuario_id=usuario_id,
+                perfil_id=perfil_id,
                 telefono=telefono,
                 estado="activo",
                 estado_lead="nuevo",

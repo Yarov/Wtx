@@ -105,6 +105,7 @@ class Memoria(Base):
 
     telefono = Column(String, primary_key=True, index=True)
     usuario_id = Column(Integer, ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=False, default=1, index=True)
+    perfil_id = Column(Integer, ForeignKey("perfiles.id", ondelete="CASCADE"), nullable=True, index=True)
     historial = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -187,6 +188,7 @@ class Contacto(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     usuario_id = Column(Integer, ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=False, index=True)
+    perfil_id = Column(Integer, ForeignKey("perfiles.id", ondelete="CASCADE"), nullable=True, index=True)
     telefono = Column(String(20), nullable=False, index=True)
     nombre = Column(String(100))
     email = Column(String(100))
@@ -244,6 +246,7 @@ class Contacto(Base):
             datos = {}
         return {
             "id": self.id,
+            "perfil_id": self.perfil_id,
             "telefono": self.telefono,
             "nombre": self.nombre,
             "email": self.email,
@@ -284,6 +287,7 @@ class Campana(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     usuario_id = Column(Integer, ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=False, index=True)
+    perfil_id = Column(Integer, ForeignKey("perfiles.id", ondelete="CASCADE"), nullable=True, index=True)
     nombre = Column(String(100), nullable=False)
     descripcion = Column(Text)
     mensaje = Column(Text, nullable=False)
@@ -321,6 +325,7 @@ class Campana(Base):
 
         return {
             "id": self.id,
+            "perfil_id": self.perfil_id,
             "nombre": self.nombre,
             "descripcion": self.descripcion,
             "mensaje": self.mensaje,
@@ -351,6 +356,7 @@ class CampanaDestinatario(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     usuario_id = Column(Integer, ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=False, index=True)
+    perfil_id = Column(Integer, ForeignKey("perfiles.id", ondelete="CASCADE"), nullable=True, index=True)
     campana_id = Column(Integer, ForeignKey('campanas.id', ondelete='CASCADE'), index=True)
     contacto_id = Column(Integer, ForeignKey('contactos.id', ondelete='CASCADE'), index=True)
 
@@ -372,6 +378,7 @@ class CampanaDestinatario(Base):
     def to_dict(self):
         return {
             "id": self.id,
+            "perfil_id": self.perfil_id,
             "campana_id": self.campana_id,
             "contacto_id": self.contacto_id,
             "estado": self.estado,
@@ -390,6 +397,7 @@ class BackgroundJob(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     usuario_id = Column(Integer, ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=False, index=True)
+    perfil_id = Column(Integer, ForeignKey("perfiles.id", ondelete="CASCADE"), nullable=True, index=True)
     tipo = Column(String, index=True)  # verificar_contactos, sync_contactos, etc.
     estado = Column(
         String, default="pendiente"
@@ -410,6 +418,7 @@ class BackgroundJob(Base):
     def to_dict(self):
         return {
             "id": self.id,
+            "perfil_id": self.perfil_id,
             "tipo": self.tipo,
             "estado": self.estado,
             "total": self.total,
@@ -469,6 +478,7 @@ class DocumentoConocimiento(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     usuario_id = Column(Integer, ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=False, index=True)
+    perfil_id = Column(Integer, ForeignKey("perfiles.id", ondelete="CASCADE"), nullable=True, index=True)
     titulo = Column(String(200), nullable=False)
     contenido = Column(Text, nullable=False)
     categoria = Column(String(100), default="general")
@@ -486,6 +496,7 @@ class DocumentoConocimiento(Base):
     def to_dict(self):
         return {
             "id": self.id,
+            "perfil_id": self.perfil_id,
             "titulo": self.titulo,
             "contenido": self.contenido,
             "categoria": self.categoria,
@@ -506,6 +517,7 @@ class FunnelPaso(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     usuario_id = Column(Integer, ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=False, index=True)
+    perfil_id = Column(Integer, ForeignKey("perfiles.id", ondelete="CASCADE"), nullable=True, index=True)
     nombre = Column(
         String(100), nullable=False
     )  # ID interno: inicio, calificacion, presentacion
@@ -540,6 +552,7 @@ class FunnelPaso(Base):
             condiciones = []
         return {
             "id": self.id,
+            "perfil_id": self.perfil_id,
             "nombre": self.nombre,
             "titulo": self.titulo,
             "orden": self.orden,
@@ -563,6 +576,7 @@ class CampoCaptura(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     usuario_id = Column(Integer, ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=False, index=True)
+    perfil_id = Column(Integer, ForeignKey("perfiles.id", ondelete="CASCADE"), nullable=True, index=True)
     nombre = Column(
         String(50), nullable=False
     )  # nombre, email, empresa, etc.
@@ -579,6 +593,7 @@ class CampoCaptura(Base):
     def to_dict(self):
         return {
             "id": self.id,
+            "perfil_id": self.perfil_id,
             "nombre": self.nombre,
             "etiqueta": self.etiqueta,
             "tipo": self.tipo,
@@ -598,6 +613,7 @@ class MensajeConversacion(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     usuario_id = Column(Integer, ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=False, index=True)
+    perfil_id = Column(Integer, ForeignKey("perfiles.id", ondelete="CASCADE"), nullable=True, index=True)
     telefono = Column(String(20), nullable=False, index=True)
     rol = Column(String(20), nullable=False)  # user, assistant, system
     contenido = Column(Text, nullable=False)
@@ -623,6 +639,7 @@ class MensajeConversacion(Base):
             meta = None
         return {
             "id": self.id,
+            "perfil_id": self.perfil_id,
             "telefono": self.telefono,
             "rol": self.rol,
             "contenido": self.contenido,

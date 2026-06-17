@@ -2,7 +2,7 @@
 Perfiles Router - WhatsApp profiles (SaaS multi-tenant).
 Each profile = one WhatsApp number with its own contacts, chats and agent config.
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
@@ -38,6 +38,82 @@ def _get_owned_perfil(db: Session, perfil_id: int, usuario_id: int) -> Perfil:
     if not perfil:
         raise HTTPException(status_code=404, detail="Profile not found")
     return perfil
+
+
+def _ensure_default_perfil(db: Session, usuario_id: int) -> Perfil:
+    """Create a default active profile for a user that has none and return it."""
+    perfil = Perfil(
+        usuario_id=usuario_id,
+        nombre="Mi WhatsApp",
+        emoji="📱",
+        es_activo=True,
+    )
+    db.add(perfil)
+    db.commit()
+    db.refresh(perfil)
+    return perfil
+
+
+def get_current_perfil(
+    x_perfil_id: Optional[int] = Header(None, alias="X-Perfil-ID"),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+) -> Perfil:
+    """Resolve the active profile for the current request.
+
+    - If X-Perfil-ID header is present: load that profile owned by the user
+      (403 if not found / not owned).
+    - Else: use the user's active profile (es_activo == True).
+    - Else: use the first profile (ordered by created_at).
+    - If the user has no profile at all: create a default one.
+    """
+    # 1. Explicit profile via header
+    if x_perfil_id is not None:
+        perfil = db.query(Perfil).filter(
+            Perfil.id == x_perfil_id,
+            Perfil.usuario_id == current_user.id,
+        ).first()
+        if not perfil:
+            raise HTTPException(status_code=403, detail="Profile not found or not owned")
+        return perfil
+
+    # 2. Active profile
+    perfil = db.query(Perfil).filter(
+        Perfil.usuario_id == current_user.id,
+        Perfil.es_activo == True,  # noqa: E712
+    ).first()
+    if perfil:
+        return perfil
+
+    # 3. First profile by created_at
+    perfil = db.query(Perfil).filter(
+        Perfil.usuario_id == current_user.id,
+    ).order_by(Perfil.created_at).first()
+    if perfil:
+        return perfil
+
+    # 4. No profile at all -> create a default one
+    return _ensure_default_perfil(db, current_user.id)
+
+
+def get_perfil_activo_id(db, usuario_id) -> Optional[int]:
+    """Plain helper for background (no HTTP request).
+
+    Returns the id of the user's active profile (or first profile, or None).
+    Does NOT create a profile if none exists.
+    """
+    if usuario_id is None:
+        return None
+    perfil = db.query(Perfil).filter(
+        Perfil.usuario_id == usuario_id,
+        Perfil.es_activo == True,  # noqa: E712
+    ).first()
+    if perfil:
+        return perfil.id
+    perfil = db.query(Perfil).filter(
+        Perfil.usuario_id == usuario_id,
+    ).order_by(Perfil.created_at).first()
+    return perfil.id if perfil else None
 
 
 @router.get("/", summary="List profiles", description="List all WhatsApp profiles owned by the current user.")

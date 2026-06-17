@@ -96,7 +96,13 @@ async def procesar_sync_contactos(job: BackgroundJob, db):
                     existente.nombre = nombre
                     actualizados += 1
             else:
-                nuevo = Contacto(telefono=telefono, nombre=nombre, estado="activo")
+                nuevo = Contacto(
+                    telefono=telefono,
+                    nombre=nombre,
+                    estado="activo",
+                    usuario_id=job.usuario_id,
+                    perfil_id=job.perfil_id,
+                )
                 db.add(nuevo)
                 nuevos += 1
 

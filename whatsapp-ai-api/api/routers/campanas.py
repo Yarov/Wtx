@@ -8,8 +8,9 @@ from datetime import datetime, timedelta
 from typing import Optional
 import json
 
-from models import get_db, Campana, CampanaDestinatario, Contacto
+from models import get_db, Campana, CampanaDestinatario, Contacto, Perfil
 from api.routers.auth import get_current_user
+from api.routers.perfiles import get_current_perfil
 from models import Usuario
 
 router = APIRouter(
@@ -25,9 +26,13 @@ async def listar_campanas(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    query = db.query(Campana).filter(Campana.usuario_id == current_user.id)
+    query = db.query(Campana).filter(
+        Campana.usuario_id == current_user.id,
+        Campana.perfil_id == perfil.id,
+    )
 
     if estado:
         query = query.filter(Campana.estado == estado)
@@ -48,9 +53,13 @@ async def listar_campanas(
 @router.get("/stats", summary="Get campaign statistics", description="Get campaign metrics: total, drafts, sending and completed counts.")
 async def stats_campanas(
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    base = db.query(Campana).filter(Campana.usuario_id == current_user.id)
+    base = db.query(Campana).filter(
+        Campana.usuario_id == current_user.id,
+        Campana.perfil_id == perfil.id,
+    )
     total = base.count()
     borradores = base.filter(Campana.estado == "borrador").count()
     enviando = base.filter(Campana.estado == "enviando").count()
@@ -68,9 +77,14 @@ async def stats_campanas(
 async def obtener_campana(
     campana_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    campana = db.query(Campana).filter(Campana.id == campana_id, Campana.usuario_id == current_user.id).first()
+    campana = db.query(Campana).filter(
+        Campana.id == campana_id,
+        Campana.usuario_id == current_user.id,
+        Campana.perfil_id == perfil.id,
+    ).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")
     return campana.to_dict()
@@ -80,14 +94,19 @@ async def obtener_campana(
 async def preview_destinatarios(
     data: dict,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     """Previsualizar cantidad de destinatarios según filtros"""
     filtro_tipo = data.get("filtro_tipo", "todos")
     filtro_valor = data.get("filtro_valor", {})
-    
-    # Base query: solo contactos activos del usuario
-    query = db.query(Contacto).filter(Contacto.estado == "activo", Contacto.usuario_id == current_user.id)
+
+    # Base query: solo contactos activos del usuario/perfil
+    query = db.query(Contacto).filter(
+        Contacto.estado == "activo",
+        Contacto.usuario_id == current_user.id,
+        Contacto.perfil_id == perfil.id,
+    )
     
     if filtro_tipo == "actividad":
         periodo = filtro_valor.get("periodo", "ultima_semana")
@@ -180,16 +199,17 @@ async def preview_destinatarios(
 async def crear_campana(
     data: dict,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     nombre = data.get("nombre", "").strip()
     mensaje = data.get("mensaje", "").strip()
-    
+
     if not nombre:
         raise HTTPException(status_code=400, detail="Nombre es requerido")
     if not mensaje:
         raise HTTPException(status_code=400, detail="Mensaje es requerido")
-    
+
     campana = Campana(
         nombre=nombre,
         descripcion=data.get("descripcion"),
@@ -200,19 +220,20 @@ async def crear_campana(
         filtro_tipo=data.get("filtro_tipo"),
         filtro_valor=json.dumps(data.get("filtro_valor")) if data.get("filtro_valor") else None,
         usuario_id=current_user.id,
+        perfil_id=perfil.id,
     )
-    
+
     # Programar si se especifica
     if data.get("programada_para"):
         campana.programada_para = datetime.fromisoformat(data["programada_para"])
         campana.estado = "programada"
-    
+
     db.add(campana)
     db.commit()
     db.refresh(campana)
-    
+
     # Calcular destinatarios
-    await _calcular_destinatarios(campana, db, current_user.id)
+    await _calcular_destinatarios(campana, db, current_user.id, perfil.id)
 
     return campana.to_dict()
 
@@ -222,9 +243,14 @@ async def actualizar_campana(
     campana_id: int,
     data: dict,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    campana = db.query(Campana).filter(Campana.id == campana_id, Campana.usuario_id == current_user.id).first()
+    campana = db.query(Campana).filter(
+        Campana.id == campana_id,
+        Campana.usuario_id == current_user.id,
+        Campana.perfil_id == perfil.id,
+    ).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")
 
@@ -245,10 +271,10 @@ async def actualizar_campana(
         campana.filtro_valor = json.dumps(data["filtro_valor"]) if data["filtro_valor"] else None
     
     db.commit()
-    
+
     # Recalcular destinatarios
-    await _calcular_destinatarios(campana, db, current_user.id)
-    
+    await _calcular_destinatarios(campana, db, current_user.id, perfil.id)
+
     db.refresh(campana)
     return campana.to_dict()
 
@@ -257,9 +283,14 @@ async def actualizar_campana(
 async def eliminar_campana(
     campana_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    campana = db.query(Campana).filter(Campana.id == campana_id, Campana.usuario_id == current_user.id).first()
+    campana = db.query(Campana).filter(
+        Campana.id == campana_id,
+        Campana.usuario_id == current_user.id,
+        Campana.perfil_id == perfil.id,
+    ).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")
 
@@ -275,24 +306,29 @@ async def eliminar_campana(
 async def iniciar_campana(
     campana_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     from models import BackgroundJob
     from redis_queue import encolar_job
-    
-    campana = db.query(Campana).filter(Campana.id == campana_id, Campana.usuario_id == current_user.id).first()
+
+    campana = db.query(Campana).filter(
+        Campana.id == campana_id,
+        Campana.usuario_id == current_user.id,
+        Campana.perfil_id == perfil.id,
+    ).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")
 
     if campana.estado not in ["borrador", "programada", "pausada"]:
         raise HTTPException(status_code=400, detail=f"No se puede iniciar una campaña en estado '{campana.estado}'")
-    
+
     # Verificar que hay destinatarios
     if campana.total_destinatarios == 0:
-        await _calcular_destinatarios(campana, db, current_user.id)
+        await _calcular_destinatarios(campana, db, current_user.id, perfil.id)
         if campana.total_destinatarios == 0:
             raise HTTPException(status_code=400, detail="No hay destinatarios para esta campaña")
-    
+
     # Crear job para procesar la campaña
     job = BackgroundJob(
         tipo="campana_masiva",
@@ -301,7 +337,9 @@ async def iniciar_campana(
         procesados=0,
         exitosos=0,
         fallidos=0,
-        mensaje=f"campana_id:{campana_id}"
+        mensaje=f"campana_id:{campana_id}",
+        usuario_id=current_user.id,
+        perfil_id=perfil.id,
     )
     db.add(job)
     
@@ -320,9 +358,14 @@ async def iniciar_campana(
 async def pausar_campana(
     campana_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    campana = db.query(Campana).filter(Campana.id == campana_id, Campana.usuario_id == current_user.id).first()
+    campana = db.query(Campana).filter(
+        Campana.id == campana_id,
+        Campana.usuario_id == current_user.id,
+        Campana.perfil_id == perfil.id,
+    ).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")
 
@@ -339,9 +382,14 @@ async def pausar_campana(
 async def reanudar_campana(
     campana_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    campana = db.query(Campana).filter(Campana.id == campana_id, Campana.usuario_id == current_user.id).first()
+    campana = db.query(Campana).filter(
+        Campana.id == campana_id,
+        Campana.usuario_id == current_user.id,
+        Campana.perfil_id == perfil.id,
+    ).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")
 
@@ -358,9 +406,14 @@ async def reanudar_campana(
 async def cancelar_campana(
     campana_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    campana = db.query(Campana).filter(Campana.id == campana_id, Campana.usuario_id == current_user.id).first()
+    campana = db.query(Campana).filter(
+        Campana.id == campana_id,
+        Campana.usuario_id == current_user.id,
+        Campana.perfil_id == perfil.id,
+    ).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")
 
@@ -380,14 +433,22 @@ async def listar_destinatarios(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    # Verify campaign belongs to current user
-    campana = db.query(Campana).filter(Campana.id == campana_id, Campana.usuario_id == current_user.id).first()
+    # Verify campaign belongs to current user/profile
+    campana = db.query(Campana).filter(
+        Campana.id == campana_id,
+        Campana.usuario_id == current_user.id,
+        Campana.perfil_id == perfil.id,
+    ).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")
 
-    query = db.query(CampanaDestinatario).filter(CampanaDestinatario.campana_id == campana_id)
+    query = db.query(CampanaDestinatario).filter(
+        CampanaDestinatario.campana_id == campana_id,
+        CampanaDestinatario.perfil_id == perfil.id,
+    )
 
     if estado:
         query = query.filter(CampanaDestinatario.estado == estado)
@@ -420,14 +481,22 @@ async def listar_destinatarios(
 async def preview_mensaje(
     campana_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    campana = db.query(Campana).filter(Campana.id == campana_id, Campana.usuario_id == current_user.id).first()
+    campana = db.query(Campana).filter(
+        Campana.id == campana_id,
+        Campana.usuario_id == current_user.id,
+        Campana.perfil_id == perfil.id,
+    ).first()
     if not campana:
         raise HTTPException(status_code=404, detail="Campaña no encontrada")
 
-    # Obtener un contacto de ejemplo del mismo usuario
-    contacto = db.query(Contacto).filter(Contacto.usuario_id == current_user.id).first()
+    # Obtener un contacto de ejemplo del mismo usuario/perfil
+    contacto = db.query(Contacto).filter(
+        Contacto.usuario_id == current_user.id,
+        Contacto.perfil_id == perfil.id,
+    ).first()
     
     mensaje = campana.mensaje
     if contacto:
@@ -526,7 +595,8 @@ Requisitos:
 async def enviar_mensaje_prueba(
     data: dict,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     """
     Enviar mensaje de prueba a uno o varios números.
@@ -546,7 +616,11 @@ async def enviar_mensaje_prueba(
     
     for telefono in telefonos:
         # Buscar contacto para reemplazar variables
-        contacto = db.query(Contacto).filter(Contacto.telefono == telefono, Contacto.usuario_id == current_user.id).first()
+        contacto = db.query(Contacto).filter(
+            Contacto.telefono == telefono,
+            Contacto.usuario_id == current_user.id,
+            Contacto.perfil_id == perfil.id,
+        ).first()
         
         # Reemplazar variables
         mensaje_final = mensaje
@@ -578,13 +652,20 @@ async def enviar_mensaje_prueba(
     }
 
 
-async def _calcular_destinatarios(campana: Campana, db: Session, usuario_id: int):
+async def _calcular_destinatarios(campana: Campana, db: Session, usuario_id: int, perfil_id: int = None):
     """Calcular y crear destinatarios según el filtro"""
+    if perfil_id is None:
+        perfil_id = campana.perfil_id
+
     # Limpiar destinatarios anteriores
     db.query(CampanaDestinatario).filter(CampanaDestinatario.campana_id == campana.id).delete()
 
-    # Obtener contactos activos del usuario (no bloqueados ni inactivos)
-    query = db.query(Contacto).filter(Contacto.estado == "activo", Contacto.usuario_id == usuario_id)
+    # Obtener contactos activos del usuario/perfil (no bloqueados ni inactivos)
+    query = db.query(Contacto).filter(
+        Contacto.estado == "activo",
+        Contacto.usuario_id == usuario_id,
+        Contacto.perfil_id == perfil_id,
+    )
     
     filtro_tipo = campana.filtro_tipo
     filtro_valor = json.loads(campana.filtro_valor) if campana.filtro_valor else {}
@@ -689,6 +770,7 @@ async def _calcular_destinatarios(campana: Campana, db: Session, usuario_id: int
             contacto_id=contacto.id,
             estado="pendiente",
             usuario_id=usuario_id,
+            perfil_id=perfil_id,
         )
         db.add(dest)
     

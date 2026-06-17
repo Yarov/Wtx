@@ -492,7 +492,12 @@ async def test_chat(data: dict, current_user: Usuario = Depends(get_current_user
         # Ensure test contact exists
         contacto = db.query(Contacto).filter(Contacto.telefono == test_phone, Contacto.usuario_id == uid).first()
         if not contacto:
-            contacto = Contacto(telefono=test_phone, nombre="Test Chat", usuario_id=uid, estado="activo", origen="manual")
+            from api.routers.perfiles import get_perfil_activo_id
+            contacto = Contacto(
+                telefono=test_phone, nombre="Test Chat", usuario_id=uid,
+                perfil_id=get_perfil_activo_id(db, uid),
+                estado="activo", origen="manual",
+            )
             db.add(contacto)
             db.commit()
 

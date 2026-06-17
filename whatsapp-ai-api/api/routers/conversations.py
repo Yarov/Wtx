@@ -6,8 +6,9 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from models import SessionLocal, Memoria, Contacto, Usuario, MensajeConversacion
+from models import SessionLocal, Memoria, Contacto, Usuario, MensajeConversacion, Perfil
 from auth import get_current_user
+from api.routers.perfiles import get_current_perfil
 from message_service import MessageService
 
 logger = logging.getLogger(__name__)
@@ -24,12 +25,20 @@ class SendMessageRequest(BaseModel):
 
 
 @router.post("/{phone}/read", summary="Mark conversation as read")
-async def mark_as_read(phone: str, current_user: Usuario = Depends(get_current_user)):
+async def mark_as_read(
+    phone: str,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     db = SessionLocal()
     try:
         from datetime import datetime
 
-        contacto = db.query(Contacto).filter(Contacto.telefono == phone, Contacto.usuario_id == current_user.id).first()
+        contacto = db.query(Contacto).filter(
+            Contacto.telefono == phone,
+            Contacto.usuario_id == current_user.id,
+            Contacto.perfil_id == perfil.id,
+        ).first()
         if contacto:
             # Guardar en notas (no contaminar datos_capturados)
             contacto.notas = f"last_read:{datetime.utcnow().isoformat()}"
@@ -44,12 +53,13 @@ async def get_conversations(
     limit: int = 50,
     offset: int = 0,
     current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     db = SessionLocal()
     try:
         # Obtener de nueva tabla (paginated)
         result = MessageService.get_conversations_list(
-            db, usuario_id=current_user.id, limit=limit, offset=offset
+            db, usuario_id=current_user.id, limit=limit, offset=offset, perfil_id=perfil.id
         )
         new_convs = result["conversations"]
         total = result["total"]
@@ -58,7 +68,7 @@ async def get_conversations(
         # Tambien buscar en tabla legacy Memoria (contactos no migrados) - limited
         memorias = (
             db.query(Memoria)
-            .filter(Memoria.usuario_id == current_user.id)
+            .filter(Memoria.usuario_id == current_user.id, Memoria.perfil_id == perfil.id)
             .order_by(Memoria.updated_at.desc())
             .limit(limit)
             .all()
@@ -83,7 +93,11 @@ async def get_conversations(
                     break
 
             contacto = (
-                db.query(Contacto).filter(Contacto.telefono == m.telefono, Contacto.usuario_id == current_user.id).first()
+                db.query(Contacto).filter(
+                    Contacto.telefono == m.telefono,
+                    Contacto.usuario_id == current_user.id,
+                    Contacto.perfil_id == perfil.id,
+                ).first()
             )
             new_convs.append(
                 {
@@ -124,29 +138,39 @@ async def get_conversation(
     before_id: int = None,
     limit: int = 30,
     current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     db = SessionLocal()
     try:
-        MessageService.migrate_from_memoria(db, phone, usuario_id=current_user.id)
+        MessageService.migrate_from_memoria(db, phone, usuario_id=current_user.id, perfil_id=perfil.id)
 
         # Paginacion: ultimos N mensajes, o N mensajes antes de before_id
         query = db.query(MensajeConversacion).filter(
             MensajeConversacion.telefono == phone,
             MensajeConversacion.usuario_id == current_user.id,
+            MensajeConversacion.perfil_id == perfil.id,
         )
         if before_id:
             query = query.filter(MensajeConversacion.id < before_id)
 
         total = (
             db.query(MensajeConversacion)
-            .filter(MensajeConversacion.telefono == phone, MensajeConversacion.usuario_id == current_user.id)
+            .filter(
+                MensajeConversacion.telefono == phone,
+                MensajeConversacion.usuario_id == current_user.id,
+                MensajeConversacion.perfil_id == perfil.id,
+            )
             .count()
         )
 
         msgs = query.order_by(MensajeConversacion.created_at.desc()).limit(limit).all()
         msgs.reverse()  # Orden cronologico
 
-        contacto = db.query(Contacto).filter(Contacto.telefono == phone, Contacto.usuario_id == current_user.id).first()
+        contacto = db.query(Contacto).filter(
+            Contacto.telefono == phone,
+            Contacto.usuario_id == current_user.id,
+            Contacto.perfil_id == perfil.id,
+        ).first()
         contact_data = contacto.to_dict() if contacto else None
 
         has_more = False
@@ -157,6 +181,7 @@ async def get_conversation(
                 .filter(
                     MensajeConversacion.telefono == phone,
                     MensajeConversacion.usuario_id == current_user.id,
+                    MensajeConversacion.perfil_id == perfil.id,
                     MensajeConversacion.id < oldest_id,
                 )
                 .count()
@@ -179,14 +204,20 @@ async def get_conversation(
 
 @router.delete("/{phone}", summary="Delete conversation")
 async def delete_conversation(
-    phone: str, current_user: Usuario = Depends(get_current_user)
+    phone: str,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     db = SessionLocal()
     try:
-        deleted = MessageService.delete_conversation(db, phone, usuario_id=current_user.id)
+        deleted = MessageService.delete_conversation(db, phone, usuario_id=current_user.id, perfil_id=perfil.id)
         if deleted == 0:
             # Intentar legacy
-            deleted = db.query(Memoria).filter(Memoria.telefono == phone, Memoria.usuario_id == current_user.id).delete()
+            deleted = db.query(Memoria).filter(
+                Memoria.telefono == phone,
+                Memoria.usuario_id == current_user.id,
+                Memoria.perfil_id == perfil.id,
+            ).delete()
             db.commit()
         if deleted == 0:
             raise HTTPException(status_code=404, detail="Conversation not found")
@@ -206,6 +237,7 @@ async def send_message(
     phone: str,
     data: SendMessageRequest,
     current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     from whatsapp_service import whatsapp_service
 
@@ -239,11 +271,15 @@ async def send_message(
     db = SessionLocal()
     try:
         MessageService.add_message(
-            db, phone, "assistant", data.message, usuario_id=current_user.id, metadata={"source": "dashboard"}
+            db, phone, "assistant", data.message, usuario_id=current_user.id, metadata={"source": "dashboard"}, perfil_id=perfil.id
         )
 
         # Tambien legacy
-        memoria = db.query(Memoria).filter(Memoria.telefono == phone, Memoria.usuario_id == current_user.id).first()
+        memoria = db.query(Memoria).filter(
+            Memoria.telefono == phone,
+            Memoria.usuario_id == current_user.id,
+            Memoria.perfil_id == perfil.id,
+        ).first()
         if memoria:
             try:
                 historial = json.loads(memoria.historial) if memoria.historial else []
@@ -251,7 +287,7 @@ async def send_message(
                 historial = []
         else:
             historial = []
-            memoria = Memoria(telefono=phone, historial="[]", usuario_id=current_user.id)
+            memoria = Memoria(telefono=phone, historial="[]", usuario_id=current_user.id, perfil_id=perfil.id)
             db.add(memoria)
 
         historial.append({"role": "assistant", "content": data.message})

@@ -10,8 +10,9 @@ import json
 import csv
 import io
 
-from models import get_db, Contacto
+from models import get_db, Contacto, Perfil
 from api.routers.auth import get_current_user
+from api.routers.perfiles import get_current_perfil
 from auth import get_current_admin_user
 from models import Usuario
 
@@ -81,9 +82,13 @@ async def listar_contactos(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    query = db.query(Contacto).filter(Contacto.usuario_id == current_user.id)
+    query = db.query(Contacto).filter(
+        Contacto.usuario_id == current_user.id,
+        Contacto.perfil_id == perfil.id,
+    )
 
     # Filtro por estado
     if estado:
@@ -131,9 +136,13 @@ async def listar_contactos(
 @router.get("/stats", summary="Get contact statistics", description="Get contact metrics: total, active, inactive, blocked and 30-day inactive count.")
 async def stats_contactos(
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    base = db.query(Contacto).filter(Contacto.usuario_id == current_user.id)
+    base = db.query(Contacto).filter(
+        Contacto.usuario_id == current_user.id,
+        Contacto.perfil_id == perfil.id,
+    )
     total = base.count()
     activos = base.filter(Contacto.estado == "activo").count()
     inactivos = base.filter(Contacto.estado == "inactivo").count()
@@ -161,23 +170,30 @@ async def stats_contactos(
 async def eliminar_todos_contactos(
     data: dict,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_admin_user)
+    current_user: Usuario = Depends(get_current_admin_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     # Require explicit confirmation
     if not data.get("confirm"):
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail="Debes confirmar la acción enviando confirm: true"
         )
-    
+
     # Count before delete
-    total = db.query(Contacto).filter(Contacto.usuario_id == current_user.id).count()
+    total = db.query(Contacto).filter(
+        Contacto.usuario_id == current_user.id,
+        Contacto.perfil_id == perfil.id,
+    ).count()
 
     if total == 0:
         return {"message": "No hay contactos para eliminar", "deleted": 0}
 
-    # Delete all contacts for this user
-    db.query(Contacto).filter(Contacto.usuario_id == current_user.id).delete()
+    # Delete all contacts for this user/profile
+    db.query(Contacto).filter(
+        Contacto.usuario_id == current_user.id,
+        Contacto.perfil_id == perfil.id,
+    ).delete()
     db.commit()
     
     return {
@@ -190,9 +206,14 @@ async def eliminar_todos_contactos(
 async def obtener_contacto(
     contacto_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    contacto = db.query(Contacto).filter(Contacto.id == contacto_id, Contacto.usuario_id == current_user.id).first()
+    contacto = db.query(Contacto).filter(
+        Contacto.id == contacto_id,
+        Contacto.usuario_id == current_user.id,
+        Contacto.perfil_id == perfil.id,
+    ).first()
     if not contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")
     return contacto.to_dict()
@@ -202,14 +223,19 @@ async def obtener_contacto(
 async def crear_contacto(
     data: dict,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     telefono = data.get("telefono", "").strip()
     if not telefono:
         raise HTTPException(status_code=400, detail="Teléfono es requerido")
-    
-    # Verificar si ya existe for this user
-    existente = db.query(Contacto).filter(Contacto.telefono == telefono, Contacto.usuario_id == current_user.id).first()
+
+    # Verificar si ya existe for this user/profile
+    existente = db.query(Contacto).filter(
+        Contacto.telefono == telefono,
+        Contacto.usuario_id == current_user.id,
+        Contacto.perfil_id == perfil.id,
+    ).first()
     if existente:
         raise HTTPException(status_code=400, detail="El contacto ya existe")
 
@@ -221,7 +247,8 @@ async def crear_contacto(
         tags=json.dumps(data.get("tags", [])),
         notas=data.get("notas"),
         origen="manual",
-        usuario_id=current_user.id
+        usuario_id=current_user.id,
+        perfil_id=perfil.id,
     )
     
     db.add(contacto)
@@ -236,9 +263,14 @@ async def actualizar_contacto(
     contacto_id: int,
     data: dict,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    contacto = db.query(Contacto).filter(Contacto.id == contacto_id, Contacto.usuario_id == current_user.id).first()
+    contacto = db.query(Contacto).filter(
+        Contacto.id == contacto_id,
+        Contacto.usuario_id == current_user.id,
+        Contacto.perfil_id == perfil.id,
+    ).first()
     if not contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")
 
@@ -263,9 +295,14 @@ async def actualizar_contacto(
 async def eliminar_contacto(
     contacto_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    contacto = db.query(Contacto).filter(Contacto.id == contacto_id, Contacto.usuario_id == current_user.id).first()
+    contacto = db.query(Contacto).filter(
+        Contacto.id == contacto_id,
+        Contacto.usuario_id == current_user.id,
+        Contacto.perfil_id == perfil.id,
+    ).first()
     if not contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")
 
@@ -278,7 +315,8 @@ async def eliminar_contacto(
 @router.post("/sync", summary="Sync contacts from WhatsApp", description="Import and sync contacts from WAHA or Evolution API. Creates new contacts and updates existing ones.")
 async def sincronizar_contactos(
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     from whatsapp_service import whatsapp_service
     from database import set_config
@@ -302,10 +340,11 @@ async def sincronizar_contactos(
         nombre = contact_data.get("nombre", "").strip() or None
         foto_url = contact_data.get("foto_url")
         
-        # Buscar existente (con normalización, scoped to user)
+        # Buscar existente (con normalización, scoped to user/profile)
         existente = db.query(Contacto).filter(
             Contacto.telefono == normalizar_telefono(telefono),
-            Contacto.usuario_id == current_user.id
+            Contacto.usuario_id == current_user.id,
+            Contacto.perfil_id == perfil.id,
         ).first()
 
         if existente:
@@ -323,7 +362,8 @@ async def sincronizar_contactos(
                 foto_url=foto_url,
                 estado="activo",
                 origen="whatsapp_sync",
-                usuario_id=current_user.id
+                usuario_id=current_user.id,
+                perfil_id=perfil.id,
             )
             db.add(nuevo)
             nuevos += 1
@@ -344,7 +384,8 @@ async def sincronizar_contactos(
 @router.post("/limpiar-duplicados", summary="Merge duplicates", description="Find and merge duplicate contacts by normalized phone number.")
 async def limpiar_duplicados(
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     # Process in batches of 1000 to avoid loading entire table at once
     batch_size = 1000
@@ -354,7 +395,10 @@ async def limpiar_duplicados(
     while True:
         batch = (
             db.query(Contacto)
-            .filter(Contacto.usuario_id == current_user.id)
+            .filter(
+                Contacto.usuario_id == current_user.id,
+                Contacto.perfil_id == perfil.id,
+            )
             .order_by(Contacto.id)
             .offset(offset)
             .limit(batch_size)
@@ -418,17 +462,20 @@ async def limpiar_duplicados(
 @router.post("/verificar-activos", summary="Start contact verification", description="Start a background job to verify which contacts are still active on WhatsApp.")
 async def iniciar_verificacion_activos(
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     from models import BackgroundJob
     from redis_queue import encolar_job
-    
-    # Verificar si ya hay un job en proceso
+
+    # Verificar si ya hay un job en proceso (para este perfil)
     job_activo = db.query(BackgroundJob).filter(
         BackgroundJob.tipo == "verificar_contactos",
+        BackgroundJob.usuario_id == current_user.id,
+        BackgroundJob.perfil_id == perfil.id,
         BackgroundJob.estado.in_(["pendiente", "procesando"])
     ).first()
-    
+
     if job_activo:
         return {
             "status": "en_proceso",
@@ -436,13 +483,17 @@ async def iniciar_verificacion_activos(
             "message": "Ya hay una verificación en proceso",
             "job": job_activo.to_dict()
         }
-    
-    # Contar contactos a verificar (todos los activos del usuario)
-    total = db.query(Contacto).filter(Contacto.estado == "activo", Contacto.usuario_id == current_user.id).count()
-    
+
+    # Contar contactos a verificar (todos los activos del usuario/perfil)
+    total = db.query(Contacto).filter(
+        Contacto.estado == "activo",
+        Contacto.usuario_id == current_user.id,
+        Contacto.perfil_id == perfil.id,
+    ).count()
+
     if total == 0:
         return {"status": "ok", "message": "No hay contactos para verificar", "total": 0}
-    
+
     # Crear job
     job = BackgroundJob(
         tipo="verificar_contactos",
@@ -451,7 +502,9 @@ async def iniciar_verificacion_activos(
         procesados=0,
         exitosos=0,
         fallidos=0,
-        mensaje="En cola, esperando worker..."
+        mensaje="En cola, esperando worker...",
+        usuario_id=current_user.id,
+        perfil_id=perfil.id,
     )
     db.add(job)
     db.commit()
@@ -492,7 +545,8 @@ async def obtener_estado_verificacion(
 @router.get("/export/csv", summary="Export contacts to CSV", description="Download all contacts as a CSV file.")
 async def exportar_contactos(
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     from fastapi.responses import StreamingResponse
 
@@ -512,7 +566,10 @@ async def exportar_contactos(
         while True:
             batch = (
                 db.query(Contacto)
-                .filter(Contacto.usuario_id == current_user.id)
+                .filter(
+                    Contacto.usuario_id == current_user.id,
+                    Contacto.perfil_id == perfil.id,
+                )
                 .order_by(Contacto.id)
                 .offset(offset)
                 .limit(batch_size)
@@ -542,7 +599,7 @@ async def exportar_contactos(
     )
 
 
-def guardar_contacto_mensaje(telefono: str, nombre: str = None, db: Session = None, usuario_id: int = 1):
+def guardar_contacto_mensaje(telefono: str, nombre: str = None, db: Session = None, usuario_id: int = 1, perfil_id: int = None):
     """
     Guardar o actualizar contacto cuando llega un mensaje.
     Llamar desde el webhook.
@@ -550,19 +607,24 @@ def guardar_contacto_mensaje(telefono: str, nombre: str = None, db: Session = No
     # Ignorar grupos (defensa adicional)
     if "@g.us" in telefono or not telefono:
         return None
-    
+
     if db is None:
         from models import SessionLocal
         db = SessionLocal()
         should_close = True
     else:
         should_close = False
-    
+
     try:
+        # Resolver perfil activo si no se proveyó (background sin header HTTP)
+        if perfil_id is None:
+            from api.routers.perfiles import get_perfil_activo_id
+            perfil_id = get_perfil_activo_id(db, usuario_id)
+
         # Normalizar teléfono
         telefono_norm = normalizar_telefono(telefono)
         nombre_limpio = nombre.strip() if nombre else None
-        
+
         # Buscar con normalización, scoped to usuario
         contacto = db.query(Contacto).filter(
             Contacto.telefono == telefono_norm,
@@ -578,6 +640,9 @@ def guardar_contacto_mensaje(telefono: str, nombre: str = None, db: Session = No
             # Reactivar si estaba inactivo
             if contacto.estado == "inactivo":
                 contacto.estado = "activo"
+            # Backfill perfil_id si el contacto aún no lo tiene
+            if contacto.perfil_id is None and perfil_id is not None:
+                contacto.perfil_id = perfil_id
         else:
             # Crear nuevo
             contacto = Contacto(
@@ -588,7 +653,8 @@ def guardar_contacto_mensaje(telefono: str, nombre: str = None, db: Session = No
                 total_mensajes=1,
                 estado="activo",
                 origen="mensaje",
-                usuario_id=usuario_id
+                usuario_id=usuario_id,
+                perfil_id=perfil_id,
             )
             db.add(contacto)
         
@@ -604,10 +670,13 @@ def guardar_contacto_mensaje(telefono: str, nombre: str = None, db: Session = No
 @router.get("/modo-humano", summary="List human mode contacts", description="Get all contacts currently in human takeover mode where AI is paused.")
 async def listar_contactos_modo_humano(
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     contactos = db.query(Contacto).filter(
-        Contacto.modo_humano == True, Contacto.usuario_id == current_user.id
+        Contacto.modo_humano == True,
+        Contacto.usuario_id == current_user.id,
+        Contacto.perfil_id == perfil.id,
     ).limit(200).all()
     return [c.to_dict() for c in contactos]
 
@@ -617,9 +686,14 @@ async def activar_modo_humano(
     contacto_id: int,
     data: dict = None,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    contacto = db.query(Contacto).filter(Contacto.id == contacto_id, Contacto.usuario_id == current_user.id).first()
+    contacto = db.query(Contacto).filter(
+        Contacto.id == contacto_id,
+        Contacto.usuario_id == current_user.id,
+        Contacto.perfil_id == perfil.id,
+    ).first()
     if not contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")
 
@@ -637,9 +711,14 @@ async def activar_modo_humano(
 async def desactivar_modo_humano(
     contacto_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
-    contacto = db.query(Contacto).filter(Contacto.id == contacto_id, Contacto.usuario_id == current_user.id).first()
+    contacto = db.query(Contacto).filter(
+        Contacto.id == contacto_id,
+        Contacto.usuario_id == current_user.id,
+        Contacto.perfil_id == perfil.id,
+    ).first()
     if not contacto:
         raise HTTPException(status_code=404, detail="Contacto no encontrado")
 

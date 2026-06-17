@@ -23,13 +23,24 @@ class MessageService:
         usuario_id: int = None,
         tipo_evento: str = None,
         metadata: dict = None,
+        perfil_id: int = None,
     ) -> dict:
-        """Agregar un mensaje a la conversacion"""
+        """Agregar un mensaje a la conversacion.
+
+        perfil_id: si no se provee, se resuelve al perfil activo del usuario
+        (para escrituras en background sin header HTTP)."""
+        if perfil_id is None and usuario_id is not None:
+            try:
+                from api.routers.perfiles import get_perfil_activo_id
+                perfil_id = get_perfil_activo_id(db, usuario_id)
+            except Exception:
+                perfil_id = None
         msg = MensajeConversacion(
             telefono=telefono,
             rol=rol,
             contenido=contenido,
             usuario_id=usuario_id,
+            perfil_id=perfil_id,
             tipo_evento=tipo_evento,
             metadata_json=json.dumps(metadata, ensure_ascii=False)
             if metadata
@@ -48,6 +59,7 @@ class MessageService:
         contenido: str,
         usuario_id: int = None,
         metadata: dict = None,
+        perfil_id: int = None,
     ) -> dict:
         """Agregar un evento del sistema (datos guardados, cita agendada, etc.)"""
         return MessageService.add_message(
@@ -58,6 +70,7 @@ class MessageService:
             usuario_id=usuario_id,
             tipo_evento=tipo_evento,
             metadata=metadata,
+            perfil_id=perfil_id,
         )
 
     @staticmethod
@@ -77,7 +90,7 @@ class MessageService:
         return [m.to_dict() for m in msgs]
 
     @staticmethod
-    def get_messages_for_ai(db: Session, telefono: str, usuario_id: int = None, limit: int = 20) -> list:
+    def get_messages_for_ai(db: Session, telefono: str, usuario_id: int = None, limit: int = 20, perfil_id: int = None) -> list:
         """Obtener mensajes para contexto de OpenAI (solo user/assistant, sin system events)"""
         query = db.query(MensajeConversacion).filter(
             MensajeConversacion.telefono == telefono,
@@ -86,6 +99,8 @@ class MessageService:
         )
         if usuario_id is not None:
             query = query.filter(MensajeConversacion.usuario_id == usuario_id)
+        if perfil_id is not None:
+            query = query.filter(MensajeConversacion.perfil_id == perfil_id)
         msgs = (
             query
             .order_by(MensajeConversacion.created_at.desc())
@@ -98,7 +113,7 @@ class MessageService:
         return [{"role": m.rol, "content": m.contenido} for m in msgs]
 
     @staticmethod
-    def get_conversations_list(db: Session, usuario_id: int = None, limit: int = 50, offset: int = 0) -> dict:
+    def get_conversations_list(db: Session, usuario_id: int = None, limit: int = 50, offset: int = 0, perfil_id: int = None) -> dict:
         """Obtener lista de conversaciones con ultimo mensaje, paginada"""
         from sqlalchemy import func, case, distinct
         from models import Contacto
@@ -111,6 +126,8 @@ class MessageService:
         )
         if usuario_id is not None:
             msg_query = msg_query.filter(MensajeConversacion.usuario_id == usuario_id)
+        if perfil_id is not None:
+            msg_query = msg_query.filter(MensajeConversacion.perfil_id == perfil_id)
         subq = msg_query.group_by(MensajeConversacion.telefono).subquery()
 
         # Join con contacto (include notas for last_read parsing)
@@ -256,26 +273,36 @@ class MessageService:
         }
 
     @staticmethod
-    def delete_conversation(db: Session, telefono: str, usuario_id: int = None) -> int:
+    def delete_conversation(db: Session, telefono: str, usuario_id: int = None, perfil_id: int = None) -> int:
         """Eliminar todos los mensajes de una conversacion"""
         query = db.query(MensajeConversacion).filter(
             MensajeConversacion.telefono == telefono
         )
         if usuario_id is not None:
             query = query.filter(MensajeConversacion.usuario_id == usuario_id)
+        if perfil_id is not None:
+            query = query.filter(MensajeConversacion.perfil_id == perfil_id)
         deleted = query.delete()
         # Tambien eliminar de la tabla de memoria legacy
         mem_query = db.query(Memoria).filter(Memoria.telefono == telefono)
         if usuario_id is not None:
             mem_query = mem_query.filter(Memoria.usuario_id == usuario_id)
+        if perfil_id is not None:
+            mem_query = mem_query.filter(Memoria.perfil_id == perfil_id)
         mem_query.delete()
         db.commit()
         return deleted
 
     @staticmethod
-    def migrate_from_memoria(db: Session, telefono: str, usuario_id: int = None):
+    def migrate_from_memoria(db: Session, telefono: str, usuario_id: int = None, perfil_id: int = None):
         """Migrar mensajes de la tabla Memoria (JSON blob) a mensajes individuales.
         Se ejecuta la primera vez que se accede a una conversacion."""
+        if perfil_id is None and usuario_id is not None:
+            try:
+                from api.routers.perfiles import get_perfil_activo_id
+                perfil_id = get_perfil_activo_id(db, usuario_id)
+            except Exception:
+                perfil_id = None
         # Verificar si ya hay mensajes en la nueva tabla
         existing_query = db.query(MensajeConversacion).filter(
             MensajeConversacion.telefono == telefono
@@ -309,6 +336,7 @@ class MessageService:
                         rol=rol,
                         contenido=contenido,
                         usuario_id=usuario_id,
+                        perfil_id=perfil_id,
                     )
                 )
 
