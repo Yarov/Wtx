@@ -80,7 +80,7 @@ def _normalize(text: str) -> str:
 
 
 def classify_by_human_triggers(
-    message: str, usuario_id: int = 1
+    message: str, usuario_id: int = 1, perfil_id: int = None
 ) -> IntentResult | None:
     """Level 0: Check user-configured human mode triggers FIRST.
 
@@ -95,7 +95,7 @@ def classify_by_human_triggers(
     normalized = _normalize(message)
 
     # Load configured trigger categories
-    triggers_str = get_config("human_mode_triggers", '["frustration","complaint","human_request"]', usuario_id=usuario_id)
+    triggers_str = get_config("human_mode_triggers", '["frustration","complaint","human_request"]', usuario_id=usuario_id, perfil_id=perfil_id)
     try:
         active_categories = json.loads(triggers_str) if triggers_str else []
     except (json.JSONDecodeError, TypeError):
@@ -113,7 +113,7 @@ def classify_by_human_triggers(
                 )
 
     # Check custom triggers from config
-    custom_str = get_config("human_mode_custom_triggers", "", usuario_id=usuario_id)
+    custom_str = get_config("human_mode_custom_triggers", "", usuario_id=usuario_id, perfil_id=perfil_id)
     if custom_str:
         custom_triggers = [t.strip() for t in custom_str.split(",") if t.strip()]
 
@@ -339,9 +339,11 @@ def classify_intent(
     """
     logger.debug("Classifying intent for message: '%.60s...'", message)
 
+    perfil_id = context.get("perfil_id")
+
     # Level 0: Human mode triggers — HIGHEST PRIORITY
     # User-configured triggers always win over skills
-    human_result = classify_by_human_triggers(message, usuario_id)
+    human_result = classify_by_human_triggers(message, usuario_id, perfil_id=perfil_id)
     if human_result:
         return human_result
 

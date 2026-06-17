@@ -116,6 +116,7 @@ class Configuracion(Base):
 
     clave = Column(String, primary_key=True)
     usuario_id = Column(Integer, primary_key=True, default=0)  # 0 = global
+    perfil_id = Column(Integer, primary_key=True, default=0)  # 0 = nivel usuario
     valor = Column(Text)
 
 
@@ -124,6 +125,7 @@ class ToolsConfig(Base):
 
     nombre = Column(String, primary_key=True)
     usuario_id = Column(Integer, primary_key=True, default=0)  # 0 = global
+    perfil_id = Column(Integer, primary_key=True, default=0)  # 0 = nivel usuario
     habilitado = Column(Boolean, default=True)
     descripcion = Column(String)
 

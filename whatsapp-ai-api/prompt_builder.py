@@ -26,23 +26,24 @@ logger = logging.getLogger(__name__)
 # 1. Identity
 # ---------------------------------------------------------------------------
 
-def build_identity(db, usuario_id: int) -> str:
+def build_identity(db, usuario_id: int, perfil_id: int = None) -> str:
     """Extract short identity block from config.
 
     Pulls agent_name, business_name, role section (from prompt_sections or
     manual_prompt), and agent_products. Kept deliberately brief.
     """
     uid = usuario_id
-    agent_name = get_config("agent_name", "Asistente", usuario_id=uid)
-    business_name = get_config("business_name", "Mi Negocio", usuario_id=uid)
+    pid = perfil_id
+    agent_name = get_config("agent_name", "Asistente", usuario_id=uid, perfil_id=pid)
+    business_name = get_config("business_name", "Mi Negocio", usuario_id=uid, perfil_id=pid)
 
     # Role from prompt config
-    edit_mode = get_config("prompt_edit_mode", "sections", usuario_id=uid)
+    edit_mode = get_config("prompt_edit_mode", "sections", usuario_id=uid, perfil_id=pid)
     role = ""
     if edit_mode == "manual":
-        role = get_config("manual_prompt", "", usuario_id=uid)
+        role = get_config("manual_prompt", "", usuario_id=uid, perfil_id=pid)
     else:
-        sections_str = get_config("prompt_sections", "", usuario_id=uid)
+        sections_str = get_config("prompt_sections", "", usuario_id=uid, perfil_id=pid)
         try:
             sections = json.loads(sections_str) if sections_str else {}
         except (json.JSONDecodeError, TypeError):
@@ -60,7 +61,7 @@ def build_identity(db, usuario_id: int) -> str:
         parts.append(role)
 
     # Products / services (short reference)
-    agent_products = get_config("agent_products", "", usuario_id=uid)
+    agent_products = get_config("agent_products", "", usuario_id=uid, perfil_id=pid)
     if agent_products:
         parts.append(f"Ofrecemos: {agent_products}")
 
@@ -226,8 +227,9 @@ def build_focused_prompt(db, context: dict, skill_result: dict) -> list:
         Messages list ready for OpenAI chat completions API.
     """
     usuario_id = context["usuario_id"]
+    perfil_id = context.get("perfil_id")
 
-    identity = build_identity(db, usuario_id)
+    identity = build_identity(db, usuario_id, perfil_id=perfil_id)
     client_ctx = build_client_context(context)
     directive = build_skill_directive(skill_result, context)
 

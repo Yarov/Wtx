@@ -18,17 +18,18 @@ from models import (
 _initialized = False
 
 # ─── Simple config cache (TTL 60s) ─────────────────────────────────────
-_config_cache: dict = {}  # key: (clave, usuario_id) -> {"value": str, "ts": float}
+# key: (clave, usuario_id, perfil_id) -> {"value": str, "ts": float}
+_config_cache: dict = {}
 _CONFIG_CACHE_TTL = 60  # seconds
 
 
-def _cache_key(clave: str, usuario_id) -> tuple:
-    return (clave, usuario_id)
+def _cache_key(clave: str, usuario_id, perfil_id=0) -> tuple:
+    return (clave, usuario_id, perfil_id)
 
 
-def _cache_get(clave: str, usuario_id):
+def _cache_get(clave: str, usuario_id, perfil_id=0):
     """Return cached value or None if missing/expired."""
-    key = _cache_key(clave, usuario_id)
+    key = _cache_key(clave, usuario_id, perfil_id)
     entry = _config_cache.get(key)
     if entry is None:
         return None
@@ -38,19 +39,24 @@ def _cache_get(clave: str, usuario_id):
     return entry["value"]
 
 
-def _cache_set(clave: str, usuario_id, value: str):
-    key = _cache_key(clave, usuario_id)
+def _cache_set(clave: str, usuario_id, value: str, perfil_id=0):
+    key = _cache_key(clave, usuario_id, perfil_id)
     _config_cache[key] = {"value": value, "ts": _time.time()}
 
 
-def invalidate_config_cache(clave: str = None, usuario_id=None):
-    """Invalidate config cache. Call after set_config()."""
+def invalidate_config_cache(clave: str = None, usuario_id=None, perfil_id=None):
+    """Invalidate config cache. Call after set_config().
+
+    A write at a given level may change the resolved value of caches at deeper
+    levels too (cascade), so when a clave is given we drop every cached entry
+    for that clave to stay correct (cheap, since the cache is small).
+    """
     if clave is None:
         _config_cache.clear()
     else:
-        _config_cache.pop(_cache_key(clave, usuario_id), None)
-        # Also invalidate the composite lookup (user + global fallback)
-        _config_cache.pop(_cache_key(clave, 0), None)
+        for key in list(_config_cache.keys()):
+            if key[0] == clave:
+                _config_cache.pop(key, None)
 
 
 def init_database():
@@ -74,52 +80,58 @@ def get_session():
 # ─── Config: user-aware ──────────────────────────────────────────────────
 
 
-def get_config(clave: str, default: str = "", usuario_id: int = None) -> str:
+def get_config(clave: str, default: str = "", usuario_id: int = None,
+               perfil_id: int = None) -> str:
     """Obtener valor de configuración (cached, TTL 60s).
-    Si usuario_id se provee, busca user-scoped primero, fallback a global (0).
-    Si no se provee, busca global directamente.
+
+    Cascada de 3 niveles (la más específica gana):
+      1. (clave, usuario_id, perfil_id)  — config del perfil
+      2. (clave, usuario_id, 0)          — config del usuario (compartida)
+      3. (clave, 0, 0)                   — config global
+      4. default
     """
-    # Check cache first
     cache_uid = usuario_id if usuario_id is not None else 0
-    cached = _cache_get(clave, cache_uid)
+    cache_pid = perfil_id if perfil_id is not None else 0
+    cached = _cache_get(clave, cache_uid, cache_pid)
     if cached is not None:
         return cached
 
     db = SessionLocal()
     try:
-        result = default
+        # Build the lookup tuples in priority order.
+        levels = []
+        if usuario_id is not None and perfil_id is not None:
+            levels.append((usuario_id, perfil_id))
         if usuario_id is not None:
-            # User-scoped first
+            levels.append((usuario_id, 0))
+        levels.append((0, 0))
+
+        result = default
+        for uid, pid in levels:
             config = (
                 db.query(Configuracion)
                 .filter(
                     Configuracion.clave == clave,
-                    Configuracion.usuario_id == usuario_id,
+                    Configuracion.usuario_id == uid,
+                    Configuracion.perfil_id == pid,
                 )
                 .first()
             )
             if config:
                 result = config.valor
-                _cache_set(clave, cache_uid, result)
-                return result
-        # Fall back to global (usuario_id=0)
-        config = (
-            db.query(Configuracion)
-            .filter(
-                Configuracion.clave == clave,
-                Configuracion.usuario_id == 0,
-            )
-            .first()
-        )
-        result = config.valor if config else default
-        _cache_set(clave, cache_uid, result)
+                break
+
+        _cache_set(clave, cache_uid, result, cache_pid)
         return result
     finally:
         db.close()
 
 
-def set_config(clave: str, valor: str, usuario_id: int = 0):
-    """Guardar valor de configuración para un usuario (0 = global)."""
+def set_config(clave: str, valor: str, usuario_id: int = 0, perfil_id: int = 0):
+    """Guardar config en el nivel (usuario_id, perfil_id).
+
+    usuario_id=0 -> global ; perfil_id=0 -> nivel usuario (compartido).
+    """
     db = SessionLocal()
     try:
         config = (
@@ -127,6 +139,7 @@ def set_config(clave: str, valor: str, usuario_id: int = 0):
             .filter(
                 Configuracion.clave == clave,
                 Configuracion.usuario_id == usuario_id,
+                Configuracion.perfil_id == perfil_id,
             )
             .first()
         )
@@ -134,72 +147,82 @@ def set_config(clave: str, valor: str, usuario_id: int = 0):
             config.valor = valor
         else:
             db.add(
-                Configuracion(clave=clave, usuario_id=usuario_id, valor=valor)
+                Configuracion(
+                    clave=clave, usuario_id=usuario_id,
+                    perfil_id=perfil_id, valor=valor,
+                )
             )
         db.commit()
-        invalidate_config_cache(clave, usuario_id)
+        invalidate_config_cache(clave, usuario_id, perfil_id)
     finally:
         db.close()
 
 
-def get_all_config(usuario_id: int = None) -> dict:
-    """Obtener toda la configuración. Si usuario_id, mergea global + user."""
+def get_all_config(usuario_id: int = None, perfil_id: int = None) -> dict:
+    """Obtener toda la config mergeada: global(0,0) -> usuario(uid,0) -> perfil(uid,pid)."""
     db = SessionLocal()
     try:
-        # Global first
-        configs = (
-            db.query(Configuracion)
-            .filter(Configuracion.usuario_id == 0)
-            .all()
-        )
-        result = {c.clave: c.valor for c in configs}
+        result = {}
+        # Global
+        for c in db.query(Configuracion).filter(
+            Configuracion.usuario_id == 0,
+            Configuracion.perfil_id == 0,
+        ).all():
+            result[c.clave] = c.valor
 
         if usuario_id is not None:
-            # Override with user-scoped
-            user_configs = (
-                db.query(Configuracion)
-                .filter(Configuracion.usuario_id == usuario_id)
-                .all()
-            )
-            for c in user_configs:
+            # Usuario level (perfil_id=0)
+            for c in db.query(Configuracion).filter(
+                Configuracion.usuario_id == usuario_id,
+                Configuracion.perfil_id == 0,
+            ).all():
                 result[c.clave] = c.valor
+
+            # Perfil level
+            if perfil_id is not None:
+                for c in db.query(Configuracion).filter(
+                    Configuracion.usuario_id == usuario_id,
+                    Configuracion.perfil_id == perfil_id,
+                ).all():
+                    result[c.clave] = c.valor
 
         return result
     finally:
         db.close()
 
 
-def is_tool_enabled(nombre: str, usuario_id: int = None) -> bool:
-    """Verificar si un tool está habilitado."""
+def is_tool_enabled(nombre: str, usuario_id: int = None,
+                    perfil_id: int = None) -> bool:
+    """Verificar si un tool está habilitado (cascada perfil -> usuario -> global)."""
     db = SessionLocal()
     try:
+        levels = []
+        if usuario_id is not None and perfil_id is not None:
+            levels.append((usuario_id, perfil_id))
         if usuario_id is not None:
+            levels.append((usuario_id, 0))
+        levels.append((0, 0))
+
+        for uid, pid in levels:
             tool = (
                 db.query(ToolsConfig)
                 .filter(
                     ToolsConfig.nombre == nombre,
-                    ToolsConfig.usuario_id == usuario_id,
+                    ToolsConfig.usuario_id == uid,
+                    ToolsConfig.perfil_id == pid,
                 )
                 .first()
             )
             if tool:
                 return tool.habilitado
-        # Fallback to global
-        tool = (
-            db.query(ToolsConfig)
-            .filter(
-                ToolsConfig.nombre == nombre,
-                ToolsConfig.usuario_id == 0,
-            )
-            .first()
-        )
-        return tool.habilitado if tool else True
+        return True
     finally:
         db.close()
 
 
-def set_tool_enabled(nombre: str, habilitado: bool, usuario_id: int = 0):
-    """Habilitar/deshabilitar un tool."""
+def set_tool_enabled(nombre: str, habilitado: bool, usuario_id: int = 0,
+                     perfil_id: int = 0):
+    """Habilitar/deshabilitar un tool en el nivel (usuario_id, perfil_id)."""
     db = SessionLocal()
     try:
         tool = (
@@ -207,6 +230,7 @@ def set_tool_enabled(nombre: str, habilitado: bool, usuario_id: int = 0):
             .filter(
                 ToolsConfig.nombre == nombre,
                 ToolsConfig.usuario_id == usuario_id,
+                ToolsConfig.perfil_id == perfil_id,
             )
             .first()
         )
@@ -215,7 +239,8 @@ def set_tool_enabled(nombre: str, habilitado: bool, usuario_id: int = 0):
         else:
             db.add(
                 ToolsConfig(
-                    nombre=nombre, usuario_id=usuario_id, habilitado=habilitado
+                    nombre=nombre, usuario_id=usuario_id,
+                    perfil_id=perfil_id, habilitado=habilitado,
                 )
             )
         db.commit()
@@ -223,37 +248,32 @@ def set_tool_enabled(nombre: str, habilitado: bool, usuario_id: int = 0):
         db.close()
 
 
-def get_all_tools_config(usuario_id: int = None) -> list:
-    """Obtener configuración de todos los tools."""
+def get_all_tools_config(usuario_id: int = None, perfil_id: int = None) -> list:
+    """Obtener config de todos los tools mergeada: global -> usuario -> perfil."""
     db = SessionLocal()
     try:
-        # Global first
-        tools = (
-            db.query(ToolsConfig)
-            .filter(ToolsConfig.usuario_id == 0)
-            .all()
-        )
-        result = {
-            t.nombre: {
-                "nombre": t.nombre,
-                "habilitado": t.habilitado,
-                "descripcion": t.descripcion,
-            }
-            for t in tools
-        }
-
-        if usuario_id is not None:
-            user_tools = (
-                db.query(ToolsConfig)
-                .filter(ToolsConfig.usuario_id == usuario_id)
-                .all()
-            )
-            for t in user_tools:
-                result[t.nombre] = {
+        def _merge(into, rows):
+            for t in rows:
+                into[t.nombre] = {
                     "nombre": t.nombre,
                     "habilitado": t.habilitado,
                     "descripcion": t.descripcion,
                 }
+
+        result = {}
+        _merge(result, db.query(ToolsConfig).filter(
+            ToolsConfig.usuario_id == 0, ToolsConfig.perfil_id == 0
+        ).all())
+
+        if usuario_id is not None:
+            _merge(result, db.query(ToolsConfig).filter(
+                ToolsConfig.usuario_id == usuario_id, ToolsConfig.perfil_id == 0
+            ).all())
+            if perfil_id is not None:
+                _merge(result, db.query(ToolsConfig).filter(
+                    ToolsConfig.usuario_id == usuario_id,
+                    ToolsConfig.perfil_id == perfil_id,
+                ).all())
 
         return list(result.values())
     finally:

@@ -44,7 +44,7 @@ def _verify_webhook_token(request: Request) -> None:
         raise HTTPException(status_code=401, detail="Invalid webhook token")
 
 
-def detectar_trigger_modo_humano(mensaje: str, respuesta: str, usuario_id: int = None) -> bool:
+def detectar_trigger_modo_humano(mensaje: str, respuesta: str, usuario_id: int = None, perfil_id: int = None) -> bool:
     """
     Detectar si el mensaje o respuesta contiene triggers para activar modo humano.
     Two-layer system:
@@ -53,7 +53,7 @@ def detectar_trigger_modo_humano(mensaje: str, respuesta: str, usuario_id: int =
     Retorna True si se debe activar modo humano.
     """
     # Layer 1: Quick keyword pre-filter
-    keyword_match = _check_keyword_triggers(mensaje, respuesta, usuario_id)
+    keyword_match = _check_keyword_triggers(mensaje, respuesta, usuario_id, perfil_id)
     if not keyword_match:
         return False
 
@@ -61,7 +61,7 @@ def detectar_trigger_modo_humano(mensaje: str, respuesta: str, usuario_id: int =
     logger.info(f"Layer 1 keyword match: {trigger_type} (keyword: {keyword})")
 
     # Check if AI classification is enabled
-    ai_enabled = get_config("human_mode_ai_classification", "true", usuario_id=usuario_id).lower() == "true"
+    ai_enabled = get_config("human_mode_ai_classification", "true", usuario_id=usuario_id, perfil_id=perfil_id).lower() == "true"
     if not ai_enabled:
         logger.info("AI classification disabled, using keyword match only")
         return True
@@ -70,16 +70,16 @@ def detectar_trigger_modo_humano(mensaje: str, respuesta: str, usuario_id: int =
     return _classify_trigger_intent(mensaje, trigger_type, keyword, usuario_id)
 
 
-def _check_keyword_triggers(mensaje: str, respuesta: str, usuario_id: int = None):
+def _check_keyword_triggers(mensaje: str, respuesta: str, usuario_id: int = None, perfil_id: int = None):
     """
     Layer 1: Fast keyword pre-filter.
     Returns (trigger_type, keyword) tuple if match found, None otherwise.
     """
     triggers_str = get_config(
         "human_mode_triggers", '["frustration","complaint","human_request"]',
-        usuario_id=usuario_id,
+        usuario_id=usuario_id, perfil_id=perfil_id,
     )
-    custom_triggers_str = get_config("human_mode_custom_triggers", "", usuario_id=usuario_id)
+    custom_triggers_str = get_config("human_mode_custom_triggers", "", usuario_id=usuario_id, perfil_id=perfil_id)
 
     try:
         triggers = json.loads(triggers_str)
@@ -381,7 +381,7 @@ async def whatsapp_webhook(request: Request):
                 logger.warning(f"Error marcando respondido: {e}")
 
             # Verificar comando #reactivar
-            reactivar_command = get_config("human_mode_reactivar_command", "#reactivar", usuario_id=usuario_id)
+            reactivar_command = get_config("human_mode_reactivar_command", "#reactivar", usuario_id=usuario_id, perfil_id=perfil_id)
             if incoming_msg.strip().lower() == reactivar_command.lower():
                 try:
                     if desactivar_modo_humano_por_telefono(from_number, db=_db, usuario_id=usuario_id):
@@ -411,7 +411,7 @@ async def whatsapp_webhook(request: Request):
             _db.close()
 
         # Verificar si agente esta habilitado
-        agent_enabled = get_config("agent_enabled", "true", usuario_id=usuario_id).lower() == "true"
+        agent_enabled = get_config("agent_enabled", "true", usuario_id=usuario_id, perfil_id=perfil_id).lower() == "true"
 
         if not agent_enabled:
             logger.info("Agent is disabled, not responding")
@@ -445,7 +445,7 @@ async def whatsapp_webhook(request: Request):
 
         # Detectar triggers para modo humano
         try:
-            if detectar_trigger_modo_humano(incoming_msg, respuesta, usuario_id=usuario_id):
+            if detectar_trigger_modo_humano(incoming_msg, respuesta, usuario_id=usuario_id, perfil_id=perfil_id):
                 activar_modo_humano_por_telefono(
                     from_number, "Trigger automático detectado", usuario_id=usuario_id
                 )

@@ -27,7 +27,7 @@ def get_openai_client(usuario_id: int = None):
 # ─── Tool Definitions ───────────────────────────────────────────────────
 
 
-def get_enabled_tools(usuario_id: int = None) -> list:
+def get_enabled_tools(usuario_id: int = None, perfil_id: int = None) -> list:
     """Obtener tools habilitados - incluye captura, conocimiento, funnel y transferencia"""
     from capture_service import CaptureService
 
@@ -131,7 +131,7 @@ def get_enabled_tools(usuario_id: int = None) -> list:
 
     enabled = []
     for t in all_tools:
-        if t.get("always") or is_tool_enabled(t["id"], usuario_id=usuario_id):
+        if t.get("always") or is_tool_enabled(t["id"], usuario_id=usuario_id, perfil_id=perfil_id):
             enabled.append(t["definition"])
     return enabled
 
@@ -280,7 +280,7 @@ def _check_funnel_advance(db, telefono: str, usuario_id: int = 1, cita_agendada:
 # ─── Prompt Builder ──────────────────────────────────────────────────────
 
 
-def build_system_prompt(db, telefono: str, usuario_id: int = 1) -> str:
+def build_system_prompt(db, telefono: str, usuario_id: int = 1, perfil_id: int = None) -> str:
     """Construir system prompt desde la config del frontend.
 
     Priority order (highest last — LLMs weight recent context more):
@@ -295,6 +295,7 @@ def build_system_prompt(db, telefono: str, usuario_id: int = 1) -> str:
     from models import Contacto
 
     uid = usuario_id
+    pid = perfil_id
     prompt_parts = []
 
     # ═══════════════════════════════════════════════════════════════════
@@ -302,8 +303,8 @@ def build_system_prompt(db, telefono: str, usuario_id: int = 1) -> str:
     # ═══════════════════════════════════════════════════════════════════
 
     # ─── 1a. Secciones del prompt: role + context ───
-    sections_str = get_config("prompt_sections", "", usuario_id=uid)
-    edit_mode = get_config("prompt_edit_mode", "sections", usuario_id=uid)
+    sections_str = get_config("prompt_sections", "", usuario_id=uid, perfil_id=pid)
+    edit_mode = get_config("prompt_edit_mode", "sections", usuario_id=uid, perfil_id=pid)
 
     # Collect behavior sections separately to place them later
     _constraints = ""
@@ -311,7 +312,7 @@ def build_system_prompt(db, telefono: str, usuario_id: int = 1) -> str:
     _task = ""
 
     if edit_mode == "manual":
-        manual = get_config("manual_prompt", "", usuario_id=uid)
+        manual = get_config("manual_prompt", "", usuario_id=uid, perfil_id=pid)
         if manual:
             prompt_parts.append(manual)
     else:
@@ -320,8 +321,8 @@ def build_system_prompt(db, telefono: str, usuario_id: int = 1) -> str:
         except (json.JSONDecodeError, TypeError):
             sections = {}
 
-        agent_name = get_config("agent_name", "Asistente", usuario_id=uid)
-        business_name = get_config("business_name", "Mi Negocio", usuario_id=uid)
+        agent_name = get_config("agent_name", "Asistente", usuario_id=uid, perfil_id=pid)
+        business_name = get_config("business_name", "Mi Negocio", usuario_id=uid, perfil_id=pid)
 
         role = sections.get("role", "")
         context = sections.get("context", "")
@@ -340,7 +341,7 @@ def build_system_prompt(db, telefono: str, usuario_id: int = 1) -> str:
             prompt_parts.append(context)
 
     # ─── 1b. Productos/servicios ───
-    agent_products = get_config("agent_products", "", usuario_id=uid)
+    agent_products = get_config("agent_products", "", usuario_id=uid, perfil_id=pid)
     if agent_products:
         prompt_parts.append(f"Lo que ofrecemos:\n{agent_products}")
 
@@ -368,7 +369,7 @@ def build_system_prompt(db, telefono: str, usuario_id: int = 1) -> str:
         prompt_parts.append(_tone)
 
     # ─── 2b. Tools deshabilitados ───
-    tools_info = _get_tools_availability_info(uid)
+    tools_info = _get_tools_availability_info(uid, pid)
     if tools_info:
         prompt_parts.append(tools_info)
 
@@ -380,7 +381,7 @@ def build_system_prompt(db, telefono: str, usuario_id: int = 1) -> str:
     prompt_parts.append("Reglas:\n" + "\n".join(f"- {r}" for r in tech_rules))
 
     # ─── 2d. Custom instructions ───
-    custom_instructions = get_config("custom_instructions", "", usuario_id=uid)
+    custom_instructions = get_config("custom_instructions", "", usuario_id=uid, perfil_id=pid)
     if custom_instructions:
         prompt_parts.append(custom_instructions)
 
@@ -440,7 +441,7 @@ def _send_typing(telefono: str):
         pass
 
 
-def _get_tools_availability_info(usuario_id: int = None) -> str:
+def _get_tools_availability_info(usuario_id: int = None, perfil_id: int = None) -> str:
     return ""
 
 
@@ -482,13 +483,13 @@ def _sync_to_legacy_memoria(db, telefono: str, usuario_id: int = 1, perfil_id: i
 # ─── Skill Helpers ───────────────────────────────────────────────────────────
 
 
-def _get_enabled_skill_names(usuario_id: int) -> list[str]:
+def _get_enabled_skill_names(usuario_id: int, perfil_id: int = None) -> list[str]:
     """Map tool_config toggles to skill names."""
     # Always-available skills (not togglable)
     return ["human_handoff", "data_capture", "faq", "free_chat"]
 
 
-def _build_orchestrator_context(db, telefono: str, usuario_id: int, historial: list) -> dict:
+def _build_orchestrator_context(db, telefono: str, usuario_id: int, historial: list, perfil_id: int = None) -> dict:
     """Build the full context dict needed by classifier, skills, and prompt builder."""
     from capture_service import CaptureService
     from funnel_service import FunnelService
@@ -525,11 +526,12 @@ def _build_orchestrator_context(db, telefono: str, usuario_id: int, historial: l
     knowledge_context = KnowledgeService.get_context_for_agent(db, usuario_id)
 
     # Custom instructions
-    custom_instructions = get_config("custom_instructions", "", usuario_id=usuario_id)
+    custom_instructions = get_config("custom_instructions", "", usuario_id=usuario_id, perfil_id=perfil_id)
 
     return {
         "telefono": telefono,
         "usuario_id": usuario_id,
+        "perfil_id": perfil_id,
         "client_name": datos_capturados.get("nombre", ""),
         "datos_capturados": datos_capturados,
         "datos_pendientes": pending_names,
@@ -602,8 +604,8 @@ def responder(mensaje: str, telefono: str, usuario_id: int = 1, perfil_id: int =
         historial = MessageService.get_messages_for_ai(db, telefono, usuario_id=usuario_id, limit=20)
 
         # ── Build context ──
-        context = _build_orchestrator_context(db, telefono, usuario_id, historial)
-        enabled_skills = _get_enabled_skill_names(usuario_id)
+        context = _build_orchestrator_context(db, telefono, usuario_id, historial, perfil_id=perfil_id)
+        enabled_skills = _get_enabled_skill_names(usuario_id, perfil_id=perfil_id)
 
         # Track disabled skills so prompt builder can add restrictions
         context["disabled_skills"] = []

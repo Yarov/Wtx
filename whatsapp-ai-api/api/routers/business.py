@@ -12,7 +12,9 @@ from models import (
     Memoria, Contacto, Campana, CampanaDestinatario, BackgroundJob, Usuario
 )
 from api.routers.auth import get_current_user
+from api.routers.perfiles import get_current_perfil
 from database import get_config, set_config
+from models import Perfil
 
 router = APIRouter(
     prefix="/business",
@@ -53,7 +55,8 @@ async def get_business_config(
 async def update_business_config(
     data: BusinessConfigModel,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     config = get_or_create_business_config(db, current_user.id)
 
@@ -62,9 +65,10 @@ async def update_business_config(
     config.business_description = data.business_description
     config.updated_at = datetime.utcnow()
 
-    # Actualizar tambien en configuracion general para compatibilidad
-    set_config("business_name", data.business_name, usuario_id=current_user.id)
-    set_config("business_type", data.business_type, usuario_id=current_user.id)
+    # Actualizar tambien en configuracion general para compatibilidad (por perfil)
+    set_config("business_name", data.business_name, usuario_id=current_user.id, perfil_id=perfil.id)
+    set_config("business_type", data.business_type, usuario_id=current_user.id, perfil_id=perfil.id)
+    set_config("business_description", data.business_description or "", usuario_id=current_user.id, perfil_id=perfil.id)
 
     db.commit()
 
@@ -331,10 +335,12 @@ CUANDO TENGAS TODO, responde con:
 async def apply_setup_config(
     data: dict,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     config_data = data.get("config", {})
     prompts_data = data.get("prompts", {})
+    pid = perfil.id
 
     config = get_or_create_business_config(db, current_user.id)
 
@@ -344,9 +350,9 @@ async def apply_setup_config(
     config.onboarding_completed = True
     config.updated_at = datetime.utcnow()
 
-    # Guardar en config general
-    set_config("business_name", config.business_name, usuario_id=current_user.id)
-    set_config("business_type", config.business_type, usuario_id=current_user.id)
+    # Guardar en config general (por perfil)
+    set_config("business_name", config.business_name, usuario_id=current_user.id, perfil_id=pid)
+    set_config("business_type", config.business_type, usuario_id=current_user.id, perfil_id=pid)
 
     # Guardar prompts generados por la IA del chat
     if prompts_data:
@@ -360,14 +366,14 @@ async def apply_setup_config(
             "constraints": prompts_data.get("constraints", ""),
             "tone": prompts_data.get("tone", "")
         }
-        set_config("prompt_sections", json.dumps(prompt_sections), usuario_id=current_user.id)
+        set_config("prompt_sections", json.dumps(prompt_sections), usuario_id=current_user.id, perfil_id=pid)
 
         # Tambien guardar individualmente para compatibilidad
-        set_config("prompt_role", prompts_data.get("role", ""), usuario_id=current_user.id)
-        set_config("prompt_context", prompts_data.get("context", ""), usuario_id=current_user.id)
-        set_config("prompt_task", prompts_data.get("task", ""), usuario_id=current_user.id)
-        set_config("prompt_constraints", prompts_data.get("constraints", ""), usuario_id=current_user.id)
-        set_config("prompt_tone", prompts_data.get("tone", ""), usuario_id=current_user.id)
+        set_config("prompt_role", prompts_data.get("role", ""), usuario_id=current_user.id, perfil_id=pid)
+        set_config("prompt_context", prompts_data.get("context", ""), usuario_id=current_user.id, perfil_id=pid)
+        set_config("prompt_task", prompts_data.get("task", ""), usuario_id=current_user.id, perfil_id=pid)
+        set_config("prompt_constraints", prompts_data.get("constraints", ""), usuario_id=current_user.id, perfil_id=pid)
+        set_config("prompt_tone", prompts_data.get("tone", ""), usuario_id=current_user.id, perfil_id=pid)
 
         # Construir system_prompt completo
         full_prompt = f"""## ROL
@@ -385,17 +391,17 @@ async def apply_setup_config(
 ## TONO
 {prompts_data.get('tone', '')}"""
 
-        set_config("system_prompt", full_prompt, usuario_id=current_user.id)
+        set_config("system_prompt", full_prompt, usuario_id=current_user.id, perfil_id=pid)
     else:
         # Si no hay prompts del chat, generarlos
-        await generate_prompts_from_config(config_data, db, current_user.id)
+        await generate_prompts_from_config(config_data, db, current_user.id, perfil_id=pid)
 
     db.commit()
 
     return {"status": "ok", "config": config.to_dict()}
 
 
-async def generate_prompts_from_config(config_data: dict, db, usuario_id: int = 0):
+async def generate_prompts_from_config(config_data: dict, db, usuario_id: int = 0, perfil_id: int = None):
     """Genera prompts personalizados basados en la configuracion"""
     import json
     from agent import get_openai_client
@@ -448,14 +454,14 @@ Responde SOLO con JSON:
             "constraints": sections.get("constraints", ""),
             "tone": sections.get("tone", "")
         }
-        set_config("prompt_sections", json.dumps(prompt_sections), usuario_id=usuario_id)
+        set_config("prompt_sections", json.dumps(prompt_sections), usuario_id=usuario_id, perfil_id=perfil_id)
 
         # Tambien guardar individualmente para compatibilidad
-        set_config("prompt_role", sections.get("role", ""), usuario_id=usuario_id)
-        set_config("prompt_context", sections.get("context", ""), usuario_id=usuario_id)
-        set_config("prompt_task", sections.get("task", ""), usuario_id=usuario_id)
-        set_config("prompt_constraints", sections.get("constraints", ""), usuario_id=usuario_id)
-        set_config("prompt_tone", sections.get("tone", ""), usuario_id=usuario_id)
+        set_config("prompt_role", sections.get("role", ""), usuario_id=usuario_id, perfil_id=perfil_id)
+        set_config("prompt_context", sections.get("context", ""), usuario_id=usuario_id, perfil_id=perfil_id)
+        set_config("prompt_task", sections.get("task", ""), usuario_id=usuario_id, perfil_id=perfil_id)
+        set_config("prompt_constraints", sections.get("constraints", ""), usuario_id=usuario_id, perfil_id=perfil_id)
+        set_config("prompt_tone", sections.get("tone", ""), usuario_id=usuario_id, perfil_id=perfil_id)
 
         full_prompt = f"""## ROL
 {sections.get('role', '')}
@@ -472,7 +478,7 @@ Responde SOLO con JSON:
 ## TONO
 {sections.get('tone', '')}"""
 
-        set_config("system_prompt", full_prompt, usuario_id=usuario_id)
+        set_config("system_prompt", full_prompt, usuario_id=usuario_id, perfil_id=perfil_id)
 
     except Exception as e:
         print(f"Error generating prompts: {e}")

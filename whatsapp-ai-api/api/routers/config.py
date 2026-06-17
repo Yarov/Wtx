@@ -18,8 +18,9 @@ from database import (
 )
 from api.schemas.config import ApiKeysModel, PromptModel, ImprovePromptModel
 from auth import get_current_user
+from api.routers.perfiles import get_current_perfil
 from models import (
-    Usuario, SessionLocal, Configuracion, ToolsConfig,
+    Usuario, Perfil, SessionLocal, Configuracion, ToolsConfig,
     Contacto, MensajeConversacion, BusinessConfig,
     DocumentoConocimiento, FunnelPaso, CampoCaptura,
 )
@@ -63,8 +64,13 @@ async def update_api_keys(
     summary="Get AI prompt config",
     description="Retrieve the AI agent's system prompt, model settings and business information.",
 )
-async def get_prompt(current_user: Usuario = Depends(get_current_user)):
-    prompt_sections_str = get_config("prompt_sections", "", usuario_id=current_user.id)
+async def get_prompt(
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
+    uid = current_user.id
+    pid = perfil.id
+    prompt_sections_str = get_config("prompt_sections", "", usuario_id=uid, perfil_id=pid)
     prompt_sections = None
     if prompt_sections_str:
         try:
@@ -73,17 +79,17 @@ async def get_prompt(current_user: Usuario = Depends(get_current_user)):
             pass
 
     return {
-        "system_prompt": get_config("system_prompt", "", usuario_id=current_user.id),
+        "system_prompt": get_config("system_prompt", "", usuario_id=uid, perfil_id=pid),
         "prompt_sections": prompt_sections,
-        "model": get_config("model", "gpt-4o-mini", usuario_id=current_user.id),
-        "temperature": float(get_config("temperature", "0.7", usuario_id=current_user.id)),
-        "max_tokens": int(get_config("max_tokens", "500", usuario_id=current_user.id)),
-        "response_delay": int(get_config("response_delay", "3", usuario_id=current_user.id)),
-        "business_name": get_config("business_name", "", usuario_id=current_user.id),
-        "business_type": get_config("business_type", "", usuario_id=current_user.id),
-        "edit_mode": get_config("prompt_edit_mode", "sections", usuario_id=current_user.id),
-        "manual_prompt": get_config("manual_prompt", "", usuario_id=current_user.id),
-        "orchestrator_mode": get_config("orchestrator_mode", "false", usuario_id=current_user.id) in ("true", "1", "yes"),
+        "model": get_config("model", "gpt-4o-mini", usuario_id=uid, perfil_id=pid),
+        "temperature": float(get_config("temperature", "0.7", usuario_id=uid, perfil_id=pid)),
+        "max_tokens": int(get_config("max_tokens", "500", usuario_id=uid, perfil_id=pid)),
+        "response_delay": int(get_config("response_delay", "3", usuario_id=uid, perfil_id=pid)),
+        "business_name": get_config("business_name", "", usuario_id=uid, perfil_id=pid),
+        "business_type": get_config("business_type", "", usuario_id=uid, perfil_id=pid),
+        "edit_mode": get_config("prompt_edit_mode", "sections", usuario_id=uid, perfil_id=pid),
+        "manual_prompt": get_config("manual_prompt", "", usuario_id=uid, perfil_id=pid),
+        "orchestrator_mode": get_config("orchestrator_mode", "false", usuario_id=uid, perfil_id=pid) in ("true", "1", "yes"),
     }
 
 
@@ -93,10 +99,14 @@ async def get_prompt(current_user: Usuario = Depends(get_current_user)):
     description="Update the AI agent's system prompt, model, temperature and other settings. Optionally clear conversation memory if clear_memory is true.",
 )
 async def update_prompt(
-    prompt: PromptModel, current_user: Usuario = Depends(get_current_user)
+    prompt: PromptModel,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     from models import SessionLocal, Memoria
 
+    uid = current_user.id
+    pid = perfil.id
     data = prompt.dict()
 
     # Extraer flags especiales
@@ -105,17 +115,17 @@ async def update_prompt(
 
     # Guardar orchestrator_mode como string "true"/"false"
     if orchestrator_mode is not None:
-        set_config("orchestrator_mode", "true" if orchestrator_mode else "false", usuario_id=current_user.id)
+        set_config("orchestrator_mode", "true" if orchestrator_mode else "false", usuario_id=uid, perfil_id=pid)
 
     # Actualizar configuración
     for key, value in data.items():
         if value is not None:
             if key == "prompt_sections":
-                set_config(key, json.dumps(value) if value else "", usuario_id=current_user.id)
+                set_config(key, json.dumps(value) if value else "", usuario_id=uid, perfil_id=pid)
             elif key == "edit_mode":
-                set_config("prompt_edit_mode", str(value), usuario_id=current_user.id)
+                set_config("prompt_edit_mode", str(value), usuario_id=uid, perfil_id=pid)
             else:
-                set_config(key, str(value), usuario_id=current_user.id)
+                set_config(key, str(value), usuario_id=uid, perfil_id=pid)
 
     # Solo limpiar memoria si se solicitó explícitamente
     response = {"status": "ok"}
@@ -243,8 +253,11 @@ Instrucciones:
     summary="Get agent status",
     description="Check if the AI agent is currently enabled and responding to messages.",
 )
-async def get_agent_status(current_user: Usuario = Depends(get_current_user)):
-    enabled = get_config("agent_enabled", "true", usuario_id=current_user.id)
+async def get_agent_status(
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
+    enabled = get_config("agent_enabled", "true", usuario_id=current_user.id, perfil_id=perfil.id)
     return {"enabled": enabled.lower() == "true"}
 
 
@@ -254,10 +267,12 @@ async def get_agent_status(current_user: Usuario = Depends(get_current_user)):
     description="Enable or disable the AI agent. When disabled, incoming messages won't receive automated responses.",
 )
 async def set_agent_status(
-    data: dict, current_user: Usuario = Depends(get_current_user)
+    data: dict,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     enabled = data.get("enabled", True)
-    set_config("agent_enabled", str(enabled).lower(), usuario_id=current_user.id)
+    set_config("agent_enabled", str(enabled).lower(), usuario_id=current_user.id, perfil_id=perfil.id)
     return {"status": "ok", "enabled": enabled}
 
 
@@ -332,11 +347,16 @@ async def test_whatsapp_connection(current_user: Usuario = Depends(get_current_u
 
 
 @router.get("/agent-config", summary="Get full agent configuration")
-async def get_agent_config(current_user: Usuario = Depends(get_current_user)):
+async def get_agent_config(
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     """Config estructurada del agente - 4 tabs: General, Mensajes, Captura, Config IA"""
+    uid = current_user.id
+    pid = perfil.id
     triggers_str = get_config(
         "human_mode_triggers", '["frustration","complaint","human_request"]',
-        usuario_id=current_user.id,
+        usuario_id=uid, perfil_id=pid,
     )
     try:
         triggers = json.loads(triggers_str)
@@ -345,53 +365,57 @@ async def get_agent_config(current_user: Usuario = Depends(get_current_user)):
 
     return {
         # Tab General
-        "agent_name": get_config("agent_name", "Asistente", usuario_id=current_user.id),
-        "agent_role": get_config("agent_role", "asistente virtual", usuario_id=current_user.id),
+        "agent_name": get_config("agent_name", "Asistente", usuario_id=uid, perfil_id=pid),
+        "agent_role": get_config("agent_role", "asistente virtual", usuario_id=uid, perfil_id=pid),
         "agent_personality": get_config(
             "agent_personality", "profesional, amable y entusiasta",
-            usuario_id=current_user.id,
+            usuario_id=uid, perfil_id=pid,
         ),
-        "agent_language": get_config("agent_language", "Espanol", usuario_id=current_user.id),
-        "agent_tone": get_config("agent_tone", "Casual y amigable", usuario_id=current_user.id),
-        "business_name": get_config("business_name", "Mi Negocio", usuario_id=current_user.id),
-        "business_type": get_config("business_type", "Servicios Profesionales", usuario_id=current_user.id),
-        "business_description": get_config("business_description", "", usuario_id=current_user.id),
-        "agent_products": get_config("agent_products", "", usuario_id=current_user.id),
+        "agent_language": get_config("agent_language", "Espanol", usuario_id=uid, perfil_id=pid),
+        "agent_tone": get_config("agent_tone", "Casual y amigable", usuario_id=uid, perfil_id=pid),
+        "business_name": get_config("business_name", "Mi Negocio", usuario_id=uid, perfil_id=pid),
+        "business_type": get_config("business_type", "Servicios Profesionales", usuario_id=uid, perfil_id=pid),
+        "business_description": get_config("business_description", "", usuario_id=uid, perfil_id=pid),
+        "agent_products": get_config("agent_products", "", usuario_id=uid, perfil_id=pid),
         # Tab Mensajes
-        "welcome_message": get_config("welcome_message", "", usuario_id=current_user.id),
+        "welcome_message": get_config("welcome_message", "", usuario_id=uid, perfil_id=pid),
         "fallback_message": get_config(
             "fallback_message",
             "Disculpa, no entendi tu mensaje. Podrias reformularlo de otra manera.",
-            usuario_id=current_user.id,
+            usuario_id=uid, perfil_id=pid,
         ),
         "human_mode_triggers": triggers,
-        "human_mode_custom_triggers": get_config("human_mode_custom_triggers", "", usuario_id=current_user.id),
-        "human_mode_expire_hours": int(get_config("human_mode_expire_hours", "0", usuario_id=current_user.id)),
+        "human_mode_custom_triggers": get_config("human_mode_custom_triggers", "", usuario_id=uid, perfil_id=pid),
+        "human_mode_expire_hours": int(get_config("human_mode_expire_hours", "0", usuario_id=uid, perfil_id=pid)),
         "human_mode_reactivar_command": get_config(
             "human_mode_reactivar_command", "#reactivar",
-            usuario_id=current_user.id,
+            usuario_id=uid, perfil_id=pid,
         ),
         # Tab Config IA
-        "model": get_config("model", "gpt-4o-mini", usuario_id=current_user.id),
-        "temperature": float(get_config("temperature", "0.7", usuario_id=current_user.id)),
-        "max_tokens": int(get_config("max_tokens", "500", usuario_id=current_user.id)),
-        "custom_instructions": get_config("custom_instructions", "", usuario_id=current_user.id),
-        # API Key (masked)
+        "model": get_config("model", "gpt-4o-mini", usuario_id=uid, perfil_id=pid),
+        "temperature": float(get_config("temperature", "0.7", usuario_id=uid, perfil_id=pid)),
+        "max_tokens": int(get_config("max_tokens", "500", usuario_id=uid, perfil_id=pid)),
+        "custom_instructions": get_config("custom_instructions", "", usuario_id=uid, perfil_id=pid),
+        # API Key (masked) — vive a nivel USUARIO (la cascada cae a perfil_id=0)
         "openai_api_key": (
             lambda k: k[:8] + "..." if len(k) > 8 else ("Configurada" if k else "")
-        )(get_config("openai_api_key", "", usuario_id=current_user.id) or os.getenv("OPENAI_API_KEY", "")),
+        )(get_config("openai_api_key", "", usuario_id=uid) or os.getenv("OPENAI_API_KEY", "")),
         "has_api_key": bool(
-            get_config("openai_api_key", "", usuario_id=current_user.id) or os.getenv("OPENAI_API_KEY", "")
+            get_config("openai_api_key", "", usuario_id=uid) or os.getenv("OPENAI_API_KEY", "")
         ),
-        "uses_global_key": not bool(get_config("openai_api_key", "", usuario_id=current_user.id)),
+        "uses_global_key": not bool(get_config("openai_api_key", "", usuario_id=uid)),
     }
 
 
 @router.put("/agent-config", summary="Update full agent configuration")
 async def update_agent_config(
-    data: dict, current_user: Usuario = Depends(get_current_user)
+    data: dict,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
     """Guardar configuracion completa del agente"""
+    uid = current_user.id
+    pid = perfil.id
     allowed_keys = [
         "agent_name",
         "agent_role",
@@ -415,17 +439,17 @@ async def update_agent_config(
 
     for key in allowed_keys:
         if key in data:
-            set_config(key, str(data[key]), usuario_id=current_user.id)
+            set_config(key, str(data[key]), usuario_id=uid, perfil_id=pid)
 
-    # API Key - solo guardar si no viene masked
+    # API Key - solo guardar si no viene masked. Se guarda a nivel USUARIO.
     if "openai_api_key" in data:
         val = data["openai_api_key"]
         if val and not val.endswith("...") and val != "Configurada":
-            set_config("openai_api_key", val, usuario_id=current_user.id)
+            set_config("openai_api_key", val, usuario_id=uid, perfil_id=0)
 
     # Triggers es una lista JSON
     if "human_mode_triggers" in data:
-        set_config("human_mode_triggers", json.dumps(data["human_mode_triggers"]), usuario_id=current_user.id)
+        set_config("human_mode_triggers", json.dumps(data["human_mode_triggers"]), usuario_id=uid, perfil_id=pid)
 
     return {"status": "ok"}
 
@@ -438,10 +462,15 @@ async def update_agent_config(
     summary="Get human mode config",
     description="Retrieve settings for human takeover mode including triggers and expiration.",
 )
-async def get_human_mode_config(current_user: Usuario = Depends(get_current_user)):
+async def get_human_mode_config(
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
+    uid = current_user.id
+    pid = perfil.id
     triggers_str = get_config(
         "human_mode_triggers", '["frustration","complaint","human_request"]',
-        usuario_id=current_user.id,
+        usuario_id=uid, perfil_id=pid,
     )
     try:
         triggers = json.loads(triggers_str)
@@ -449,10 +478,10 @@ async def get_human_mode_config(current_user: Usuario = Depends(get_current_user
         triggers = ["frustration", "complaint", "human_request"]
 
     return {
-        "expire_hours": int(get_config("human_mode_expire_hours", "0", usuario_id=current_user.id)),
-        "reactivar_command": get_config("human_mode_reactivar_command", "#reactivar", usuario_id=current_user.id),
+        "expire_hours": int(get_config("human_mode_expire_hours", "0", usuario_id=uid, perfil_id=pid)),
+        "reactivar_command": get_config("human_mode_reactivar_command", "#reactivar", usuario_id=uid, perfil_id=pid),
         "triggers": triggers,
-        "custom_triggers": get_config("human_mode_custom_triggers", "", usuario_id=current_user.id),
+        "custom_triggers": get_config("human_mode_custom_triggers", "", usuario_id=uid, perfil_id=pid),
     }
 
 
@@ -462,16 +491,20 @@ async def get_human_mode_config(current_user: Usuario = Depends(get_current_user
     description="Configure when AI should pause and let a human take over the conversation.",
 )
 async def update_human_mode_config(
-    data: dict, current_user: Usuario = Depends(get_current_user)
+    data: dict,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
 ):
+    uid = current_user.id
+    pid = perfil.id
     if "expire_hours" in data:
-        set_config("human_mode_expire_hours", str(data["expire_hours"]), usuario_id=current_user.id)
+        set_config("human_mode_expire_hours", str(data["expire_hours"]), usuario_id=uid, perfil_id=pid)
     if "reactivar_command" in data:
-        set_config("human_mode_reactivar_command", data["reactivar_command"], usuario_id=current_user.id)
+        set_config("human_mode_reactivar_command", data["reactivar_command"], usuario_id=uid, perfil_id=pid)
     if "triggers" in data:
-        set_config("human_mode_triggers", json.dumps(data["triggers"]), usuario_id=current_user.id)
+        set_config("human_mode_triggers", json.dumps(data["triggers"]), usuario_id=uid, perfil_id=pid)
     if "custom_triggers" in data:
-        set_config("human_mode_custom_triggers", data["custom_triggers"], usuario_id=current_user.id)
+        set_config("human_mode_custom_triggers", data["custom_triggers"], usuario_id=uid, perfil_id=pid)
 
     return {"status": "ok"}
 
@@ -480,15 +513,20 @@ async def update_human_mode_config(
 
 
 @router.post("/test-chat", summary="Test AI agent chat", description="Send a test message to the AI agent without going through WhatsApp.")
-async def test_chat(data: dict, current_user: Usuario = Depends(get_current_user)):
+async def test_chat(
+    data: dict,
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     """Send a test message and get the AI response. Uses a dedicated test phone number."""
     mensaje = data.get("mensaje", "").strip()
     if not mensaje:
         raise HTTPException(status_code=400, detail="El campo 'mensaje' es requerido")
 
     uid = current_user.id
+    pid = perfil.id
     reset = data.get("reset", False)
-    test_phone = f"test_{uid}_000"
+    test_phone = f"test_{uid}_{pid}_000"
 
     api_key = get_config("openai_api_key", "", usuario_id=uid) or os.getenv("OPENAI_API_KEY", "")
     if not api_key:
@@ -499,10 +537,9 @@ async def test_chat(data: dict, current_user: Usuario = Depends(get_current_user
         # Ensure test contact exists
         contacto = db.query(Contacto).filter(Contacto.telefono == test_phone, Contacto.usuario_id == uid).first()
         if not contacto:
-            from api.routers.perfiles import get_perfil_activo_id
             contacto = Contacto(
                 telefono=test_phone, nombre="Test Chat", usuario_id=uid,
-                perfil_id=get_perfil_activo_id(db, uid),
+                perfil_id=pid,
                 estado="activo", origen="manual",
             )
             db.add(contacto)
@@ -528,7 +565,7 @@ async def test_chat(data: dict, current_user: Usuario = Depends(get_current_user
         # Get prompt preview
         db2 = SessionLocal()
         try:
-            prompt_preview = build_system_prompt(db2, test_phone, uid)[:500]
+            prompt_preview = build_system_prompt(db2, test_phone, uid, perfil_id=pid)[:500]
         finally:
             db2.close()
 
@@ -536,7 +573,7 @@ async def test_chat(data: dict, current_user: Usuario = Depends(get_current_user
         before_call = datetime.utcnow()
 
         # Call the agent
-        respuesta = responder(mensaje, test_phone, uid)
+        respuesta = responder(mensaje, test_phone, uid, perfil_id=pid)
 
         # Clean markdown image syntax — doesn't render in WhatsApp
         respuesta = re.sub(r'!\[.*?\]\(.*?\)\s*', '', respuesta)
@@ -576,7 +613,7 @@ async def test_chat(data: dict, current_user: Usuario = Depends(get_current_user
             "lead_score": c.lead_score if c else 0,
             "datos_capturados": json.loads(c.datos_capturados) if c and c.datos_capturados else None,
             "prompt_preview": prompt_preview,
-            "model": get_config("model", "gpt-4o-mini", usuario_id=uid),
+            "model": get_config("model", "gpt-4o-mini", usuario_id=uid, perfil_id=pid),
         }
 
     except ValueError as e:
@@ -589,15 +626,19 @@ async def test_chat(data: dict, current_user: Usuario = Depends(get_current_user
 
 
 @router.get("/agent-health", summary="Agent health check", description="Returns agent configuration health status.")
-async def agent_health(current_user: Usuario = Depends(get_current_user)):
+async def agent_health(
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     uid = current_user.id
+    pid = perfil.id
     db = SessionLocal()
     try:
         sections = []
         weights = {}
 
         # Identity
-        s = _health_identity(db, uid)
+        s = _health_identity(db, uid, pid)
         sections.append(s); weights[s["id"]] = 20
 
         # Knowledge Base
@@ -617,11 +658,11 @@ async def agent_health(current_user: Usuario = Depends(get_current_user)):
         sections.append(s); weights[s["id"]] = 5
 
         # AI Config
-        s = _health_ai_config(uid)
+        s = _health_ai_config(uid, pid)
         sections.append(s); weights[s["id"]] = 15
 
         # Human Mode
-        s = _health_human_mode(uid)
+        s = _health_human_mode(uid, pid)
         sections.append(s); weights[s["id"]] = 5
 
         # Score
@@ -655,7 +696,7 @@ def _score_status(score):
     return "ok" if score >= 75 else ("warning" if score >= 50 else "error")
 
 
-def _health_identity(db, uid):
+def _health_identity(db, uid, pid=None):
     items = []; score = 0; mx = 4
     for key, label, default in [
         ("agent_name", "Nombre agente", "Asistente"),
@@ -663,7 +704,7 @@ def _health_identity(db, uid):
         ("business_name", "Negocio", "Mi Negocio"),
         ("business_description", "Descripción", ""),
     ]:
-        val = get_config(key, default, usuario_id=uid)
+        val = get_config(key, default, usuario_id=uid, perfil_id=pid)
         ok = bool(val) and val != default and len(val) > 3
         items.append({"key": key, "label": label, "status": "ok" if ok else "warning", "value": val[:80] if val else "(vacío)"})
         if ok: score += 1
@@ -712,27 +753,27 @@ def _health_tools(db, uid):
     return {"id": "tools", "name": "Herramientas", "status": _score_status(score), "score": score, "items": items}
 
 
-def _health_ai_config(uid):
+def _health_ai_config(uid, pid=None):
     items = []; score = 0
     key = get_config("openai_api_key", "", usuario_id=uid) or os.getenv("OPENAI_API_KEY", "")
     items.append({"key": "key", "label": "API Key", "status": "ok" if key else "error", "value": "Configurada" if key else "Falta"})
     if key: score += 50
-    model = get_config("model", "gpt-4o-mini", usuario_id=uid)
+    model = get_config("model", "gpt-4o-mini", usuario_id=uid, perfil_id=pid)
     items.append({"key": "model", "label": "Modelo", "status": "ok", "value": model})
     score += 50
     return {"id": "ai_config", "name": "Configuración IA", "status": _score_status(score), "score": score, "items": items}
 
 
-def _health_human_mode(uid):
+def _health_human_mode(uid, pid=None):
     items = []; score = 0
-    triggers_str = get_config("human_mode_triggers", "[]", usuario_id=uid)
+    triggers_str = get_config("human_mode_triggers", "[]", usuario_id=uid, perfil_id=pid)
     try:
         triggers = json.loads(triggers_str)
     except:
         triggers = []
     items.append({"key": "triggers", "label": "Triggers", "status": "ok" if triggers else "warning", "value": f"{len(triggers)} categorías"})
     if triggers: score += 50
-    expire = int(get_config("human_mode_expire_hours", "0", usuario_id=uid))
+    expire = int(get_config("human_mode_expire_hours", "0", usuario_id=uid, perfil_id=pid))
     items.append({"key": "expire", "label": "Auto-expiración", "status": "ok" if expire > 0 else "warning", "value": f"{expire}h" if expire > 0 else "No"})
     if expire > 0: score += 50
     return {"id": "human_mode", "name": "Modo humano", "status": _score_status(score), "score": score, "items": items}
@@ -742,11 +783,15 @@ def _health_human_mode(uid):
 
 
 @router.get("/skills-status", summary="Get skills status", description="Returns the status and configuration summary of each skill for the frontend Skills tab.")
-async def get_skills_status(current_user: Usuario = Depends(get_current_user)):
+async def get_skills_status(
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
     uid = current_user.id
+    pid = perfil.id
     db = SessionLocal()
     try:
-        orchestrator_mode = get_config("orchestrator_mode", "false", usuario_id=uid) in ("true", "1", "yes")
+        orchestrator_mode = get_config("orchestrator_mode", "false", usuario_id=uid, perfil_id=pid) in ("true", "1", "yes")
 
         # --- Data Capture ---
         campos = db.query(CampoCaptura).filter(
@@ -779,13 +824,13 @@ async def get_skills_status(current_user: Usuario = Depends(get_current_user)):
         faq_detail = f"{cats_count} categorías" if cats_count > 0 else ""
 
         # --- Human Handoff ---
-        triggers_str = get_config("human_mode_triggers", '["frustration","complaint","human_request"]', usuario_id=uid)
+        triggers_str = get_config("human_mode_triggers", '["frustration","complaint","human_request"]', usuario_id=uid, perfil_id=pid)
         try:
             triggers = json.loads(triggers_str)
         except (json.JSONDecodeError, TypeError):
             triggers = []
         triggers_count = len(triggers)
-        expire_hours = int(get_config("human_mode_expire_hours", "0", usuario_id=uid))
+        expire_hours = int(get_config("human_mode_expire_hours", "0", usuario_id=uid, perfil_id=pid))
 
         hh_summary = f"{triggers_count} triggers activos" if triggers_count > 0 else "Sin triggers"
         hh_detail = f"Auto-expira: {expire_hours}h" if expire_hours > 0 else "Sin auto-expiración"
