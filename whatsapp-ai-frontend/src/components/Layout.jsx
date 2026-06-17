@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { toolsApi, businessApi } from '../api/client'
+import { toolsApi, businessApi, perfilesApi } from '../api/client'
 import useSecretReset from '../hooks/useSecretReset'
 import FactoryResetModal from './FactoryResetModal'
 import {
@@ -21,8 +21,81 @@ import {
   BarChart3,
   MessageSquare,
   Users,
-  Send
+  Send,
+  ChevronDown,
+  Plus,
+  Check
 } from 'lucide-react'
+
+function ProfileSelector() {
+  const { perfiles, perfilActivo, cambiarPerfil, reloadPerfiles } = useAuth()
+  const [open, setOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
+
+  const handleCreate = async () => {
+    const nombre = window.prompt('Nombre del nuevo perfil de WhatsApp:')
+    if (!nombre) return
+    setCreating(true)
+    try {
+      const res = await perfilesApi.create({ nombre })
+      await reloadPerfiles()
+      setOpen(false)
+      // Switch to the freshly created profile
+      if (res?.data?.id) cambiarPerfil(res.data.id)
+    } catch {
+      alert('No se pudo crear el perfil')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  if (!perfilActivo) return null
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+      >
+        <span className="text-lg leading-none">{perfilActivo.emoji || '📱'}</span>
+        <span className="text-sm font-semibold text-gray-800 max-w-[120px] truncate">{perfilActivo.nombre}</span>
+        <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full mt-2 w-60 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden">
+            <p className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Perfiles</p>
+            {perfiles.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => p.id !== perfilActivo.id && cambiarPerfil(p.id)}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                  p.id === perfilActivo.id ? 'bg-indigo-50' : ''
+                }`}
+              >
+                <span className="text-lg leading-none">{p.emoji || '📱'}</span>
+                <span className="flex-1 truncate text-gray-800">{p.nombre}</span>
+                {p.id === perfilActivo.id && <Check className="h-4 w-4 text-indigo-600" />}
+              </button>
+            ))}
+            <div className="border-t border-gray-100">
+              <button
+                onClick={handleCreate}
+                disabled={creating}
+                className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-indigo-600 hover:bg-indigo-50 font-medium disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" />
+                {creating ? 'Creando...' : 'Nuevo perfil'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
 
 const MAIN_NAVIGATION = [
   { name: 'Reportes', href: '/', icon: LayoutDashboard, always: true },
@@ -249,6 +322,9 @@ export default function Layout() {
             >
               <Menu className="h-6 w-6" />
             </button>
+
+            {/* Profile selector (Stripe-style switcher) */}
+            <ProfileSelector />
 
             {/* Agent Status Toggle */}
             <button

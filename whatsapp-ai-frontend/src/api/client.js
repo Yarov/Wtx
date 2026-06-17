@@ -8,11 +8,15 @@ const api = axios.create({
   },
 })
 
-// Add token to all requests
+// Add token + active profile to all requests
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
+  }
+  const perfilId = localStorage.getItem('perfil_id')
+  if (perfilId) {
+    config.headers['X-Perfil-ID'] = perfilId
   }
   return config
 })
@@ -162,6 +166,14 @@ export const captureApi = {
 export const agentConfigApi = {
   get: () => api.get('/config/agent-config'),
   update: (data) => api.put('/config/agent-config', data),
+}
+
+export const perfilesApi = {
+  list: () => api.get('/perfiles/'),
+  create: (data) => api.post('/perfiles/', data),
+  update: (id, data) => api.patch(`/perfiles/${id}`, data),
+  delete: (id) => api.delete(`/perfiles/${id}`),
+  activar: (id) => api.post(`/perfiles/${id}/activar`),
 }
 
 export const statsApi = {
