@@ -216,39 +216,23 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 w-64 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 z-50 transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
+      {/* Sidebar — solo desktop. En móvil se usa el bottom nav. */}
+      <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 z-50 flex-col">
         {/* Background decoration */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-20 -right-20 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
           <div className="absolute bottom-20 -left-10 w-32 h-32 bg-black/10 rounded-full blur-2xl" />
         </div>
 
-        <div className="relative flex-shrink-0 flex h-16 items-center justify-between px-6 border-b border-white/20">
+        <div className="relative flex-shrink-0 flex h-16 items-center px-6 border-b border-white/20">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
               <Bot className="h-6 w-6 text-white" />
             </div>
             <span className="text-xl font-bold text-white">Wtx</span>
           </div>
-          <button 
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </div>
-        
+
         <nav className="relative mt-6 px-3 flex-1 overflow-y-auto">
           <div className="space-y-1">
             {mainNavigation.map((item) => (
@@ -308,18 +292,8 @@ export default function Layout() {
         {/* Top Header with Agent Control and User */}
         <header className="sticky top-0 z-10 bg-white border-b border-gray-200 px-3 sm:px-4 lg:px-6 py-2">
           <div className="flex items-center justify-between gap-2">
-            {/* Left cluster: hamburger + profile selector */}
+            {/* Left cluster: profile selector (en móvil se navega con el bottom nav) */}
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-              {/* Mobile menu button */}
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg flex-shrink-0"
-                aria-label="Abrir menú"
-              >
-                <Menu className="h-6 w-6" />
-              </button>
-
-              {/* Profile selector (Stripe-style switcher) */}
               <ProfileSelector />
             </div>
 
