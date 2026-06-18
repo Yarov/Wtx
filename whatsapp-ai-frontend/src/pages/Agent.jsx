@@ -232,9 +232,9 @@ export default function Agent() {
       {/* ─── Header ─── */}
       <div className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-bold text-gray-900">Tu Agente</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Tu Agente</h1>
               {perfilActivo && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-50 border border-violet-100 text-violet-700 text-xs font-medium">
                   <span className="text-sm leading-none">{perfilActivo.emoji || '📱'}</span>
@@ -248,7 +248,7 @@ export default function Agent() {
           </div>
 
           {/* Acciones */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
             {saved && (
               <span className="hidden sm:inline-flex items-center gap-1 text-sm text-emerald-600 font-medium">
                 <Check className="h-4 w-4" /> Guardado
@@ -256,7 +256,7 @@ export default function Agent() {
             )}
             <button
               onClick={() => setTestOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 transition-colors"
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 transition-colors"
             >
               <MessageCircle className="h-4 w-4" />
               Probar
@@ -264,7 +264,7 @@ export default function Agent() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 transition-all disabled:opacity-50 shadow-lg shadow-violet-500/25"
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 transition-all disabled:opacity-50 shadow-lg shadow-violet-500/25"
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               Guardar
@@ -401,31 +401,37 @@ export default function Agent() {
         </details>
       </section>
 
-      {/* ─── Panel de prueba (lateral) ─── */}
+      {/* ─── Panel de prueba (full-screen en móvil, lateral en desktop) ─── */}
       {testOpen && (
         <>
           <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setTestOpen(false)} />
           <div
-            className="fixed top-0 right-0 h-full w-full max-w-md bg-gray-50 shadow-2xl z-50 flex flex-col"
-            style={{ animation: 'slideIn 0.2s ease-out' }}
+            className="fixed inset-0 sm:inset-y-0 sm:left-auto sm:right-0 h-full w-full sm:max-w-md bg-gray-50 shadow-2xl z-50 flex flex-col"
+            style={{ animation: 'agentTestIn 0.2s ease-out' }}
           >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-white">
+            <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-gray-200 bg-white shrink-0">
               <h3 className="font-semibold text-gray-900">Probar tu asistente</h3>
               <button
                 onClick={() => setTestOpen(false)}
-                className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+                className="p-2 -mr-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4">
-              <TestChat embedded />
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 min-h-0">
+              <TestChat embedded fill />
             </div>
           </div>
           <style>{`
-            @keyframes slideIn {
+            @keyframes agentTestIn {
               from { transform: translateX(100%); }
               to { transform: translateX(0); }
+            }
+            @media (max-width: 639px) {
+              @keyframes agentTestIn {
+                from { transform: translateY(100%); }
+                to { transform: translateY(0); }
+              }
             }
           `}</style>
         </>

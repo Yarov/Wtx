@@ -113,7 +113,7 @@ export function FichaSection({ ficha, setFicha, config, setConfig }) {
       {/* Tono */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">¿Cómo habla?</label>
-        <div className="grid grid-cols-3 gap-3 max-w-xl">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl">
           {TONOS.map((tono) => {
             const active = ficha.tono === tono.id
             return (

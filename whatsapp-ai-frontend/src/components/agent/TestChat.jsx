@@ -119,7 +119,7 @@ function MetadataPanel({ meta, expanded, onToggle }) {
   )
 }
 
-export default function TestChat({ embedded = false }) {
+export default function TestChat({ embedded = false, fill = false }) {
   const [isOpen, setIsOpen] = useState(embedded)
   const [messages, setMessages] = useState([])   // { role, content } or { role: 'event', type, detail }
   const [input, setInput] = useState('')
@@ -200,14 +200,20 @@ export default function TestChat({ embedded = false }) {
     <div
       className={
         embedded
-          ? 'w-full bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col'
-          : `fixed bottom-24 right-6 z-50 w-[420px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col transition-all duration-300 origin-bottom-right ${
+          ? fill
+            ? 'w-full h-full bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col'
+            : 'w-full bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col'
+          : `fixed bottom-24 right-4 left-4 sm:left-auto sm:right-6 z-50 sm:w-[420px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col transition-all duration-300 origin-bottom-right ${
               isOpen
                 ? 'opacity-100 scale-100 translate-y-0'
                 : 'opacity-0 scale-95 translate-y-4 pointer-events-none'
             }`
       }
-      style={{ height: embedded ? '600px' : '560px', maxHeight: embedded ? 'calc(100vh - 220px)' : 'calc(100vh - 120px)' }}
+      style={
+        fill
+          ? undefined
+          : { height: embedded ? '600px' : '560px', maxHeight: embedded ? 'calc(100vh - 220px)' : 'calc(100vh - 120px)' }
+      }
     >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-t-2xl flex-shrink-0">

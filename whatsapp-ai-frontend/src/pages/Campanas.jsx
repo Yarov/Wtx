@@ -392,17 +392,17 @@ export default function Campanas() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Campañas</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Campañas</h1>
           <p className="text-gray-500 text-sm">Envía mensajes masivos a tus contactos</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={openTestModal}>
+          <Button variant="secondary" onClick={openTestModal} className="flex-1 sm:flex-none justify-center">
             <Send className="h-4 w-4 mr-2" />
             Probar mensaje
           </Button>
-          <Button onClick={() => navigate('/campanas/nueva')}>
+          <Button onClick={() => navigate('/campanas/nueva')} className="flex-1 sm:flex-none justify-center">
             <Plus className="h-4 w-4 mr-2" />
             Nueva Campaña
           </Button>
@@ -410,7 +410,7 @@ export default function Campanas() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
           <p className="text-sm text-gray-500">Total</p>
@@ -443,11 +443,11 @@ export default function Campanas() {
           </div>
         ) : (
           campanas.map((campana) => (
-            <div key={campana.id} className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-lg font-semibold text-gray-900">{campana.nombre}</h3>
+            <div key={campana.id} className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">{campana.nombre}</h3>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${ESTADOS_BADGE[campana.estado]?.color}`}>
                       {ESTADOS_BADGE[campana.estado]?.label}
                     </span>
@@ -459,8 +459,8 @@ export default function Campanas() {
                     ) : null}
                   </p>
                 </div>
-                
-                <div className="flex items-center gap-2">
+
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
                   {campana.estado === 'borrador' && (
                     <>
                       <button
@@ -553,20 +553,20 @@ export default function Campanas() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white sm:rounded-xl w-full h-full sm:h-auto max-w-2xl sm:max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">
                   {editingCampana ? 'Editar Campaña' : 'Nueva Campaña'}
                 </h2>
-                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 p-2 -mr-2">
                   <X className="h-5 w-5" />
                 </button>
               </div>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-6">
               {/* Nombre */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de la campaña</label>
@@ -701,19 +701,19 @@ export default function Campanas() {
 
                 {/* Excluir contactos con campaña reciente */}
                 <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <input
                       type="checkbox"
                       id="excluir-campana-check"
                       checked={!!formData.filtro_valor.excluir_campana_dias}
-                      onChange={(e) => setFormData({ 
-                        ...formData, 
-                        filtro_valor: { 
-                          ...formData.filtro_valor, 
-                          excluir_campana_dias: e.target.checked ? 7 : null 
-                        } 
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        filtro_valor: {
+                          ...formData.filtro_valor,
+                          excluir_campana_dias: e.target.checked ? 7 : null
+                        }
                       })}
-                      className="rounded text-indigo-600"
+                      className="rounded text-indigo-600 shrink-0"
                     />
                     <label htmlFor="excluir-campana-check" className="text-sm text-gray-700">
                       Excluir si recibió campaña en últimos
@@ -735,19 +735,19 @@ export default function Campanas() {
                   </div>
                   
                   {/* Límite opcional */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <input
                       type="checkbox"
                       id="limite-check"
                       checked={!!formData.filtro_valor.limite}
-                      onChange={(e) => setFormData({ 
-                        ...formData, 
-                        filtro_valor: { 
-                          ...formData.filtro_valor, 
-                          limite: e.target.checked ? 100 : null 
-                        } 
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        filtro_valor: {
+                          ...formData.filtro_valor,
+                          limite: e.target.checked ? 100 : null
+                        }
                       })}
-                      className="rounded text-indigo-600"
+                      className="rounded text-indigo-600 shrink-0"
                     />
                     <label htmlFor="limite-check" className="text-sm text-gray-700">
                       Limitar a máximo
@@ -870,7 +870,7 @@ export default function Campanas() {
               </div>
             </div>
 
-            <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-3">
+            <div className="p-4 sm:p-6 border-t border-gray-200 flex items-center justify-end gap-3 sticky bottom-0 bg-white">
               <Button variant="secondary" onClick={() => setShowModal(false)}>
                 Cancelar
               </Button>
@@ -884,19 +884,19 @@ export default function Campanas() {
 
       {/* Modal de Prueba */}
       {showTestModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-lg">
-            <div className="p-6 border-b border-gray-200">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white sm:rounded-xl w-full h-full sm:h-auto max-w-lg sm:max-h-[90vh] overflow-y-auto flex flex-col">
+            <div className="p-4 sm:p-6 border-b border-gray-200 shrink-0">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Probar Mensaje</h2>
-                <button onClick={() => setShowTestModal(false)} className="text-gray-400 hover:text-gray-600">
+                <button onClick={() => setShowTestModal(false)} className="text-gray-400 hover:text-gray-600 p-2 -mr-2">
                   <X className="h-5 w-5" />
                 </button>
               </div>
               <p className="text-sm text-gray-500 mt-1">Envía un mensaje de prueba antes de crear una campaña</p>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4 flex-1 overflow-y-auto">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Mensaje</label>
                 <textarea
@@ -911,11 +911,11 @@ export default function Campanas() {
                 </p>
                 
                 {/* IA Controls for Test */}
-                <div className="mt-2 flex gap-2">
+                <div className="mt-2 flex flex-wrap gap-2">
                   <select
                     value={aiObjective}
                     onChange={(e) => setAiObjective(e.target.value)}
-                    className="px-2 py-1.5 text-sm border border-violet-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="flex-1 min-w-[120px] px-2 py-1.5 text-sm border border-violet-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-500"
                   >
                     <option value="promocion">Promoción</option>
                     <option value="reactivacion">Reactivación</option>
@@ -1035,7 +1035,7 @@ export default function Campanas() {
               )}
             </div>
 
-            <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-3">
+            <div className="p-4 sm:p-6 border-t border-gray-200 flex items-center justify-end gap-3 shrink-0 bg-white">
               <Button variant="secondary" onClick={() => setShowTestModal(false)}>
                 Cerrar
               </Button>

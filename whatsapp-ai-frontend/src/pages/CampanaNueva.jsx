@@ -158,26 +158,26 @@ export default function CampanaNueva() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button 
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <button
                 onClick={() => navigate('/campanas')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
               >
                 <ArrowLeft className="h-5 w-5 text-gray-600" />
               </button>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Nueva Campaña</h1>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900">Nueva Campaña</h1>
                 <p className="text-sm text-gray-500">Configura y envía mensajes masivos</p>
               </div>
             </div>
-            
-            <div className="flex items-center gap-3">
-              <Button variant="secondary" onClick={() => navigate('/campanas')}>
+
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Button variant="secondary" onClick={() => navigate('/campanas')} className="flex-1 sm:flex-none justify-center">
                 Cancelar
               </Button>
-              <Button onClick={handleSave} loading={saving}>
+              <Button onClick={handleSave} loading={saving} className="flex-1 sm:flex-none justify-center">
                 <Send className="h-4 w-4 mr-2" />
                 Crear Campaña
               </Button>
@@ -185,16 +185,16 @@ export default function CampanaNueva() {
           </div>
         </div>
       </div>
-      
+
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-3 gap-8">
-          
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+
           {/* Columna izquierda - Configuración */}
-          <div className="col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-6">
             
             {/* Nombre */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Nombre de la campaña
               </label>
@@ -208,14 +208,14 @@ export default function CampanaNueva() {
             </div>
             
             {/* Destinatarios */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Users className="h-5 w-5 text-indigo-600" />
                 <h2 className="text-lg font-semibold text-gray-900">Destinatarios</h2>
               </div>
-              
+
               {/* Filtros principales */}
-              <div className="grid grid-cols-2 gap-3 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
                 {FILTROS.map((filtro) => {
                   const Icon = filtro.icon
                   const isSelected = formData.filtro_tipo === filtro.value
@@ -300,15 +300,15 @@ export default function CampanaNueva() {
               
               {/* Opciones adicionales */}
               <div className="border-t border-gray-100 pt-4 space-y-3">
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-3">
                   <input
                     type="checkbox"
                     id="excluir-campana"
                     checked={!!formData.filtro_valor.excluir_campana_dias}
                     onChange={(e) => updateFiltroValor('excluir_campana_dias', e.target.checked ? 7 : null)}
-                    className="rounded text-indigo-600 focus:ring-indigo-500"
+                    className="rounded text-indigo-600 focus:ring-indigo-500 mt-0.5 shrink-0"
                   />
-                  <label htmlFor="excluir-campana" className="text-sm text-gray-700 flex items-center gap-2">
+                  <label htmlFor="excluir-campana" className="text-sm text-gray-700 flex items-center gap-2 flex-wrap">
                     Excluir si recibió campaña en últimos
                     {formData.filtro_valor.excluir_campana_dias && (
                       <input
@@ -322,15 +322,15 @@ export default function CampanaNueva() {
                   </label>
                 </div>
                 
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-3">
                   <input
                     type="checkbox"
                     id="limite"
                     checked={!!formData.filtro_valor.limite}
                     onChange={(e) => updateFiltroValor('limite', e.target.checked ? 100 : null)}
-                    className="rounded text-indigo-600 focus:ring-indigo-500"
+                    className="rounded text-indigo-600 focus:ring-indigo-500 mt-0.5 shrink-0"
                   />
-                  <label htmlFor="limite" className="text-sm text-gray-700 flex items-center gap-2">
+                  <label htmlFor="limite" className="text-sm text-gray-700 flex items-center gap-2 flex-wrap">
                     Limitar a máximo
                     {formData.filtro_valor.limite && (
                       <input
@@ -347,18 +347,18 @@ export default function CampanaNueva() {
             </div>
             
             {/* Mensaje */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <div className="flex items-center gap-2">
                   <MessageSquare className="h-5 w-5 text-indigo-600" />
                   <h2 className="text-lg font-semibold text-gray-900">Mensaje</h2>
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <select
                     value={aiObjective}
                     onChange={(e) => setAiObjective(e.target.value)}
-                    className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg"
+                    className="flex-1 sm:flex-none px-3 py-1.5 text-sm border border-gray-200 rounded-lg"
                   >
                     {OBJETIVOS_IA.map((obj) => (
                       <option key={obj.value} value={obj.value}>{obj.label}</option>
@@ -367,7 +367,7 @@ export default function CampanaNueva() {
                   <button
                     onClick={handleImproveMessage}
                     disabled={improving}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white text-sm rounded-lg hover:from-violet-600 hover:to-purple-700 disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white text-sm rounded-lg hover:from-violet-600 hover:to-purple-700 disabled:opacity-50 whitespace-nowrap"
                   >
                     {improving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                     {formData.mensaje ? 'Mejorar con IA' : 'Generar con IA'}
@@ -400,7 +400,7 @@ Usa variables para personalizar:
             </div>
             
             {/* Velocidad */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-2">
                 <Settings className="h-5 w-5 text-indigo-600" />
                 <h2 className="text-lg font-semibold text-gray-900">Velocidad de envío</h2>
@@ -446,7 +446,7 @@ Usa variables para personalizar:
           {/* Columna derecha - Preview */}
           <div className="space-y-6">
             {/* Preview de destinatarios */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 sticky top-24">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 lg:sticky lg:top-24">
               <div className="flex items-center gap-2 mb-4">
                 <Eye className="h-5 w-5 text-indigo-600" />
                 <h2 className="text-lg font-semibold text-gray-900">Vista previa</h2>

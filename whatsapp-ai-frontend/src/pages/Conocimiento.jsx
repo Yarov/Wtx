@@ -358,8 +358,8 @@ export default function Conocimiento() {
                               {/* Toggle activo */}
                               <VioletToggle enabled={!!doc.activo} onChange={() => toggleActivo(doc)} />
 
-                              {/* Acciones en hover */}
-                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {/* Acciones (siempre visibles en móvil, en hover en desktop) */}
+                              <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                                 <button
                                   onClick={() => openEdit(doc)}
                                   className="p-1.5 text-gray-400 hover:text-violet-600 rounded-lg hover:bg-violet-50"
@@ -496,7 +496,7 @@ export default function Conocimiento() {
             </form>
 
             {/* Acciones fijas abajo */}
-            <div className="border-t border-gray-100 p-4 flex items-center gap-3">
+            <div className="border-t border-gray-100 p-4 flex items-center gap-2 sm:gap-3 shrink-0">
               {editDoc && (
                 <button
                   type="button"
@@ -510,7 +510,7 @@ export default function Conocimiento() {
               <button
                 type="button"
                 onClick={closeSidebar}
-                className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="px-3 sm:px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 Cancelar
               </button>
