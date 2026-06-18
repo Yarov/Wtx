@@ -54,20 +54,20 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold text-gray-900">Reportes</h1>
+      <div className="flex items-start sm:items-center justify-between flex-wrap gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Reportes</h1>
             {perfilActivo && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-50 border border-violet-100 text-violet-700 text-xs font-semibold">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-50 border border-violet-100 text-violet-700 text-xs font-semibold max-w-full">
                 <span className="text-sm leading-none">{perfilActivo.emoji || '📱'}</span>
-                {perfilActivo.nombre}
+                <span className="truncate">{perfilActivo.nombre}</span>
               </span>
             )}
           </div>
           <p className="text-gray-400 mt-0.5 text-sm capitalize">{today.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           <button onClick={refresh} disabled={refreshing} className="p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg disabled:opacity-50">
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
@@ -120,7 +120,7 @@ export default function Dashboard() {
             <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide">El camino del cliente</h3>
             <Link to="/agent" className="text-xs text-violet-600 hover:text-fuchsia-600 font-medium flex items-center gap-1"><Settings className="h-3 w-3" /> Configurar</Link>
           </div>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {funnelEntries.map(([key, step], i) => {
               const pct = Math.round((step.count / funnelTotal) * 100)
               // Escala violet→fuchsia segun la etapa
@@ -216,17 +216,17 @@ function mix(a, b, t) {
 
 function KPI({ label, value, trend, sub, sparkData, sparkColor, link, loading }) {
   const inner = (
-    <div className="bg-white rounded-2xl border border-gray-100 p-5 hover:border-violet-200 hover:shadow-sm transition-all">
+    <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5 hover:border-violet-200 hover:shadow-sm transition-all">
       <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{label}</p>
-      <div className="flex items-end justify-between mt-2">
-        <div>
-          {loading ? <div className="h-9 w-14 bg-gray-100 rounded animate-pulse" /> : <p className="text-3xl font-bold text-gray-900">{typeof value === 'number' ? value.toLocaleString() : value}</p>}
+      <div className="flex items-end justify-between gap-2 mt-2">
+        <div className="min-w-0">
+          {loading ? <div className="h-9 w-14 bg-gray-100 rounded animate-pulse" /> : <p className="text-2xl sm:text-3xl font-bold text-gray-900">{typeof value === 'number' ? value.toLocaleString() : value}</p>}
           <div className="flex items-center gap-2 mt-0.5 h-4">
             {trend !== undefined && trend !== 0 && <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${trend > 0 ? 'text-emerald-600' : 'text-red-500'}`}>{trend > 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}{Math.abs(trend)}</span>}
-            {sub && <span className="text-[11px] text-gray-400">{sub}</span>}
+            {sub && <span className="text-[11px] text-gray-400 truncate">{sub}</span>}
           </div>
         </div>
-        {sparkData?.length > 1 && <Sparkline data={sparkData} color={sparkColor} />}
+        {sparkData?.length > 1 && <div className="hidden xs:block flex-shrink-0"><Sparkline data={sparkData} color={sparkColor} /></div>}
       </div>
     </div>
   )

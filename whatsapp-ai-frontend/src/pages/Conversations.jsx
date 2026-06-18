@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { MessagesSquare, User, Trash2, Search, Send, X, Bot, CheckCircle, ArrowRight, Database, Wifi, WifiOff, Smartphone, Monitor } from 'lucide-react'
+import { MessagesSquare, User, Trash2, Search, Send, X, Bot, CheckCircle, ArrowRight, ArrowLeft, Database, Wifi, WifiOff, Smartphone, Monitor } from 'lucide-react'
 import { conversationsApi, contactosApi } from '../api/client'
 import { ConfirmDialog } from '../components/ui'
 import useWebSocket from '../hooks/useWebSocket'
@@ -203,9 +203,9 @@ export default function Conversations() {
   const getLeadColor = (estado) => LEAD_COLORS[estado] || LEAD_COLORS.nuevo
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex -m-4 lg:-m-8 bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-      {/* List */}
-      <div className="w-80 border-r border-gray-200 flex flex-col flex-shrink-0">
+    <div className="h-[calc(100vh-7rem)] lg:h-[calc(100vh-8rem)] flex -m-4 lg:-m-8 bg-white rounded-none lg:rounded-2xl border-0 lg:border border-gray-100 overflow-hidden shadow-sm">
+      {/* List — full width on mobile, hidden when a chat is open */}
+      <div className={`${selected ? 'hidden lg:flex' : 'flex'} w-full lg:w-80 border-r border-gray-200 flex-col flex-shrink-0`}>
         <div className="p-4 border-b border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-gray-900">Conversaciones</h2>
@@ -278,30 +278,35 @@ export default function Conversations() {
         </div>
       </div>
 
-      {/* Chat */}
-      <div className="flex-1 flex flex-col bg-gray-50 min-w-0">
+      {/* Chat — full width on mobile when open; placeholder only on desktop */}
+      <div className={`${selected ? 'flex' : 'hidden lg:flex'} flex-1 flex-col bg-gray-50 min-w-0`}>
         {selected ? (
           <>
             {/* Header */}
-            <div className="bg-white px-5 py-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white font-semibold">
+            <div className="bg-white px-3 sm:px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                {/* Back to list (mobile only) */}
+                <button onClick={() => setSelected(null)}
+                  className="lg:hidden p-2 -ml-1 rounded-lg text-gray-500 hover:bg-gray-100 flex-shrink-0">
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
                   {(contactData?.nombre || selectedConv?.nombre || selected)[0]?.toUpperCase()}
                 </div>
-                <div>
-                  <p className="font-semibold text-gray-900">{contactData?.nombre || selectedConv?.nombre || selected}</p>
+                <div className="min-w-0">
+                  <p className="font-semibold text-gray-900 truncate">{contactData?.nombre || selectedConv?.nombre || selected}</p>
                   <div className="flex items-center gap-2 text-xs text-gray-500">
-                    {contactData?.paso_funnel && <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded">Paso: {contactData.paso_funnel}</span>}
+                    {contactData?.paso_funnel && <span className="hidden sm:inline px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded truncate max-w-[140px]">Paso: {contactData.paso_funnel}</span>}
                     {contactData?.estado_lead && <span className={`px-1.5 py-0.5 rounded-full ${getLeadColor(contactData.estado_lead)}`}>{contactData.estado_lead}</span>}
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                 {contactData?.lead_score > 0 && (
-                  <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-sm rounded-full font-medium">{contactData.lead_score}%</span>
+                  <span className="hidden sm:inline px-3 py-1 bg-indigo-50 text-indigo-700 text-sm rounded-full font-medium">{contactData.lead_score}%</span>
                 )}
                 <button onClick={toggleHumanMode}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  className={`px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap ${
                     contactData?.modo_humano
                       ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
                       : 'bg-gray-100 text-gray-600 hover:bg-orange-100 hover:text-orange-700'
@@ -320,7 +325,7 @@ export default function Conversations() {
             </div>
 
             {/* Messages */}
-            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3"
+            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-3 sm:px-5 py-4 space-y-3"
               onScroll={e => {
                 if (e.target.scrollTop === 0 && hasMore && !loadingMore) {
                   loadOlderMessages()
@@ -341,8 +346,8 @@ export default function Conversations() {
                   const cleanContent = (msg.contenido || '').replace(/\s*\(error:.*\)/i, '')
                   return (
                     <div key={msg.id || idx} className="flex justify-center">
-                      <div className="bg-white rounded-xl px-4 py-2.5 shadow-sm border border-gray-100 max-w-md">
-                        <div className="flex items-center gap-2 justify-center text-xs text-gray-600">
+                      <div className="bg-white rounded-xl px-4 py-2.5 shadow-sm border border-gray-100 max-w-[90%] sm:max-w-md">
+                        <div className="flex items-center gap-2 justify-center text-xs text-gray-600 text-center break-words">
                           {msg.tipo_evento === 'datos_guardados' && <Database className="h-3.5 w-3.5 text-indigo-500" />}
                           {msg.tipo_evento === 'paso_avanzado' && <ArrowRight className="h-3.5 w-3.5 text-violet-500" />}
                           {msg.tipo_evento === 'intervencion_humana' && <User className="h-3.5 w-3.5 text-orange-500" />}
@@ -359,7 +364,7 @@ export default function Conversations() {
                 const meta = msg.metadata || {}
                 return (
                   <div key={msg.id || idx} className={`flex ${isUser ? 'justify-start' : 'justify-end'}`}>
-                    <div className={`max-w-[70%] rounded-2xl px-4 py-2.5 shadow-sm ${
+                    <div className={`max-w-[85%] sm:max-w-[70%] break-words rounded-2xl px-4 py-2.5 shadow-sm ${
                       isUser
                         ? 'bg-white border border-gray-100 text-gray-800'
                         : 'bg-indigo-600 text-white'
@@ -395,7 +400,7 @@ export default function Conversations() {
                         </div>
                       )}
                       {msg.contenido && msg.contenido !== '[Imagen]' && msg.contenido !== '[Video]' && msg.contenido !== '[Archivo]' && (
-                        <p className="text-sm whitespace-pre-wrap">{msg.contenido}</p>
+                        <p className="text-sm whitespace-pre-wrap break-words">{msg.contenido}</p>
                       )}
                       <p className={`text-[10px] text-right mt-1 ${isUser ? 'text-gray-400' : 'text-indigo-300'}`}>
                         {msg.created_at ? new Date(msg.created_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : ''}
@@ -423,14 +428,14 @@ export default function Conversations() {
             </div>
 
             {/* Input */}
-            <div className="bg-white px-5 py-3 border-t border-gray-100 flex-shrink-0">
-              <div className="flex gap-3">
+            <div className="bg-white px-3 sm:px-5 py-3 border-t border-gray-100 flex-shrink-0">
+              <div className="flex gap-2 sm:gap-3">
                 <input ref={inputRef} value={newMessage} onChange={e => setNewMessage(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
                   placeholder="Escribe un mensaje..." disabled={sending} autoFocus
-                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  className="flex-1 min-w-0 px-4 py-2.5 border border-gray-200 rounded-xl text-base sm:text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                 <button onClick={handleSend} disabled={sending || !newMessage.trim()}
-                  className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+                  className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors flex-shrink-0">
                   <Send className="h-5 w-5" />
                 </button>
               </div>
@@ -447,9 +452,9 @@ export default function Conversations() {
         )}
       </div>
 
-      {/* Contact Sidebar */}
+      {/* Contact Sidebar — overlay/full-screen on mobile, column on desktop */}
       {showSidebar && contactData && (
-        <div className="w-80 bg-white border-l border-gray-200 flex-shrink-0 overflow-y-auto">
+        <div className="fixed inset-0 z-30 w-full bg-white overflow-y-auto lg:static lg:inset-auto lg:z-auto lg:w-80 lg:border-l lg:border-gray-200 lg:flex-shrink-0">
           <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center">
             <h3 className="font-semibold text-gray-900">Datos del Cliente</h3>
             <button onClick={() => setShowSidebar(false)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="h-4 w-4 text-gray-400" /></button>

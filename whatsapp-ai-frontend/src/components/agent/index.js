@@ -1,2 +1,10 @@
-export { default as PersonalityTab } from './PersonalityTab'
+export {
+  FichaSection,
+  CaptureFieldsSection,
+  HumanModeSection,
+  AdvancedSettingsSection,
+  buildSectionsFromFicha,
+  buildSystemPromptFromSections,
+  deriveFichaFromSections,
+} from './PersonalityTab'
 export { default as TestChat } from './TestChat'

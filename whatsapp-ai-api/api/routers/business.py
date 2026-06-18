@@ -111,7 +111,7 @@ def init_all_default_data(db: Session, usuario_id: int = 0):
     if db.query(Configuracion).filter(Configuracion.usuario_id == usuario_id).count() == 0:
         default_config = [
             ("system_prompt", """Eres un asistente de WhatsApp profesional.
-Ofreces servicios, agendas citas y consultas inventario.
+Atiendes a los clientes del negocio, respondes sus dudas y das información.
 Responde claro, corto y amable.
 Siempre saluda al cliente y ofrece ayuda."""),
             ("model", "gpt-4o-mini"),
@@ -496,7 +496,7 @@ async def factory_reset(
 ):
     """
     Reset selectivo o completo de la base de datos.
-    sections puede incluir: contactos, citas, campanas, inventario, conversaciones, configuracion, horarios
+    sections puede incluir: contactos, campanas, conversaciones, configuracion
     Si sections esta vacio, se borra todo.
     Solo usuarios admin pueden ejecutar esto.
     """
@@ -504,8 +504,7 @@ async def factory_reset(
         raise HTTPException(status_code=403, detail="Solo administradores pueden ejecutar factory reset")
 
     sections = data.sections if data.sections else [
-        'contactos', 'citas', 'campanas', 'inventario',
-        'conversaciones', 'configuracion', 'horarios', 'usuarios'
+        'contactos', 'campanas', 'conversaciones', 'configuracion', 'usuarios'
     ]
 
     deleted = {}

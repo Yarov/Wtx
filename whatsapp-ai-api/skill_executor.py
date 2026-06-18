@@ -206,19 +206,41 @@ def skill_data_capture(message: str, context: dict, db) -> dict:
             events.append({"type": "datos_guardados", "datos": datos_extraidos})
             update_lead_score(db, telefono, usuario_id)
             update_lead_state(db, telefono, usuario_id)
-            _check_funnel_advance(db, telefono, usuario_id)
 
-        # Determine what fields are still pending
+        # ¿Datos mínimos completos? -> pasar a un humano (modelo de primer contacto)
+        obligatorios = [
+            f for f in CaptureService.get_fields(db, usuario_id) if f.get("obligatorio")
+        ]
         pending = CaptureService.get_missing_fields(db, usuario_id, telefono)
         pending_names = [f["etiqueta"] for f in pending]
 
-        if pending_names:
+        if obligatorios and not pending:
+            # Lead calificado: ya tenemos los datos mínimos -> handoff automático
+            from agent import transferir_a_humano
+
+            transferir_a_humano(
+                telefono, "Datos mínimos completos: lead calificado", usuario_id=usuario_id
+            )
+            MessageService.add_system_event(
+                db,
+                telefono,
+                "intervencion_humana",
+                "Lead calificado (datos mínimos completos). Transferido a atención humana.",
+                metadata={"razon": "datos_completos"},
+                usuario_id=usuario_id,
+            )
+            events.append({"type": "intervencion_humana", "razon": "datos_completos"})
+            hint = (
+                "Ya tienes todos los datos del cliente. Despídete de forma breve y amable y dile "
+                "que en un momento un asesor lo va a contactar. NO sigas haciendo más preguntas."
+            )
+        elif pending_names:
             hint = (
                 "Datos pendientes por capturar: " + ", ".join(pending_names) + ". "
                 "Busca obtener estos datos de forma natural durante la conversacion, sin pedirlos todos de golpe."
             )
         else:
-            hint = "Ya se tienen todos los datos necesarios del cliente."
+            hint = "Continúa la conversación de forma natural y útil."
 
         if datos_extraidos:
             captured_desc = ", ".join(f"{k}={v}" for k, v in datos_extraidos.items())
@@ -325,6 +347,13 @@ def execute_skill(intent_result, message: str, context: dict, db) -> dict:
     """
     primary = getattr(intent_result, "primary", None) or "free_chat"
     secondary = getattr(intent_result, "secondary", None)
+
+    # Modelo de primer contacto: en cada mensaje intentamos capturar los datos
+    # mínimos del cliente; al completarlos, data_capture pasa la conversación a
+    # un humano. Por eso forzamos data_capture como skill secundario salvo que
+    # el principal ya sea captura o handoff.
+    if not secondary and primary not in ("data_capture", "human_handoff"):
+        secondary = "data_capture"
 
     skill_fn = SKILL_MAP.get(primary, skill_free_chat)
     logger.info(f"Executing skill: {primary} (secondary: {secondary})")

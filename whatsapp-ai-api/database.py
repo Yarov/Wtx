@@ -440,8 +440,8 @@ def init_default_data():
         default_config = [
             (
                 "system_prompt",
-                """Eres un asistente de WhatsApp para una barbería/salón.
-Ofreces servicios, agendas citas y consultas inventario.
+                """Eres un asistente de WhatsApp profesional.
+Atiendes a los clientes del negocio, respondes sus dudas y das información.
 Responde claro, corto y amable.
 Siempre saluda al cliente y ofrece ayuda.""",
             ),

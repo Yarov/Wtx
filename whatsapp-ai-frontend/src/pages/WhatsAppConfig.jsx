@@ -125,8 +125,12 @@ export default function WhatsAppConfig() {
           </div>
         ) : status === 'SCAN_QR_CODE' && qrCode ? (
           <div className="text-center py-4">
-            <div className="bg-white p-4 rounded-lg border border-gray-200 inline-block mb-4">
-              <img src={qrCode} alt="Código QR" className="w-56 h-56" />
+            <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 inline-block mb-4">
+              <img
+                src={qrCode}
+                alt="Código QR"
+                className="w-48 h-48 sm:w-56 sm:h-56 max-w-full"
+              />
             </div>
             <p className="font-medium text-gray-900 mb-2">Escanea el código QR</p>
             <p className="text-sm text-gray-500">

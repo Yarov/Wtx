@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Extra-small breakpoint for fine-grained mobile control (e.g. 360-414px phones) */
+@theme {
+  --breakpoint-xs: 475px;
+}
+
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
