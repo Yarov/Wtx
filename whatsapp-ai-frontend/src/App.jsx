@@ -1,7 +1,8 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { AuthProvider } from './contexts/AuthContext'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
+import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
@@ -15,6 +16,16 @@ import WhatsAppConfig from './pages/WhatsAppConfig'
 import Conocimiento from './pages/Conocimiento'
 import Funnel from './pages/Funnel'
 
+function RootGate() {
+  const { isAuthenticated, loading } = useAuth()
+  const location = useLocation()
+  if (loading) return null
+  if (!isAuthenticated) {
+    return location.pathname === '/' ? <Landing /> : <Navigate to="/login" replace />
+  }
+  return <Layout />
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -23,8 +34,8 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/setup" element={<ProtectedRoute><Setup /></ProtectedRoute>} />
-          
-          <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+
+          <Route path="/" element={<RootGate />}>
             <Route index element={<Dashboard />} />
             <Route path="agent" element={<Agent />} />
             <Route path="conversations" element={<Conversations />} />
