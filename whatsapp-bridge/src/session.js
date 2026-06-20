@@ -331,22 +331,32 @@ export class Session {
 
       const contact = await msg.getContact();
 
-      // Resolve phone number
+      // Resolve the phone number of the OTHER party in the chat.
+      // For outgoing (fromMe) messages msg.getContact() returns US (the
+      // sender), so the recipient must be resolved from msg.to. Otherwise an
+      // "@lid" recipient gets resolved against our own number and the message
+      // lands in our own chat instead of the customer's thread.
       let fromPhone = msg.from;
+      let otherParty = contact;
       if (msg.fromMe) {
-        // Mensaje saliente: el "to" es el contacto
         fromPhone = msg.to || msg.from;
+        try {
+          otherParty = await this.client.getContactById(msg.to);
+        } catch (err) {
+          this.logger.warn({ err: err.message }, "Could not resolve recipient contact");
+        }
       }
 
       if (fromPhone.endsWith("@lid")) {
         const realNumber =
-          contact?.number ||
-          msg._data?.from?.user ||
+          otherParty?.number ||
+          (msg.fromMe ? msg._data?.to?.user : msg._data?.from?.user) ||
           msg._data?.author?.replace("@s.whatsapp.net", "").replace("@c.us", "") ||
           null;
         if (realNumber) {
-          fromPhone = `${realNumber}@c.us`;
-          this.logger.info({ lid: msg.from, resolved: fromPhone }, "Resolved LID to phone");
+          const resolved = `${realNumber}@c.us`;
+          this.logger.info({ lid: fromPhone, resolved, fromMe: msg.fromMe }, "Resolved LID to phone");
+          fromPhone = resolved;
         }
       }
 
@@ -415,7 +425,7 @@ export class Session {
           mediaType: mediaType,
           quotedMsg: quotedMsg,
           id: { id: msg.id?.id || msg.id?._serialized || null },
-          pushName: contact?.pushname || msg._data?.notifyName || null,
+          pushName: otherParty?.pushname || otherParty?.name || msg._data?.notifyName || null,
         },
       };
 
