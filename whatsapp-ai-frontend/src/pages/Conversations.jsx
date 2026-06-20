@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { MessagesSquare, User, Trash2, Search, Send, X, Bot, CheckCircle, ArrowRight, ArrowLeft, Database, Wifi, WifiOff, Smartphone, Monitor } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
+import { MessagesSquare, User, Trash2, Search, Send, X, Bot, CheckCircle, ArrowRight, ArrowLeft, Database, Wifi, WifiOff, Smartphone, Monitor, Smile, Paperclip, Reply } from 'lucide-react'
 import { conversationsApi, contactosApi } from '../api/client'
 import { ConfirmDialog } from '../components/ui'
 import useWebSocket from '../hooks/useWebSocket'
+
+const EmojiPicker = lazy(() => import('emoji-picker-react'))
 
 const LEAD_COLORS = {
   nuevo: 'bg-blue-100 text-blue-700',
@@ -27,9 +29,19 @@ export default function Conversations() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  // Emoji / reply / imagen
+  const [showEmoji, setShowEmoji] = useState(false)
+  const [replyingTo, setReplyingTo] = useState(null)
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
+  const [imageCaption, setImageCaption] = useState('')
+  const [imageViewOnce, setImageViewOnce] = useState(false)
+  const [sendingImage, setSendingImage] = useState(false)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const inputRef = useRef(null)
+  const fileInputRef = useRef(null)
+  const emojiRef = useRef(null)
   const isFirstLoad = useRef(true)
 
   const selectedRef = useRef(selected)
@@ -76,6 +88,16 @@ export default function Conversations() {
 
   const { connected: wsConnected } = useWebSocket(handleWsMessage)
 
+  // Cerrar emoji picker al hacer click afuera
+  useEffect(() => {
+    if (!showEmoji) return
+    const handler = (e) => {
+      if (emojiRef.current && !emojiRef.current.contains(e.target)) setShowEmoji(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showEmoji])
+
   useEffect(() => { loadConversations() }, [])
 
   // Scroll al fondo solo en primera carga
@@ -106,6 +128,8 @@ export default function Conversations() {
     isFirstLoad.current = true
     setMessages([])
     setHasMore(false)
+    setReplyingTo(null)
+    setShowEmoji(false)
     try {
       const res = await conversationsApi.getConversation(phone, { limit: 30 })
       setMessages(res.data.messages || [])
@@ -151,10 +175,16 @@ export default function Conversations() {
   const handleSend = async () => {
     if (!newMessage.trim() || !selected || sending) return
     const msg = newMessage
+    const reply = replyingTo
     setNewMessage('')
+    setReplyingTo(null)
+    setShowEmoji(false)
     setSending(true)
     try {
-      await conversationsApi.sendMessage(selected, msg)
+      const opts = reply?.wa_id
+        ? { quoted_wa_id: reply.wa_id, quoted_body: reply.body, quoted_from_me: reply.fromMe }
+        : {}
+      await conversationsApi.sendMessage(selected, msg, opts)
       const res = await conversationsApi.getConversation(selected, { limit: 30 })
       setMessages(res.data.messages || [])
       // Scroll al fondo despues de enviar
@@ -163,6 +193,77 @@ export default function Conversations() {
     setSending(false)
     // Re-focus input
     setTimeout(() => inputRef.current?.focus(), 50)
+  }
+
+  const handleEmojiSelect = (emojiData) => {
+    const emoji = emojiData.emoji
+    const input = inputRef.current
+    if (input && typeof input.selectionStart === 'number') {
+      const start = input.selectionStart
+      const end = input.selectionEnd
+      setNewMessage(prev => prev.slice(0, start) + emoji + prev.slice(end))
+      requestAnimationFrame(() => {
+        input.focus()
+        const pos = start + emoji.length
+        input.setSelectionRange(pos, pos)
+      })
+    } else {
+      setNewMessage(prev => prev + emoji)
+      setTimeout(() => inputRef.current?.focus(), 0)
+    }
+    setShowEmoji(false)
+  }
+
+  const startReply = (msg) => {
+    if (!msg.metadata?.wa_id) return
+    setReplyingTo({
+      wa_id: msg.metadata.wa_id,
+      body: msg.contenido,
+      fromMe: msg.rol === 'assistant',
+    })
+    setTimeout(() => inputRef.current?.focus(), 50)
+  }
+
+  const handleFilePick = (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // permitir re-seleccionar el mismo archivo
+    if (!file) return
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+    setImageCaption('')
+    setImageViewOnce(false)
+  }
+
+  const cancelImage = () => {
+    if (imagePreview) URL.revokeObjectURL(imagePreview)
+    setImageFile(null)
+    setImagePreview(null)
+    setImageCaption('')
+    setImageViewOnce(false)
+  }
+
+  const handleSendImage = async () => {
+    if (!imageFile || !selected || sendingImage) return
+    const file = imageFile
+    const caption = imageCaption
+    const viewOnce = imageViewOnce
+    const reply = replyingTo
+    setSendingImage(true)
+    try {
+      const opts = { caption, viewOnce }
+      if (reply?.wa_id) {
+        opts.quoted_wa_id = reply.wa_id
+        opts.quoted_body = reply.body
+        opts.quoted_from_me = reply.fromMe
+      }
+      await conversationsApi.sendImage(selected, file, opts)
+      cancelImage()
+      setReplyingTo(null)
+      const res = await conversationsApi.getConversation(selected, { limit: 30 })
+      setMessages(res.data.messages || [])
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+    } catch (e) { console.error(e) }
+    setSendingImage(false)
   }
 
   const handleDelete = async () => {
@@ -362,8 +463,15 @@ export default function Conversations() {
 
                 const isUser = msg.rol === 'user'
                 const meta = msg.metadata || {}
+                const canReply = !!meta.wa_id
                 return (
-                  <div key={msg.id || idx} className={`flex ${isUser ? 'justify-start' : 'justify-end'}`}>
+                  <div key={msg.id || idx} className={`group flex items-center gap-1.5 ${isUser ? 'justify-start' : 'justify-end'}`}>
+                    {!isUser && canReply && (
+                      <button onClick={() => startReply(msg)} title="Responder"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full text-gray-400 hover:text-indigo-600 hover:bg-white shadow-sm flex-shrink-0">
+                        <Reply className="h-4 w-4" />
+                      </button>
+                    )}
                     <div className={`max-w-[85%] sm:max-w-[70%] break-words rounded-2xl px-4 py-2.5 shadow-sm ${
                       isUser
                         ? 'bg-white border border-gray-100 text-gray-800'
@@ -406,6 +514,12 @@ export default function Conversations() {
                         {msg.created_at ? new Date(msg.created_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : ''}
                       </p>
                     </div>
+                    {isUser && canReply && (
+                      <button onClick={() => startReply(msg)} title="Responder"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full text-gray-400 hover:text-indigo-600 hover:bg-white shadow-sm flex-shrink-0">
+                        <Reply className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 )
               })}
@@ -428,8 +542,42 @@ export default function Conversations() {
             </div>
 
             {/* Input */}
-            <div className="bg-white px-3 sm:px-5 py-3 border-t border-gray-100 flex-shrink-0">
-              <div className="flex gap-2 sm:gap-3">
+            <div className="bg-white px-3 sm:px-5 py-3 border-t border-gray-100 flex-shrink-0 relative">
+              {/* Barra de respuesta */}
+              {replyingTo && (
+                <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-gray-50 border-l-2 border-indigo-400 rounded-lg">
+                  <Reply className="h-4 w-4 text-indigo-500 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-medium text-indigo-600">{replyingTo.fromMe ? 'Respondiendo a ti' : 'Respondiendo al cliente'}</p>
+                    <p className="text-xs text-gray-500 truncate">{(replyingTo.body || '').substring(0, 100)}</p>
+                  </div>
+                  <button onClick={() => setReplyingTo(null)} className="p-1 hover:bg-gray-200 rounded-lg flex-shrink-0">
+                    <X className="h-4 w-4 text-gray-400" />
+                  </button>
+                </div>
+              )}
+
+              {/* Emoji picker */}
+              {showEmoji && (
+                <div ref={emojiRef} className="absolute bottom-full left-3 sm:left-5 mb-2 z-40 shadow-xl rounded-xl overflow-hidden">
+                  <Suspense fallback={<div className="w-[300px] h-[200px] bg-white flex items-center justify-center text-sm text-gray-400">Cargando...</div>}>
+                    <EmojiPicker onEmojiClick={handleEmojiSelect} lazyLoadEmojis searchPlaceHolder="Buscar" width={320} height={400} />
+                  </Suspense>
+                </div>
+              )}
+
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <button onClick={() => setShowEmoji(v => !v)} type="button"
+                  className={`p-2.5 rounded-xl transition-colors flex-shrink-0 ${showEmoji ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}
+                  title="Emojis">
+                  <Smile className="h-5 w-5" />
+                </button>
+                <button onClick={() => fileInputRef.current?.click()} type="button"
+                  className="p-2.5 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors flex-shrink-0"
+                  title="Enviar foto">
+                  <Paperclip className="h-5 w-5" />
+                </button>
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFilePick} className="hidden" />
                 <input ref={inputRef} value={newMessage} onChange={e => setNewMessage(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
                   placeholder="Escribe un mensaje..." disabled={sending} autoFocus
@@ -440,6 +588,50 @@ export default function Conversations() {
                 </button>
               </div>
             </div>
+
+            {/* Modal previsualizacion de imagen */}
+            {imagePreview && (
+              <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={cancelImage}>
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+                  <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <h3 className="font-semibold text-gray-900">Enviar foto</h3>
+                    <button onClick={cancelImage} className="p-1 hover:bg-gray-100 rounded-lg"><X className="h-4 w-4 text-gray-400" /></button>
+                  </div>
+                  <div className="p-5 space-y-4">
+                    <div className="flex justify-center bg-gray-50 rounded-xl p-3">
+                      <img src={imagePreview} alt="" className="max-h-64 rounded-lg object-contain" />
+                    </div>
+                    {replyingTo && (
+                      <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-l-2 border-indigo-400 rounded-lg">
+                        <Reply className="h-4 w-4 text-indigo-500 flex-shrink-0" />
+                        <p className="text-xs text-gray-500 truncate flex-1">{(replyingTo.body || '').substring(0, 80)}</p>
+                      </div>
+                    )}
+                    <input value={imageCaption} onChange={e => setImageCaption(e.target.value)}
+                      placeholder="Agregar un comentario..."
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    <button type="button" onClick={() => setImageViewOnce(v => !v)}
+                      className="flex items-center justify-between w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm hover:bg-gray-50 transition-colors">
+                      <span className="text-gray-700">{imageViewOnce ? 'Ver una vez' : 'Permanente'}</span>
+                      <span className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${imageViewOnce ? 'bg-indigo-600' : 'bg-gray-300'}`}>
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${imageViewOnce ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </span>
+                    </button>
+                  </div>
+                  <div className="px-5 py-4 border-t border-gray-100 flex gap-3 justify-end">
+                    <button onClick={cancelImage} disabled={sendingImage}
+                      className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                      Cancelar
+                    </button>
+                    <button onClick={handleSendImage} disabled={sendingImage}
+                      className="px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-2">
+                      <Send className="h-4 w-4" />
+                      {sendingImage ? 'Enviando...' : 'Enviar'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-gray-400">

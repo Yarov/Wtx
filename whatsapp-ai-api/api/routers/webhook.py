@@ -322,6 +322,9 @@ async def whatsapp_webhook(request: Request):
                 msg_metadata["media_type"] = media_type
             if quoted_msg:
                 msg_metadata["quoted"] = quoted_msg
+            wa_id = parsed.get("wa_id")
+            if wa_id:
+                msg_metadata["wa_id"] = wa_id
 
             # Determinar rol y fuente
             msg_role = "assistant" if is_from_me else "user"

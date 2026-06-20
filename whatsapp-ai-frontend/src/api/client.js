@@ -134,7 +134,28 @@ export const conversationsApi = {
   getConversations: () => api.get('/conversations'),
   getConversation: (phone, params = {}) => api.get(`/conversations/${phone}`, { params }),
   deleteConversation: (phone) => api.delete(`/conversations/${phone}`),
-  sendMessage: (phone, message) => api.post(`/conversations/${phone}/send`, { message }),
+  sendMessage: (phone, message, opts = {}) => api.post(`/conversations/${phone}/send`, {
+    message,
+    ...(opts.quoted_wa_id ? {
+      quoted_wa_id: opts.quoted_wa_id,
+      quoted_body: opts.quoted_body,
+      quoted_from_me: opts.quoted_from_me,
+    } : {}),
+  }),
+  sendImage: (phone, file, { caption, viewOnce, quoted_wa_id, quoted_body, quoted_from_me } = {}) => {
+    const form = new FormData()
+    form.append('file', file)
+    if (caption) form.append('caption', caption)
+    form.append('view_once', viewOnce ? 'true' : 'false')
+    if (quoted_wa_id) {
+      form.append('quoted_wa_id', quoted_wa_id)
+      if (quoted_body != null) form.append('quoted_body', quoted_body)
+      form.append('quoted_from_me', quoted_from_me ? 'true' : 'false')
+    }
+    return api.post(`/conversations/${phone}/send-image`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
   markAsRead: (phone) => api.post(`/conversations/${phone}/read`),
 }
 

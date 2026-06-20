@@ -2,8 +2,12 @@
 
 import json
 import logging
+import os
+import uuid
+import mimetypes
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 
 from models import SessionLocal, Memoria, Contacto, Usuario, MensajeConversacion, Perfil
@@ -22,6 +26,12 @@ router = APIRouter(
 
 class SendMessageRequest(BaseModel):
     message: str
+    quoted_wa_id: Optional[str] = None
+    quoted_body: Optional[str] = None
+    quoted_from_me: Optional[bool] = None
+
+
+MEDIA_DIR = "/app/uploads/media"
 
 
 @router.post("/{phone}/read", summary="Mark conversation as read")
@@ -252,13 +262,26 @@ async def send_message(
         raise HTTPException(status_code=503, detail="WhatsApp service not configured")
 
     result = await whatsapp_service.send_message(
-        phone, data.message, session=f"perfil_{perfil.id}"
+        phone, data.message, session=f"perfil_{perfil.id}", quoted_message_id=data.quoted_wa_id
     )
 
     if not result.get("success"):
         raise HTTPException(
             status_code=502, detail=result.get("error", "Failed to send message")
         )
+
+    # Capturar el id del mensaje enviado (wa_id) que devuelve el bridge
+    sent_wa_id = (result.get("data") or {}).get("id")
+
+    # Metadata del mensaje saliente
+    msg_metadata = {"source": "dashboard"}
+    if sent_wa_id:
+        msg_metadata["wa_id"] = sent_wa_id
+    if data.quoted_wa_id:
+        msg_metadata["quoted"] = {
+            "body": data.quoted_body,
+            "fromMe": data.quoted_from_me,
+        }
 
     # Notificar via WebSocket
     from ws_manager import ws_manager
@@ -278,7 +301,7 @@ async def send_message(
     db = SessionLocal()
     try:
         MessageService.add_message(
-            db, phone, "assistant", data.message, usuario_id=current_user.id, metadata={"source": "dashboard"}, perfil_id=perfil.id
+            db, phone, "assistant", data.message, usuario_id=current_user.id, metadata=msg_metadata, perfil_id=perfil.id
         )
 
         # Tambien legacy
@@ -308,3 +331,106 @@ async def send_message(
         db.close()
 
     return {"status": "ok", "sent": True}
+
+
+@router.post("/{phone}/send-image", summary="Send image manually")
+async def send_image(
+    phone: str,
+    file: UploadFile = File(...),
+    caption: str = Form(""),
+    view_once: bool = Form(False),
+    quoted_wa_id: str = Form(None),
+    quoted_body: str = Form(None),
+    quoted_from_me: bool = Form(False),
+    current_user: Usuario = Depends(get_current_user),
+    perfil: Perfil = Depends(get_current_perfil),
+):
+    from whatsapp_service import whatsapp_service
+
+    if not whatsapp_service.is_configured():
+        raise HTTPException(status_code=503, detail="WhatsApp service not configured")
+
+    # Determinar mimetype y extensión
+    media_type = file.content_type or mimetypes.guess_type(file.filename or "")[0] or "image/jpeg"
+    ext = os.path.splitext(file.filename or "")[1].lstrip(".").lower()
+    if not ext:
+        ext = (mimetypes.guess_extension(media_type) or ".jpg").lstrip(".")
+
+    # Guardar archivo en el volumen compartido con el bridge
+    os.makedirs(MEDIA_DIR, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    disk_path = os.path.join(MEDIA_DIR, filename)
+    try:
+        content = await file.read()
+        with open(disk_path, "wb") as f:
+            f.write(content)
+    except Exception as e:
+        logger.error(f"Error saving uploaded image: {e}")
+        raise HTTPException(status_code=500, detail="Failed to store image")
+
+    # Ruta compartida (la ve el bridge) y URL pública (la sirve la API)
+    bridge_path = f"{MEDIA_DIR}/{filename}"
+    media_url = f"/uploads/media/{filename}"
+
+    result = await whatsapp_service.send_image(
+        phone,
+        bridge_path,
+        caption=caption,
+        session=f"perfil_{perfil.id}",
+        view_once=view_once,
+        quoted_message_id=quoted_wa_id,
+    )
+
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=502, detail=result.get("error", "Failed to send image")
+        )
+
+    # Capturar el id del mensaje enviado (wa_id) que devuelve el bridge
+    sent_wa_id = (result.get("data") or {}).get("id")
+
+    # Metadata del mensaje saliente
+    msg_metadata = {
+        "source": "dashboard",
+        "media_url": media_url,
+        "media_type": media_type,
+        "view_once": view_once,
+    }
+    if sent_wa_id:
+        msg_metadata["wa_id"] = sent_wa_id
+    if quoted_wa_id:
+        msg_metadata["quoted"] = {
+            "body": quoted_body,
+            "fromMe": quoted_from_me,
+        }
+
+    contenido = caption or "[Imagen]"
+
+    # Notificar via WebSocket
+    from ws_manager import ws_manager
+
+    await ws_manager.broadcast_to_perfil(
+        current_user.id,
+        perfil.id,
+        "new_message",
+        {
+            "telefono": phone,
+            "mensaje": contenido,
+            "rol": "assistant",
+            "media_url": media_url,
+        },
+    )
+
+    # Guardar en nueva tabla de mensajes
+    db = SessionLocal()
+    try:
+        MessageService.add_message(
+            db, phone, "assistant", contenido, usuario_id=current_user.id, metadata=msg_metadata, perfil_id=perfil.id
+        )
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error saving sent image: {e}")
+    finally:
+        db.close()
+
+    return {"success": True, "media_url": media_url}

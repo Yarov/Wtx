@@ -30,8 +30,10 @@ class WhatsAppService:
         """Headers para WAHA API"""
         return {"X-Api-Key": self.api_key, "Content-Type": "application/json"}
 
-    async def send_message(self, phone: str, message: str, session: str = "default") -> dict:
-        """Enviar mensaje de texto via el bridge (sesión por perfil)"""
+    async def send_message(self, phone: str, message: str, session: str = "default", quoted_message_id: str = None) -> dict:
+        """Enviar mensaje de texto via el bridge (sesión por perfil)
+
+        quoted_message_id: id (wa_id) del mensaje al que se responde (reply)."""
         self.reload_config()
 
         if not self.is_configured():
@@ -50,6 +52,8 @@ class WhatsAppService:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 url = f"{self.api_url}/api/sendText"
                 payload = {"chatId": phone, "text": message, "session": session}
+                if quoted_message_id:
+                    payload["quotedMessageId"] = quoted_message_id
 
                 response = await client.post(
                     url, json=payload, headers=self._get_headers()
@@ -65,8 +69,12 @@ class WhatsAppService:
             logger.error(f"Error enviando mensaje: {e}")
             return {"success": False, "error": str(e)}
 
-    async def send_image(self, phone: str, image_url: str, caption: str = "", session: str = "default") -> dict:
-        """Enviar imagen via el bridge (sesión por perfil)"""
+    async def send_image(self, phone: str, image_url: str, caption: str = "", session: str = "default", view_once: bool = True, quoted_message_id: str = None) -> dict:
+        """Enviar imagen via el bridge (sesión por perfil)
+
+        image_url puede ser una URL o una ruta local compartida (/app/uploads/...).
+        view_once: enviar como foto de una sola vista.
+        quoted_message_id: id (wa_id) del mensaje al que se responde (reply)."""
         self.reload_config()
         if not self.is_configured():
             return {"success": False, "error": "WhatsApp no configurado"}
@@ -85,7 +93,10 @@ class WhatsAppService:
                     "url": image_url,
                     "caption": caption,
                     "session": session,
+                    "viewOnce": view_once,
                 }
+                if quoted_message_id:
+                    payload["quotedMessageId"] = quoted_message_id
                 response = await client.post(
                     url, json=payload, headers=self._get_headers()
                 )
@@ -300,6 +311,7 @@ def parse_webhook_message(data: dict) -> dict | None:
         media_url = payload.get("mediaUrl", None)
         media_type = payload.get("mediaType", None)
         quoted_msg = payload.get("quotedMsg", None)
+        wa_id = payload.get("id", {}).get("id") if isinstance(payload.get("id"), dict) else None
 
         if phone and (message or media_url):
             # Ignorar grupos
@@ -322,6 +334,7 @@ def parse_webhook_message(data: dict) -> dict | None:
                 "media_url": media_url,
                 "media_type": media_type,
                 "quoted_msg": quoted_msg,
+                "wa_id": wa_id,
                 "session": session,
             }
 

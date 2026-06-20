@@ -435,16 +435,16 @@ export class Session {
     }
   }
 
-  async sendText(chatId, text) {
+  async sendText(chatId, text, quotedMessageId = null) {
     return new Promise((resolve, reject) => {
-      this.messageQueue.push({ chatId, text, resolve, reject });
+      this.messageQueue.push({ chatId, text, quotedMessageId, resolve, reject });
       this._processQueue();
     });
   }
 
-  async sendImage(chatId, imageUrl, caption = "", viewOnce = true) {
+  async sendImage(chatId, imageUrl, caption = "", viewOnce = true, quotedMessageId = null) {
     return new Promise((resolve, reject) => {
-      this.messageQueue.push({ chatId, imageUrl, caption, viewOnce, isMedia: true, resolve, reject });
+      this.messageQueue.push({ chatId, imageUrl, caption, viewOnce, quotedMessageId, isMedia: true, resolve, reject });
       this._processQueue();
     });
   }
@@ -489,11 +489,16 @@ export class Session {
           result = await this.client.sendMessage(chatId, media, {
             caption: item.caption || "",
             isViewOnce: item.viewOnce !== false,
+            ...(item.quotedMessageId ? { quotedMessageId: item.quotedMessageId } : {}),
           });
           this.logger.info({ chatId, viewOnce: item.viewOnce !== false }, "Image sent");
         } else {
           // Enviar texto
-          result = await this.client.sendMessage(chatId, item.text);
+          result = await this.client.sendMessage(
+            chatId,
+            item.text,
+            item.quotedMessageId ? { quotedMessageId: item.quotedMessageId } : undefined
+          );
         }
 
         this.lastSendTime = Date.now();

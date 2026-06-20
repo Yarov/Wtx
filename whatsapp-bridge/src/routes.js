@@ -19,7 +19,7 @@ export function createRouter(manager, webhook, logger) {
 
   // POST /api/sendText
   router.post("/api/sendText", async (req, res) => {
-    const { chatId, text } = req.body;
+    const { chatId, text, quotedMessageId } = req.body;
     const name = resolveName(req);
 
     if (!chatId || !text) {
@@ -34,7 +34,7 @@ export function createRouter(manager, webhook, logger) {
     }
 
     try {
-      const result = await session.sendText(chatId, text);
+      const result = await session.sendText(chatId, text, quotedMessageId);
       res.json(result);
     } catch (err) {
       logger.error({ err, chatId, name }, "sendText failed");
@@ -44,7 +44,7 @@ export function createRouter(manager, webhook, logger) {
 
   // POST /api/sendImage
   router.post("/api/sendImage", async (req, res) => {
-    const { chatId, url, caption, viewOnce } = req.body;
+    const { chatId, url, caption, viewOnce, quotedMessageId } = req.body;
     const name = resolveName(req);
 
     if (!chatId || !url) {
@@ -59,7 +59,7 @@ export function createRouter(manager, webhook, logger) {
     }
 
     try {
-      const result = await session.sendImage(chatId, url, caption || "", viewOnce !== false);
+      const result = await session.sendImage(chatId, url, caption || "", viewOnce !== false, quotedMessageId);
       res.json(result);
     } catch (err) {
       logger.error({ err, chatId, url, name }, "sendImage failed");
