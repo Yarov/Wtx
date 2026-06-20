@@ -5,7 +5,10 @@ Cada perfil usa su propia sesión: perfil_<id>.
 """
 
 import logging
+from typing import Optional
+
 from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from models import Perfil, get_db
@@ -18,6 +21,38 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/whatsapp", tags=["WhatsApp"])
 
 
+class ConnectRequest(BaseModel):
+    """Cuerpo opcional para /connect. Por defecto usa QR (retrocompatible)."""
+    method: str = "qr"
+    phone: Optional[str] = None
+
+
+def _normalizar_telefono_sin_plus(telefono: str) -> str:
+    """
+    Normaliza a E.164 SIN el prefijo '+' (formato que espera el bridge).
+    Reutiliza el patrón de contactos.normalizar_telefono.
+    """
+    from api.routers.contactos import normalizar_telefono
+
+    return normalizar_telefono(telefono).lstrip("+")
+
+
+def _webhook_url() -> str:
+    """Construye la webhook URL (interna de Docker para comunicación entre containers)."""
+    import os
+
+    internal_url = os.getenv("WEBHOOK_INTERNAL_URL", "")
+    base_url = get_config("app_base_url", "")
+
+    if internal_url:
+        return internal_url
+    elif base_url:
+        return f"{base_url}/api/webhook/whatsapp"
+    else:
+        # Fallback: usar nombre del container Docker (api:3000)
+        return "http://api:3000/api/webhook/whatsapp"
+
+
 @router.post("/connect", summary="Conectar WhatsApp")
 async def connect_whatsapp(
     request: Request,
@@ -25,7 +60,12 @@ async def connect_whatsapp(
 ):
     """
     Endpoint principal para conectar WhatsApp del perfil actual.
-    Crea la sesión perfil_<id> automáticamente y devuelve el QR.
+    Crea la sesión perfil_<id> automáticamente.
+
+    Cuerpo opcional:
+        { "method": "qr" | "code", "phone": "<numero>" }
+    - method="qr" (default): comportamiento clásico, devuelve QR.
+    - method="code": requiere `phone`, devuelve un código de emparejamiento.
     """
     # Verificar que el bridge está configurado
     if not waha_manager.is_configured():
@@ -35,21 +75,42 @@ async def connect_whatsapp(
             "message": "Sistema no configurado. Contacta al administrador.",
         }
 
+    # Parsear cuerpo opcional de forma retrocompatible (sin body -> QR)
+    method = "qr"
+    phone_raw = None
+    try:
+        body = await request.json()
+        if isinstance(body, dict):
+            method = (body.get("method") or "qr").lower()
+            phone_raw = body.get("phone")
+    except Exception:
+        # Sin cuerpo o cuerpo inválido -> comportamiento clásico (QR)
+        pass
+
     session_name = perfil_session(perfil.id)
+    webhook_url = _webhook_url()
 
-    # Construir webhook URL - usar URL interna de Docker para comunicacion entre containers
-    import os
+    if method == "code":
+        if not phone_raw:
+            return {
+                "success": False,
+                "status": "ERROR",
+                "code": None,
+                "message": "Se requiere un número de teléfono para el código de emparejamiento.",
+                "perfil_id": perfil.id,
+            }
 
-    internal_url = os.getenv("WEBHOOK_INTERNAL_URL", "")
-    base_url = get_config("app_base_url", "")
+        phone = _normalizar_telefono_sin_plus(phone_raw)
+        logger.info(f"Conectando WhatsApp (pairing code) para sesión {session_name}")
 
-    if internal_url:
-        webhook_url = internal_url
-    elif base_url:
-        webhook_url = f"{base_url}/api/webhook/whatsapp"
-    else:
-        # Fallback: usar nombre del container Docker (api:3000)
-        webhook_url = "http://api:3000/api/webhook/whatsapp"
+        result = await waha_manager.start_and_get_code(phone, webhook_url, session_name)
+        return {
+            "success": result.get("success", False),
+            "status": result.get("status", "UNKNOWN"),
+            "code": result.get("code"),
+            "message": _get_status_message(result.get("status", "UNKNOWN")),
+            "perfil_id": perfil.id,
+        }
 
     logger.info(f"Conectando WhatsApp para sesión {session_name}")
 
@@ -90,6 +151,9 @@ async def get_connection_status(
     status_result = await waha_manager.get_session_status(session_name)
     current_status = status_result.get("status", "UNKNOWN")
 
+    # Código de emparejamiento activo (si el bridge lo expone en el status)
+    pairing_code = status_result.get("pairingCode")
+
     # Si necesita QR, obtenerlo
     qr_data = None
     if current_status == "SCAN_QR_CODE":
@@ -115,6 +179,7 @@ async def get_connection_status(
         "status": current_status,
         "connected": current_status == "WORKING",
         "qr": qr_data,
+        "code": pairing_code,
         "message": _get_status_message(current_status),
         "perfil_id": perfil.id,
         "numero_whatsapp": perfil.numero_whatsapp,

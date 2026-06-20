@@ -43,9 +43,9 @@ export class SessionManager {
    * configured by the caller on the WebhookForwarder; it is accepted here for
    * API symmetry / future per-session routing.
    */
-  async start(sessionId, _webhookUrl) {
+  async start(sessionId, _webhookUrl, phoneNumber = null) {
     const session = this.getOrCreate(sessionId);
-    await session.start();
+    await session.start(phoneNumber);
     return session.getStatus();
   }
 

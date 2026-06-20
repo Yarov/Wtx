@@ -19,7 +19,7 @@ export function createRouter(manager, webhook, logger) {
 
   // POST /api/sendText
   router.post("/api/sendText", async (req, res) => {
-    const { chatId, text } = req.body;
+    const { chatId, text, quotedMessageId } = req.body;
     const name = resolveName(req);
 
     if (!chatId || !text) {
@@ -34,7 +34,7 @@ export function createRouter(manager, webhook, logger) {
     }
 
     try {
-      const result = await session.sendText(chatId, text);
+      const result = await session.sendText(chatId, text, quotedMessageId);
       res.json(result);
     } catch (err) {
       logger.error({ err, chatId, name }, "sendText failed");
@@ -44,7 +44,7 @@ export function createRouter(manager, webhook, logger) {
 
   // POST /api/sendImage
   router.post("/api/sendImage", async (req, res) => {
-    const { chatId, url, caption, viewOnce } = req.body;
+    const { chatId, url, caption, viewOnce, quotedMessageId } = req.body;
     const name = resolveName(req);
 
     if (!chatId || !url) {
@@ -59,7 +59,7 @@ export function createRouter(manager, webhook, logger) {
     }
 
     try {
-      const result = await session.sendImage(chatId, url, caption || "", viewOnce !== false);
+      const result = await session.sendImage(chatId, url, caption || "", viewOnce !== false, quotedMessageId);
       res.json(result);
     } catch (err) {
       logger.error({ err, chatId, url, name }, "sendImage failed");
@@ -97,7 +97,7 @@ export function createRouter(manager, webhook, logger) {
 
   // POST /api/sessions/start
   router.post("/api/sessions/start", async (req, res) => {
-    const { name: bodyName, config } = req.body || {};
+    const { name: bodyName, config, phoneNumber } = req.body || {};
     const name = bodyName || DEFAULT_SESSION;
 
     // Extract webhook URL from config if provided (shared global forwarder)
@@ -108,12 +108,17 @@ export function createRouter(manager, webhook, logger) {
     }
 
     try {
-      const status = await manager.start(name, webhookUrl);
+      const status = await manager.start(name, webhookUrl, phoneNumber || null);
       const session = manager.get(name);
       const response = { status };
 
       if (status === "SCAN_QR_CODE" && session?.getQR()) {
         response.qr = await QRCode.toDataURL(session.getQR());
+      }
+
+      const pairingCode = session?.getPairingCode();
+      if (pairingCode) {
+        response.pairingCode = pairingCode;
       }
 
       res.json(response);
@@ -126,7 +131,16 @@ export function createRouter(manager, webhook, logger) {
   // GET /api/sessions/:name
   router.get("/api/sessions/:name", (req, res) => {
     const name = resolveName(req);
-    res.json({ status: manager.status(name) });
+    const session = manager.get(name);
+    const response = { status: manager.status(name) };
+
+    const qr = session?.getQR();
+    if (qr) response.qr = qr;
+
+    const pairingCode = session?.getPairingCode();
+    if (pairingCode) response.pairingCode = pairingCode;
+
+    res.json(response);
   });
 
   // POST /api/sessions/:name/logout
@@ -182,6 +196,19 @@ export function createRouter(manager, webhook, logger) {
       logger.error({ err, name }, "QR generation failed");
       res.status(500).json({ error: "Failed to generate QR code" });
     }
+  });
+
+  // GET /api/:name/auth/code
+  router.get("/api/:name/auth/code", (req, res) => {
+    const name = resolveName(req);
+    const session = manager.get(name);
+    const code = session?.getPairingCode();
+
+    if (!code) {
+      return res.status(404).json({ error: "No pairing code available" });
+    }
+
+    res.json({ code });
   });
 
   // GET /api/contacts/all

@@ -17,6 +17,9 @@ export class Session {
     this.status = "STOPPED";
     this.qrString = null;
     this.qrBase64 = null;
+    this.pairingCode = null;
+    this.requestedPairingPhone = null;
+    this.pairingMode = false;
     this.reconnectAttempts = 0;
     this.reconnectTimer = null;
     this.messageQueue = [];
@@ -25,21 +28,29 @@ export class Session {
     this.shutdownRequested = false;
   }
 
-  async start() {
+  async start(phoneNumber = null) {
+    const wantPairing = !!phoneNumber;
+
     if (this.status === "WORKING") {
       this.logger.info("Session already connected");
       return;
     }
 
-    if (this.status === "STARTING") {
+    // Skip a duplicate init only if we're already starting in the SAME mode.
+    // A mode switch (QR <-> pairing code) must recreate the client, since the
+    // pairing flow has to be wired in at construction time.
+    if (this.status === "STARTING" && this.pairingMode === wantPairing) {
       this.logger.info("Session already starting, skipping duplicate start");
       return;
     }
 
+    this.pairingMode = wantPairing;
+    this.requestedPairingPhone = phoneNumber;
     this.shutdownRequested = false;
     this.status = "STARTING";
     this.qrString = null;
     this.qrBase64 = null;
+    this.pairingCode = null;
 
     // Clean up previous client if any
     if (this.client) {
@@ -58,7 +69,7 @@ export class Session {
       // (scoped to this session's clientId only — never touches other sessions)
       await this._cleanChromiumLocks();
 
-      this.client = new Client({
+      const clientOptions = {
         authStrategy: new LocalAuth({ clientId: this.sessionId, dataPath: this.authStateDir }),
         puppeteer: {
           headless: true,
@@ -73,7 +84,21 @@ export class Session {
           ],
           executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
         },
-      });
+      };
+
+      // Pairing-code mode: whatsapp-web.js only wires up the internal
+      // onCodeReceivedEvent (and emits the "code" event) when pairWithPhoneNumber
+      // is set on the client. Calling requestPairingCode() manually from the "qr"
+      // event throws "window.onCodeReceivedEvent is not a function".
+      if (phoneNumber) {
+        clientOptions.pairWithPhoneNumber = {
+          phoneNumber,
+          showNotification: false,
+          intervalMs: 180000,
+        };
+      }
+
+      this.client = new Client(clientOptions);
 
       this._setupEventHandlers();
 
@@ -101,11 +126,21 @@ export class Session {
       }
     });
 
+    // Pairing code received — emitted only when the client was created with
+    // pairWithPhoneNumber set (see start()). Alternative to scanning the QR.
+    this.client.on("code", (code) => {
+      this.pairingCode = code;
+      this.status = "SCAN_QR_CODE";
+      this.logger.info({ pairingCode: code }, "Pairing code generated");
+    });
+
     // Client is ready (authenticated and connected)
     this.client.on("ready", async () => {
       this.status = "WORKING";
       this.qrString = null;
       this.qrBase64 = null;
+      this.pairingCode = null;
+      this.requestedPairingPhone = null;
       this.reconnectAttempts = 0;
       this.logger.info("WhatsApp client is ready");
 
@@ -167,6 +202,8 @@ export class Session {
       this.status = "FAILED";
       this.qrString = null;
       this.qrBase64 = null;
+      this.pairingCode = null;
+      this.requestedPairingPhone = null;
       this._clearAuthState();
     });
 
@@ -178,6 +215,8 @@ export class Session {
       this.qrBase64 = null;
 
       if (reason === "LOGOUT") {
+        this.pairingCode = null;
+        this.requestedPairingPhone = null;
         this.logger.info("Logged out, clearing auth state");
         this._clearAuthState();
         return;
@@ -292,22 +331,32 @@ export class Session {
 
       const contact = await msg.getContact();
 
-      // Resolve phone number
+      // Resolve the phone number of the OTHER party in the chat.
+      // For outgoing (fromMe) messages msg.getContact() returns US (the
+      // sender), so the recipient must be resolved from msg.to. Otherwise an
+      // "@lid" recipient gets resolved against our own number and the message
+      // lands in our own chat instead of the customer's thread.
       let fromPhone = msg.from;
+      let otherParty = contact;
       if (msg.fromMe) {
-        // Mensaje saliente: el "to" es el contacto
         fromPhone = msg.to || msg.from;
+        try {
+          otherParty = await this.client.getContactById(msg.to);
+        } catch (err) {
+          this.logger.warn({ err: err.message }, "Could not resolve recipient contact");
+        }
       }
 
       if (fromPhone.endsWith("@lid")) {
         const realNumber =
-          contact?.number ||
-          msg._data?.from?.user ||
+          otherParty?.number ||
+          (msg.fromMe ? msg._data?.to?.user : msg._data?.from?.user) ||
           msg._data?.author?.replace("@s.whatsapp.net", "").replace("@c.us", "") ||
           null;
         if (realNumber) {
-          fromPhone = `${realNumber}@c.us`;
-          this.logger.info({ lid: msg.from, resolved: fromPhone }, "Resolved LID to phone");
+          const resolved = `${realNumber}@c.us`;
+          this.logger.info({ lid: fromPhone, resolved, fromMe: msg.fromMe }, "Resolved LID to phone");
+          fromPhone = resolved;
         }
       }
 
@@ -376,7 +425,7 @@ export class Session {
           mediaType: mediaType,
           quotedMsg: quotedMsg,
           id: { id: msg.id?.id || msg.id?._serialized || null },
-          pushName: contact?.pushname || msg._data?.notifyName || null,
+          pushName: otherParty?.pushname || otherParty?.name || msg._data?.notifyName || null,
         },
       };
 
@@ -386,16 +435,16 @@ export class Session {
     }
   }
 
-  async sendText(chatId, text) {
+  async sendText(chatId, text, quotedMessageId = null) {
     return new Promise((resolve, reject) => {
-      this.messageQueue.push({ chatId, text, resolve, reject });
+      this.messageQueue.push({ chatId, text, quotedMessageId, resolve, reject });
       this._processQueue();
     });
   }
 
-  async sendImage(chatId, imageUrl, caption = "", viewOnce = true) {
+  async sendImage(chatId, imageUrl, caption = "", viewOnce = true, quotedMessageId = null) {
     return new Promise((resolve, reject) => {
-      this.messageQueue.push({ chatId, imageUrl, caption, viewOnce, isMedia: true, resolve, reject });
+      this.messageQueue.push({ chatId, imageUrl, caption, viewOnce, quotedMessageId, isMedia: true, resolve, reject });
       this._processQueue();
     });
   }
@@ -440,11 +489,16 @@ export class Session {
           result = await this.client.sendMessage(chatId, media, {
             caption: item.caption || "",
             isViewOnce: item.viewOnce !== false,
+            ...(item.quotedMessageId ? { quotedMessageId: item.quotedMessageId } : {}),
           });
           this.logger.info({ chatId, viewOnce: item.viewOnce !== false }, "Image sent");
         } else {
           // Enviar texto
-          result = await this.client.sendMessage(chatId, item.text);
+          result = await this.client.sendMessage(
+            chatId,
+            item.text,
+            item.quotedMessageId ? { quotedMessageId: item.quotedMessageId } : undefined
+          );
         }
 
         this.lastSendTime = Date.now();
@@ -524,6 +578,8 @@ export class Session {
     this.status = "STOPPED";
     this.qrString = null;
     this.qrBase64 = null;
+    this.pairingCode = null;
+    this.requestedPairingPhone = null;
     await this._clearAuthState();
   }
 
@@ -602,5 +658,9 @@ export class Session {
 
   getQRBase64() {
     return this.qrBase64;
+  }
+
+  getPairingCode() {
+    return this.pairingCode;
   }
 }
