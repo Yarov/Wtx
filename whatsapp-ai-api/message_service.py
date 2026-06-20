@@ -115,7 +115,7 @@ class MessageService:
     @staticmethod
     def get_conversations_list(db: Session, usuario_id: int = None, limit: int = 50, offset: int = 0, perfil_id: int = None) -> dict:
         """Obtener lista de conversaciones con ultimo mensaje, paginada"""
-        from sqlalchemy import func, case, distinct
+        from sqlalchemy import func, case, distinct, and_
         from models import Contacto
 
         # Subquery: ultimo mensaje por telefono
@@ -132,7 +132,15 @@ class MessageService:
             msg_query = msg_query.filter(MensajeConversacion.perfil_id == perfil_id)
         subq = msg_query.group_by(MensajeConversacion.telefono).subquery()
 
-        # Join con contacto (include notas for last_read parsing)
+        # Join con contacto (include notas for last_read parsing).
+        # El scoping por tenant va en la condición ON del LEFT JOIN, NO en el
+        # WHERE: ponerlo en el WHERE convierte el outer join en inner join y
+        # esconde conversaciones cuyo contacto no existe bajo este usuario
+        # (p.ej. respuestas salientes desde el celular a números sin contacto
+        # propio). El subquery de mensajes ya garantiza el aislamiento por tenant.
+        join_cond = Contacto.telefono == subq.c.telefono
+        if usuario_id is not None:
+            join_cond = and_(join_cond, Contacto.usuario_id == usuario_id)
         contact_query = db.query(
             subq.c.telefono,
             subq.c.last_at,
@@ -143,9 +151,7 @@ class MessageService:
             Contacto.lead_score,
             Contacto.modo_humano,
             Contacto.notas,
-        ).outerjoin(Contacto, Contacto.telefono == subq.c.telefono)
-        if usuario_id is not None:
-            contact_query = contact_query.filter(Contacto.usuario_id == usuario_id)
+        ).outerjoin(Contacto, join_cond)
 
         # Total count before pagination
         total = contact_query.count()

@@ -328,12 +328,15 @@ async def whatsapp_webhook(request: Request):
             if is_from_me:
                 msg_metadata["source"] = "phone"  # Respondido desde el celular
 
-            # Guardar/actualizar contacto (solo para mensajes entrantes)
-            if not is_from_me:
-                try:
-                    guardar_contacto_mensaje(from_number, contact_name, db=_db, usuario_id=usuario_id, perfil_id=perfil_id)
-                except Exception as e:
-                    logger.warning(f"Error guardando contacto: {e}")
+            # Guardar/actualizar contacto (entrantes y salientes desde el celular).
+            # También para salientes: si respondes a un número desde el celular sin
+            # historial entrante, el contacto no existiría y la conversación no
+            # aparecería en el dashboard. guardar_contacto_mensaje no pisa nombres
+            # ya existentes y está scoped por usuario_id.
+            try:
+                guardar_contacto_mensaje(from_number, contact_name, db=_db, usuario_id=usuario_id, perfil_id=perfil_id)
+            except Exception as e:
+                logger.warning(f"Error guardando contacto: {e}")
 
             # Guardar mensaje (verificar que no sea duplicado)
             try:
