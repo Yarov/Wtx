@@ -48,8 +48,13 @@ export const configApi = {
 }
 
 export const whatsappApi = {
-  // Endpoints simplificados - el usuario solo ve QR y estado
-  connect: () => api.post('/whatsapp/connect'),
+  // Endpoints simplificados - el usuario solo ve QR/código y estado
+  // connect() sin args => QR (comportamiento por defecto).
+  // connect({ method: 'code', phone }) => código de emparejamiento por teléfono.
+  connect: (opts) =>
+    opts
+      ? api.post('/whatsapp/connect', { method: opts.method, phone: opts.phone })
+      : api.post('/whatsapp/connect'),
   getStatus: () => api.get('/whatsapp/status'),
   disconnect: () => api.post('/whatsapp/disconnect'),
 }
